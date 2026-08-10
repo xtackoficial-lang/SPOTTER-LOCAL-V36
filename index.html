@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pt" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+    <!-- PWA / App -->
+    <meta name="theme-color" content="#d45a20" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#d45a20" media="(prefers-color-scheme: dark)" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- iOS / iPadOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Spotter" />
+    <link rel="apple-touch-icon" href="/icon-512.png" />
+    <link rel="apple-touch-startup-image" href="/icon-512.png" />
+
+    <!-- Android -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Spotter Local" />
+
+    <!-- SEO -->
+    <title>Spotter Local — Negócios de Moçambique</title>
+    <meta name="description" content="Descobre restaurantes, hotéis, farmácias e serviços abertos perto de ti em Moçambique." />
+    <meta name="keywords" content="moçambique, maputo, inhambane, restaurantes, hotéis, negócios locais" />
+    <meta name="robots" content="index, follow" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Spotter Local — Negócios de Moçambique" />
+    <meta property="og:description" content="Descobre negócios locais perto de ti." />
+    <meta property="og:image" content="/icon-512.png" />
+
+    <!-- Ícone -->
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+
+    <!-- Splash screen inline — evita flash branco no launch -->
+    <style>
+      html, body, #root {
+        margin: 0; padding: 0;
+        min-height: 100%;
+        background: #0d0d0d;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        overscroll-behavior: none;
+      }
+      #root {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+      }
+
+      /* ── Splash principal ── */
+      #splash {
+        position: fixed; inset: 0;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        background: linear-gradient(160deg, #1a0a00 0%, #2d1200 40%, #1a0520 100%);
+        z-index: 9999;
+        overflow: hidden;
+        transition: opacity 0.55s ease, visibility 0.55s ease;
+      }
+      #splash.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+      /* ── Blobs de vidro translúcido (estilo iPhone) ── */
+      .sp-blob {
+        position: absolute;
+        border-radius: 50%;
+        pointer-events: none;
+      }
+      .sp-blob-1 {
+        width: 340px; height: 420px;
+        top: -120px; left: -80px;
+        background: radial-gradient(ellipse at 40% 35%,
+          rgba(212,90,32,0.22) 0%,
+          rgba(212,90,32,0.06) 50%,
+          transparent 80%);
+        border: 1px solid rgba(212,90,32,0.12);
+        border-radius: 60% 40% 55% 45% / 50% 60% 40% 50%;
+        filter: blur(2px);
+        animation: sp-blob-1 20s ease-in-out infinite;
+      }
+      .sp-blob-2 {
+        width: 280px; height: 340px;
+        bottom: -100px; right: -60px;
+        background: radial-gradient(ellipse at 55% 45%,
+          rgba(107,33,168,0.20) 0%,
+          rgba(107,33,168,0.05) 55%,
+          transparent 80%);
+        border: 1px solid rgba(107,33,168,0.10);
+        border-radius: 45% 55% 40% 60% / 55% 40% 65% 35%;
+        filter: blur(2px);
+        animation: sp-blob-2 26s ease-in-out infinite;
+        animation-delay: -9s;
+      }
+      .sp-blob-3 {
+        width: 180px; height: 220px;
+        top: 38%; right: -30px;
+        background: radial-gradient(ellipse at 45% 40%,
+          rgba(212,90,32,0.14) 0%,
+          transparent 70%);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 50% 40% 60% 50% / 40% 55% 45% 60%;
+        filter: blur(1.5px);
+        animation: sp-blob-3 17s ease-in-out infinite;
+        animation-delay: -4s;
+      }
+
+      /* ── Fumo suave (smoke layers) ── */
+      .sp-smoke {
+        position: absolute;
+        pointer-events: none;
+      }
+      .sp-smoke-1 {
+        width: 75%; height: 100%; left: -5%; top: 0;
+        background: radial-gradient(ellipse 80% 120% at 30% 55%,
+          rgba(255,255,255,0.055) 0%,
+          rgba(255,255,255,0.015) 45%,
+          transparent 75%);
+        animation: sp-smoke-a 18s ease-in-out infinite;
+      }
+      .sp-smoke-2 {
+        width: 65%; height: 100%; right: -5%; top: 0;
+        background: radial-gradient(ellipse 70% 100% at 70% 40%,
+          rgba(255,255,255,0.040) 0%,
+          rgba(255,255,255,0.010) 50%,
+          transparent 80%);
+        animation: sp-smoke-b 23s ease-in-out infinite;
+        animation-delay: -10s;
+      }
+
+      /* ── Shimmer dourado ── */
+      .sp-shimmer {
+        position: absolute; top: 0; left: 0;
+        width: 45%; height: 100%;
+        background: linear-gradient(90deg,
+          transparent 0%,
+          rgba(255,185,60,0.10) 50%,
+          transparent 100%);
+        pointer-events: none;
+        animation: sp-shimmer 14s ease-in-out infinite;
+        animation-delay: -5s;
+      }
+
+      /* ── Anel breathing (glow pulsante) ── */
+      #splash-ring {
+        position: absolute;
+        width: 220px; height: 220px;
+        border-radius: 50%;
+        border: 1px solid rgba(212,90,32,0.25);
+        animation: sp-ring-breathe 4s ease-in-out infinite;
+      }
+      #splash-ring-inner {
+        position: absolute;
+        width: 160px; height: 160px;
+        border-radius: 50%;
+        border: 1px solid rgba(212,90,32,0.18);
+        animation: sp-ring-breathe 4s ease-in-out infinite;
+        animation-delay: 0.6s;
+      }
+      /* Glow orb atrás do logo */
+      #splash-glow {
+        position: absolute;
+        width: 140px; height: 140px;
+        border-radius: 50%;
+        background: radial-gradient(circle,
+          rgba(212,90,32,0.35) 0%,
+          rgba(212,90,32,0.08) 55%,
+          transparent 75%);
+        animation: sp-glow-breathe 4s ease-in-out infinite;
+      }
+
+      /* ── Logo box (glass) ── */
+      #splash-logo {
+        position: relative; z-index: 1;
+        width: 92px; height: 92px;
+        border-radius: 26px;
+        background: rgba(255,255,255,0.10);
+        display: flex; align-items: center; justify-content: center;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255,255,255,0.18);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4),
+                    inset 0 1px 0 rgba(255,255,255,0.15);
+        animation: sp-logo-in 0.65s cubic-bezier(0.22,1,0.36,1) both;
+      }
+      #splash-logo img { width: 58px; height: 58px; border-radius: 14px; }
+
+      /* ── Textos ── */
+      #splash-name {
+        position: relative; z-index: 1;
+        margin-top: 18px;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 24px; font-weight: 700;
+        color: #fff; letter-spacing: -0.4px;
+        animation: sp-text-in 0.55s 0.18s cubic-bezier(0.22,1,0.36,1) both;
+      }
+      #splash-sub {
+        position: relative; z-index: 1;
+        margin-top: 5px;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 10px; font-weight: 500;
+        color: rgba(255,255,255,0.55);
+        letter-spacing: 0.20em; text-transform: uppercase;
+        animation: sp-text-in 0.55s 0.28s cubic-bezier(0.22,1,0.36,1) both;
+      }
+
+      /* ── Barra de progresso ── */
+      #splash-bar-wrap {
+        position: relative; z-index: 1;
+        margin-top: 56px;
+        width: 48px; height: 3px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.15);
+        overflow: hidden;
+        animation: sp-text-in 0.4s 0.35s ease both;
+      }
+      #splash-bar-fill {
+        width: 45%; height: 100%;
+        background: linear-gradient(90deg, rgba(212,90,32,0.7), rgba(255,140,60,0.9));
+        border-radius: 999px;
+        animation: sp-bar-sweep 1.4s 0.5s ease-in-out infinite;
+      }
+
+      /* ════ @keyframes ════ */
+      @keyframes sp-blob-1 {
+        0%,100% { transform: translate(0,0) scale(1) rotate(0deg); }
+        30%  { transform: translate(20px,-25px) scale(1.07) rotate(8deg); }
+        65%  { transform: translate(-12px,-40px) scale(0.94) rotate(-4deg); }
+      }
+      @keyframes sp-blob-2 {
+        0%,100% { transform: translate(0,0) scale(1) rotate(0deg); }
+        35%  { transform: translate(-22px,18px) scale(1.09) rotate(-10deg); }
+        70%  { transform: translate(16px,30px) scale(0.93) rotate(7deg); }
+      }
+      @keyframes sp-blob-3 {
+        0%,100% { transform: translate(0,0) scale(1); }
+        45%  { transform: translate(24px,-20px) scale(1.13); }
+        80%  { transform: translate(-10px,14px) scale(0.91); }
+      }
+      @keyframes sp-smoke-a {
+        0%,100% { transform: translateY(0) scaleX(1) rotate(0deg); opacity: 1; }
+        40%  { transform: translateY(-14px) scaleX(1.05) rotate(1.5deg); opacity: 0.7; }
+        70%  { transform: translateY(-7px) scaleX(0.97) rotate(-1deg); opacity: 0.85; }
+      }
+      @keyframes sp-smoke-b {
+        0%,100% { transform: translateY(0) scaleX(1); opacity: 1; }
+        50%  { transform: translateY(12px) scaleX(1.06) rotate(-2deg); opacity: 0.65; }
+      }
+      @keyframes sp-shimmer {
+        0%   { transform: translateX(-130%) skewX(-18deg); opacity: 0; }
+        12%  { opacity: 1; }
+        88%  { opacity: 1; }
+        100% { transform: translateX(250%) skewX(-18deg); opacity: 0; }
+      }
+      @keyframes sp-ring-breathe {
+        0%,100% { transform: scale(1);    opacity: 0.6; }
+        50%      { transform: scale(1.10); opacity: 1;   }
+      }
+      @keyframes sp-glow-breathe {
+        0%,100% { transform: scale(1);    opacity: 0.7; }
+        50%      { transform: scale(1.20); opacity: 1;   }
+      }
+      @keyframes sp-logo-in {
+        from { opacity: 0; transform: scale(0.78) translateY(10px); }
+        to   { opacity: 1; transform: scale(1)    translateY(0); }
+      }
+      @keyframes sp-text-in {
+        from { opacity: 0; transform: translateY(12px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes sp-bar-sweep {
+        0%   { transform: translateX(-120%); }
+        100% { transform: translateX(280%); }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Splash nativo — desaparece quando React montar -->
+    <div id="splash">
+      <!-- Blobs de vidro (fundo) -->
+      <div class="sp-blob sp-blob-1"></div>
+      <div class="sp-blob sp-blob-2"></div>
+      <div class="sp-blob sp-blob-3"></div>
+      <!-- Fumo -->
+      <div class="sp-smoke sp-smoke-1"></div>
+      <div class="sp-smoke sp-smoke-2"></div>
+      <!-- Shimmer dourado -->
+      <div class="sp-shimmer"></div>
+      <!-- Anéis breathing -->
+      <div id="splash-ring"></div>
+      <div id="splash-ring-inner"></div>
+      <!-- Glow orb -->
+      <div id="splash-glow"></div>
+      <!-- Logo -->
+      <div id="splash-logo">
+        <img src="/icon-512.png" alt="Spotter Local" />
+      </div>
+      <div id="splash-name">Spotter Local</div>
+      <div id="splash-sub">by XTACK</div>
+      <!-- Barra de progresso -->
+      <div id="splash-bar-wrap">
+        <div id="splash-bar-fill"></div>
+      </div>
+    </div>
+
+    <div id="root"></div>
+
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Remove splash assim que o React montar
+      window.__hideSplash = function() {
+        var s = document.getElementById('splash');
+        if (s) {
+          s.classList.add('hidden');
+          setTimeout(function() { s.remove(); }, 450);
+        }
+      };
+    </script>
+  </body>
+</html>

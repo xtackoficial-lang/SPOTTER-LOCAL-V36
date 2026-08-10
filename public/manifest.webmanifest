@@ -1,0 +1,35 @@
+{
+  "name": "Spotter Local",
+  "short_name": "Spotter",
+  "description": "Descobre negócios locais em Moçambique — restaurantes, hotéis, farmácias e mais.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "background_color": "#f9f6f2",
+  "theme_color": "#d45a20",
+  "orientation": "portrait-primary",
+  "lang": "pt-MZ",
+  "dir": "ltr",
+  "id": "spotter-local-mz",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "categories": ["business", "shopping", "local", "lifestyle"],
+  "shortcuts": [
+    { "name": "Descobrir", "short_name": "Descobrir", "url": "/home", "description": "Ver negócios perto de si", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "Scanner QR", "short_name": "QR Scan", "url": "/qr", "description": "Ler QR codes de negócios", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "Buscar", "short_name": "Buscar", "url": "/search", "description": "Pesquisar negócios locais", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "Chat", "short_name": "Chat", "url": "/chats", "description": "As minhas conversas", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] }
+  ],
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "protocol_handlers": [],
+  "share_target": {
+    "action": "/search",
+    "method": "GET",
+    "params": { "title": "q", "text": "q", "url": "q" }
+  }
+}

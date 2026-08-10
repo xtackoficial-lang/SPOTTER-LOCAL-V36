@@ -1,0 +1,610 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design system definition.
+ *
+ * The @theme inline block maps CSS custom properties to Tailwind utility
+ * classes (e.g. --color-primary -> bg-primary, text-primary).
+ *
+ * The :root and .dark blocks define the actual color values using oklch.
+ * All colors MUST use oklch format.
+ *
+ * To add a new semantic color:
+ * 1. Add the variable to :root (light value) and .dark (dark value)
+ * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(0.99 0.01 80);
+  --foreground: oklch(0.18 0.03 40);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.03 40);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.03 40);
+  --primary: oklch(0.66 0.19 38);
+  --primary-foreground: oklch(0.99 0.01 80);
+  --primary-glow: oklch(0.78 0.15 60);
+  --secondary: oklch(0.55 0.12 200);
+  --secondary-foreground: oklch(0.99 0.01 80);
+  --muted: oklch(0.96 0.012 70);
+  --muted-foreground: oklch(0.48 0.03 50);
+  --accent: oklch(0.94 0.05 70);
+  --accent-foreground: oklch(0.3 0.08 40);
+  --destructive: oklch(0.6 0.22 27);
+  --destructive-foreground: oklch(0.99 0.01 80);
+  --border: oklch(0.9 0.015 70);
+  --input: oklch(0.92 0.015 70);
+  --ring: oklch(0.66 0.19 38);
+  --gradient-primary: linear-gradient(135deg, oklch(0.66 0.19 38), oklch(0.78 0.15 60));
+  --gradient-hero: linear-gradient(160deg, oklch(0.66 0.19 38) 0%, oklch(0.55 0.18 25) 60%, oklch(0.45 0.12 280) 100%);
+  --shadow-soft: 0 4px 20px -8px oklch(0.66 0.19 38 / 0.25);
+  --shadow-lift: 0 10px 30px -12px oklch(0.3 0.08 40 / 0.25);
+  --shadow-glow: 0 0 40px -4px oklch(0.66 0.19 38 / 0.35);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.984 0.003 247.858);
+  --sidebar-foreground: oklch(0.129 0.042 264.695);
+  --sidebar-primary: oklch(0.208 0.042 265.755);
+  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-accent: oklch(0.968 0.007 247.896);
+  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
+  --sidebar-border: oklch(0.929 0.013 255.508);
+  --sidebar-ring: oklch(0.704 0.04 256.788);
+}
+
+.dark {
+  --background: oklch(0.129 0.042 264.695);
+  --foreground: oklch(0.984 0.003 247.858);
+  --card: oklch(0.208 0.042 265.755);
+  --card-foreground: oklch(0.984 0.003 247.858);
+  --popover: oklch(0.208 0.042 265.755);
+  --popover-foreground: oklch(0.984 0.003 247.858);
+  --primary: oklch(0.929 0.013 255.508);
+  --primary-foreground: oklch(0.208 0.042 265.755);
+  --secondary: oklch(0.279 0.041 260.031);
+  --secondary-foreground: oklch(0.984 0.003 247.858);
+  --muted: oklch(0.279 0.041 260.031);
+  --muted-foreground: oklch(0.704 0.04 256.788);
+  --accent: oklch(0.279 0.041 260.031);
+  --accent-foreground: oklch(0.984 0.003 247.858);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.984 0.003 247.858);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.551 0.027 264.364);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.208 0.042 265.755);
+  --sidebar-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-accent: oklch(0.279 0.041 260.031);
+  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.551 0.027 264.364);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+}
+
+/* === Animations v11 === */
+@keyframes float-soft {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  33% { transform: translateY(-8px) rotate(0.5deg); }
+  66% { transform: translateY(-4px) rotate(-0.5deg); }
+}
+@keyframes shine {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes pulse-ring {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+@keyframes pulse-ring-sm {
+  0% { transform: scaleX(0.6); opacity: 1; }
+  100% { transform: scaleX(1.4); opacity: 0; }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes pop-in {
+  0% { opacity: 0; transform: scale(0.82); }
+  55% { opacity: 1; transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+@keyframes gradient-pan {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes ping-once {
+  0% { transform: scale(1); opacity: 1; }
+  75%, 100% { transform: scale(1.8); opacity: 0; }
+}
+@keyframes shimmer {
+  0% { background-position: -100% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes bounce-subtle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px -4px oklch(0.66 0.19 38 / 0.3); }
+  50% { box-shadow: 0 0 35px -4px oklch(0.66 0.19 38 / 0.6); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Animações de fundo sazonais (v14 — sistema de temas) ── */
+@keyframes theme-fall {
+  0% { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(115vh) translateX(var(--theme-drift, 0px)) rotate(360deg); opacity: 0; }
+}
+@keyframes theme-rise {
+  0% { transform: translateY(0) translateX(0); opacity: 0; }
+  10% { opacity: 0.9; }
+  90% { opacity: 0.6; }
+  100% { transform: translateY(-115vh) translateX(var(--theme-drift, 0px)); opacity: 0; }
+}
+@keyframes theme-firework {
+  0% { box-shadow: 0 0 0 0 currentColor; opacity: 1; transform: scale(1); }
+  60% { opacity: 0.9; }
+  100% { box-shadow: 0 0 0 60px transparent; opacity: 0; transform: scale(2.6); }
+}
+.animate-theme-fall { animation: theme-fall linear infinite; }
+.animate-theme-rise { animation: theme-rise linear infinite; }
+.animate-theme-firework { animation: theme-firework 2.4s ease-out infinite; }
+
+.animate-slide-up { animation: slide-up 0.48s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-slide-down { animation: slide-down 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-slide-in-right { animation: slide-in-right 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-pop-in { animation: pop-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-float { animation: float-soft 4s ease-in-out infinite; }
+.animate-pulse-ring { animation: pulse-ring 1.8s ease-out infinite; }
+.animate-pulse-ring-sm { animation: pulse-ring-sm 2s ease-out infinite; }
+.animate-ping-once { animation: ping-once 0.6s ease-out forwards; }
+.animate-bounce-subtle { animation: bounce-subtle 2s ease-in-out infinite; }
+.animate-glow-pulse { animation: glow-pulse 2.5s ease-in-out infinite; }
+.animate-fade-in { animation: fade-in 0.5s ease both; }
+.animate-card-enter { animation: card-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+.gradient-pan {
+  background-size: 200% 200%;
+  animation: gradient-pan 14s ease infinite;
+}
+
+/* Shimmer skeleton */
+.shimmer {
+  background: linear-gradient(90deg, transparent 0%, oklch(0.9 0.01 70 / 0.6) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease infinite;
+}
+
+.stagger > * { opacity: 0; animation: slide-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.stagger > *:nth-child(1) { animation-delay: 0.04s; }
+.stagger > *:nth-child(2) { animation-delay: 0.10s; }
+.stagger > *:nth-child(3) { animation-delay: 0.16s; }
+.stagger > *:nth-child(4) { animation-delay: 0.22s; }
+.stagger > *:nth-child(5) { animation-delay: 0.28s; }
+.stagger > *:nth-child(6) { animation-delay: 0.34s; }
+.stagger > *:nth-child(7) { animation-delay: 0.40s; }
+.stagger > *:nth-child(8) { animation-delay: 0.46s; }
+.stagger > *:nth-child(n+9) { animation-delay: 0.52s; }
+
+.press { transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.16s; }
+.press:active { transform: scale(0.96); opacity: 0.85; }
+
+.shine-text {
+  background: linear-gradient(90deg, currentColor 0%, color-mix(in oklab, currentColor 30%, white) 50%, currentColor 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shine 3.5s linear infinite;
+}
+
+/* Card hover lift */
+.card-lift {
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lift);
+}
+
+/* Scrollbar hide */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ── Animação de fundo hero — Smoke + Glass Blobs (v18) ── */
+
+/* Blob 1 — forma oval grande translúcida */
+@keyframes blob-drift-1 {
+  0%   { transform: translate(0px, 0px) scale(1) rotate(0deg); }
+  25%  { transform: translate(18px, -22px) scale(1.06) rotate(8deg); }
+  50%  { transform: translate(-10px, -38px) scale(0.94) rotate(-5deg); }
+  75%  { transform: translate(-24px, -14px) scale(1.03) rotate(12deg); }
+  100% { transform: translate(0px, 0px) scale(1) rotate(0deg); }
+}
+/* Blob 2 — forma oval menor, deslocada */
+@keyframes blob-drift-2 {
+  0%   { transform: translate(0px, 0px) scale(1) rotate(0deg); }
+  30%  { transform: translate(-20px, 16px) scale(1.08) rotate(-10deg); }
+  60%  { transform: translate(14px, 28px) scale(0.92) rotate(6deg); }
+  100% { transform: translate(0px, 0px) scale(1) rotate(0deg); }
+}
+/* Blob 3 — pequeno, fundo direito */
+@keyframes blob-drift-3 {
+  0%   { transform: translate(0px, 0px) scale(1); }
+  40%  { transform: translate(22px, -18px) scale(1.12); }
+  80%  { transform: translate(-8px, 12px) scale(0.9); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+/* Fumo — ondulação orgânica lenta */
+@keyframes smoke-wave {
+  0%   { transform: translateY(0px) scaleX(1) rotate(0deg); opacity: 0.18; }
+  33%  { transform: translateY(-12px) scaleX(1.04) rotate(1.5deg); opacity: 0.28; }
+  66%  { transform: translateY(-6px) scaleX(0.97) rotate(-1deg); opacity: 0.22; }
+  100% { transform: translateY(0px) scaleX(1) rotate(0deg); opacity: 0.18; }
+}
+@keyframes smoke-wave-2 {
+  0%   { transform: translateY(0px) scaleX(1) rotate(0deg); opacity: 0.12; }
+  50%  { transform: translateY(10px) scaleX(1.06) rotate(-2deg); opacity: 0.2; }
+  100% { transform: translateY(0px) scaleX(1) rotate(0deg); opacity: 0.12; }
+}
+/* Respiração (breathing) geral do container */
+@keyframes hero-breathe {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.88; }
+}
+
+.hero-bg-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+/* Garante que o conteúdo real fica SEMPRE em cima */
+.hero-bg-canvas ~ * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Glass blobs */
+.hero-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(2px);
+}
+.hero-blob-1 {
+  width: 220px; height: 290px;
+  top: -60px; left: -40px;
+  background: radial-gradient(ellipse at 40% 35%, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 60%, transparent 100%);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 60% 40% 55% 45% / 50% 60% 40% 50%;
+  animation: blob-drift-1 18s ease-in-out infinite;
+  filter: blur(1px);
+}
+.hero-blob-2 {
+  width: 160px; height: 200px;
+  top: 10px; right: -20px;
+  background: radial-gradient(ellipse at 50% 40%, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.03) 65%, transparent 100%);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 45% 55% 40% 60% / 55% 45% 65% 35%;
+  animation: blob-drift-2 22s ease-in-out infinite;
+  animation-delay: -6s;
+  filter: blur(1.5px);
+}
+.hero-blob-3 {
+  width: 100px; height: 120px;
+  bottom: -10px; right: 30%;
+  background: radial-gradient(ellipse at 45% 40%, rgba(255,255,255,0.16) 0%, transparent 70%);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 50% 40% 60% 50% / 40% 55% 45% 60%;
+  animation: blob-drift-3 15s ease-in-out infinite;
+  animation-delay: -3s;
+  filter: blur(1px);
+}
+
+/* Smoke layers */
+.hero-smoke {
+  position: absolute;
+  pointer-events: none;
+}
+.hero-smoke-1 {
+  width: 70%; height: 100%;
+  left: -5%; top: 0;
+  background: radial-gradient(ellipse 80% 120% at 30% 60%,
+    rgba(255,255,255,0.10) 0%,
+    rgba(255,255,255,0.04) 40%,
+    transparent 75%);
+  animation: smoke-wave 16s ease-in-out infinite;
+}
+.hero-smoke-2 {
+  width: 60%; height: 100%;
+  right: -5%; top: 0;
+  background: radial-gradient(ellipse 70% 100% at 70% 40%,
+    rgba(255,255,255,0.08) 0%,
+    rgba(255,255,255,0.03) 45%,
+    transparent 80%);
+  animation: smoke-wave-2 20s ease-in-out infinite;
+  animation-delay: -8s;
+}
+/* Shimmer dourado suave — linha de reflexo que atravessa lentamente */
+@keyframes gold-shimmer {
+  0%   { transform: translateX(-120%) skewX(-20deg); opacity: 0; }
+  10%  { opacity: 0.12; }
+  80%  { opacity: 0.12; }
+  100% { transform: translateX(220%) skewX(-20deg); opacity: 0; }
+}
+.hero-gold-shimmer {
+  position: absolute;
+  top: 0; left: 0;
+  width: 40%; height: 100%;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,215,100,0.18) 50%, transparent 100%);
+  animation: gold-shimmer 12s ease-in-out infinite;
+  animation-delay: -4s;
+  pointer-events: none;
+}
+
+/* ── Animações de entrada, criação de conta e telas de espera (v18) ── */
+
+/* Spinner premium — anel duplo com rotação oposta */
+@keyframes spin-cw  { to { transform: rotate(360deg);  } }
+@keyframes spin-ccw { to { transform: rotate(-360deg); } }
+@keyframes pulse-scale {
+  0%, 100% { transform: scale(1);    opacity: 0.8; }
+  50%       { transform: scale(1.15); opacity: 1;   }
+}
+/* Orb de fundo do spinner */
+@keyframes orb-breathe {
+  0%, 100% { transform: scale(1);    opacity: 0.15; }
+  50%       { transform: scale(1.35); opacity: 0.28; }
+}
+/* Barra de progresso indeterminada */
+@keyframes progress-sweep {
+  0%   { left: -40%; width: 40%; }
+  60%  { left: 100%;  width: 40%; }
+  100% { left: 100%;  width: 40%; }
+}
+/* Entrada do card de auth — sobe + fade */
+@keyframes auth-card-enter {
+  from { opacity: 0; transform: translateY(32px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+/* Pulse nos items do timeline */
+@keyframes timeline-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--color-primary, oklch(0.66 0.19 38)) ; }
+  50%       { box-shadow: 0 0 0 6px transparent; }
+}
+/* Checkmark — desenhar o traço */
+@keyframes check-draw {
+  from { stroke-dashoffset: 40; opacity: 0; }
+  to   { stroke-dashoffset: 0;  opacity: 1; }
+}
+/* Entrada em cascata dos items do timeline */
+@keyframes stagger-in {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+/* Glow suave no anel de verificação */
+@keyframes verify-glow {
+  0%, 100% { filter: drop-shadow(0 0 8px oklch(0.66 0.19 38 / 0.4)); }
+  50%       { filter: drop-shadow(0 0 22px oklch(0.66 0.19 38 / 0.75)); }
+}
+/* Bolha que explode ao entrar na tela de sucesso */
+@keyframes success-burst {
+  0%   { transform: scale(0); opacity: 0.6; }
+  60%  { transform: scale(1.3); opacity: 0.2; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+/* Entrada suave do conteúdo do loading de auth */
+@keyframes loading-content-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* Pontos animados (...) para o texto de espera */
+@keyframes dot-bounce {
+  0%, 80%, 100% { transform: translateY(0);   opacity: 0.4; }
+  40%           { transform: translateY(-5px); opacity: 1;   }
+}
+
+/* Classes utilitárias */
+.animate-spin-cw  { animation: spin-cw  1.1s linear infinite; }
+.animate-spin-ccw { animation: spin-ccw 1.7s linear infinite; }
+.animate-orb-breathe { animation: orb-breathe 3s ease-in-out infinite; }
+.animate-auth-card-enter { animation: auth-card-enter 0.55s cubic-bezier(0.22,1,0.36,1) both; }
+.animate-verify-glow { animation: verify-glow 2.4s ease-in-out infinite; }
+.animate-success-burst { animation: success-burst 0.7s ease-out forwards; }
+.animate-stagger-in { animation: stagger-in 0.45s cubic-bezier(0.22,1,0.36,1) both; }
+.animate-loading-content-in { animation: loading-content-in 0.4s ease both; }
+.animate-timeline-pulse { animation: timeline-pulse 1.8s ease-in-out infinite; }
+
+/* Dot loader */
+.dot-loader span {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: dot-bounce 1.2s ease-in-out infinite;
+}
+.dot-loader span:nth-child(2) { animation-delay: 0.15s; }
+.dot-loader span:nth-child(3) { animation-delay: 0.30s; }
+
+/* Barra de progresso indeterminada */
+.progress-bar-indeterminate {
+  position: relative;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: oklch(0.66 0.19 38 / 0.15);
+  height: 3px;
+}
+.progress-bar-indeterminate::after {
+  content: '';
+  position: absolute;
+  top: 0; height: 100%;
+  background: linear-gradient(90deg, transparent, oklch(0.66 0.19 38), transparent);
+  border-radius: 9999px;
+  animation: progress-sweep 1.8s ease-in-out infinite;
+}
+
+/* ── Parte 2 — Onda de luz em botões de confirmação (v18) ── */
+
+/* Shimmer que atravessa o botão uma vez ao clicar */
+@keyframes btn-wave {
+  0%   { transform: translateX(-110%) skewX(-15deg); opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { transform: translateX(210%) skewX(-15deg); opacity: 0; }
+}
+/* Micro-bounce ao clicar */
+@keyframes btn-confirm-press {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(0.96); }
+  65%  { transform: scale(1.025); }
+  100% { transform: scale(1); }
+}
+/* Glow expansivo ao confirmar */
+@keyframes btn-confirm-glow {
+  0%   { box-shadow: 0 0 0 0 oklch(0.66 0.19 38 / 0.55); }
+  60%  { box-shadow: 0 0 0 14px oklch(0.66 0.19 38 / 0); }
+  100% { box-shadow: 0 0 0 0 oklch(0.66 0.19 38 / 0); }
+}
+
+/* Container do botão com shimmer */
+.shimmer-btn {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+/* A onda em si — injectada via pseudo só se possível, mas como Tailwind
+   não consegue animar ::after dinamicamente, usamos um <span> filho. */
+.shimmer-btn-wave {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.35) 45%,
+    rgba(255, 255, 255, 0.55) 50%,
+    rgba(255, 255, 255, 0.35) 55%,
+    transparent 100%
+  );
+  width: 60%;
+  transform: translateX(-110%) skewX(-15deg);
+  border-radius: inherit;
+}
+.shimmer-btn-wave.running {
+  animation: btn-wave 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.shimmer-btn.confirm-press {
+  animation: btn-confirm-press 0.38s cubic-bezier(0.22, 1, 0.36, 1) forwards,
+             btn-confirm-glow  0.55s ease-out forwards;
+}
+
+/* ── Parte 3 — Keyframes partilhados com o BreathingLoader e splash (v18) ── */
+/* Nota: sp-blob-* e sp-ring-breathe / sp-glow-breathe também existem inline
+   no index.html para o splash nativo. Aqui ficam disponíveis para os
+   componentes React (BreathingLoader, etc.). */
+
+@keyframes sp-blob-1 {
+  0%,100% { transform: translate(0,0) scale(1) rotate(0deg); }
+  30%  { transform: translate(20px,-25px) scale(1.07) rotate(8deg); }
+  65%  { transform: translate(-12px,-40px) scale(0.94) rotate(-4deg); }
+}
+@keyframes sp-blob-2 {
+  0%,100% { transform: translate(0,0) scale(1) rotate(0deg); }
+  35%  { transform: translate(-22px,18px) scale(1.09) rotate(-10deg); }
+  70%  { transform: translate(16px,30px) scale(0.93) rotate(7deg); }
+}
+@keyframes sp-ring-breathe {
+  0%,100% { transform: scale(1);    opacity: 0.6; }
+  50%      { transform: scale(1.10); opacity: 1;   }
+}
+@keyframes sp-glow-breathe {
+  0%,100% { transform: scale(1);    opacity: 0.7; }
+  50%      { transform: scale(1.20); opacity: 1;   }
+}
