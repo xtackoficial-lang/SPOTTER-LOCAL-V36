@@ -81,6 +81,17 @@ function MerchantPanel() {
 
   const [tab, setTab] = useState<Tab>("perfil");
   const [saved, setSaved] = useState(false);
+  // BUG CORRIGIDO (2026-08-15): saveProfile() mostrava sempre "Guardado!"
+  // mesmo quando a gravação no Supabase falhava — os dados ficavam só
+  // localmente, mas os clientes vêem o Supabase, não o localStorage do
+  // comerciante. Adicionado estado de erro explícito para guardar perfil.
+  const [saveError, setSaveError] = useState<string | null>(null);
+  // BUG CORRIGIDO (2026-08-15): erros de upload (capa/galeria/produto)
+  // só apareciam na consola — o utilizador não via nada. Adicionado
+  // estado de erro separado para cada tipo de upload.
+  const [uploadCoverError, setUploadCoverError] = useState<string | null>(null);
+  const [uploadGalleryError, setUploadGalleryError] = useState<string | null>(null);
+  const [uploadProductImageError, setUploadProductImageError] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   // perfil local
   const [name, setName] = useState(draft.business.businessName || "");
@@ -279,10 +290,18 @@ function MerchantPanel() {
       lng: isDigital ? undefined : mapsCoords?.lng,
       isDigital,
     });
-    // Sincroniza com o Supabase em segundo plano (best-effort). Se falhar,
-    // os dados já estão guardados localmente — não bloqueia o "Guardado!".
+    // BUG CORRIGIDO (2026-08-15): antes, a sincronização com o Supabase
+    // era "best-effort" — se falhasse, os dados ficavam só no localStorage
+    // local do comerciante. Mas os clientes vêem o Supabase, não o
+    // localStorage do comerciante. O "Guardado!" aparecia sempre, mesmo
+    // quando o nome/descrição/fotos nunca chegaram ao servidor.
+    // Agora: quando o Supabase está configurado, só mostra "Guardado!"
+    // após confirmação real. Se falhar, mostra erro claro.
+    // Sem Supabase configurado (modo de desenvolvimento), guarda só
+    // localmente e mostra "Guardado!" como antes (comportamento intencional).
     if (user && draft.business.businessId) {
       setSyncing(true);
+      setSaveError(null);
       try {
         // upsert() do Supabase não preserva colunas omitidas do payload
         // (UPDATE SET só com as colunas enviadas) — busca-se o registo
@@ -322,14 +341,20 @@ function MerchantPanel() {
           // Reenviá-los como 0 sempre que o perfil é guardado zerava a
           // média de avaliações de qualquer negócio que editasse o perfil.
         });
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2500);
       } catch (err) {
         console.warn("Falha ao sincronizar perfil do negócio com Supabase:", err);
+        setSaveError(tr("saveErrorInternet"));
       } finally {
         setSyncing(false);
       }
+    } else {
+      // Modo sem Supabase configurado (desenvolvimento local) —
+      // guarda só localmente e mostra "Guardado!" como antes.
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
     }
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
   }
 
   // ── guardar Estrutura/Tema do perfil (aba Visual) ──
@@ -439,12 +464,17 @@ function MerchantPanel() {
     const file = e.target.files?.[0];
     if (!file || !user) return;
     setUploadingCover(true);
+    // BUG CORRIGIDO (2026-08-15): antes, erros de upload só iam para a
+    // consola — o utilizador não via nada e ficava sem saber porque a
+    // foto de capa não aparecia. Agora mostra mensagem de erro na UI.
+    setUploadCoverError(null);
     try {
       const url = await uploadMedia(file, "cover", user.id);
       setCover(url);
       updateBusiness({ coverImage: url });
     } catch (err) {
       console.warn("Falha ao enviar a foto de capa:", err);
+      setUploadCoverError("Não foi possível enviar a foto de capa. Verifique a ligação e tente novamente.");
     } finally {
       setUploadingCover(false);
     }
@@ -463,6 +493,10 @@ function MerchantPanel() {
     if (room <= 0) return; // limite do plano atingido — botão já fica escondido neste caso
     const accepted = files.slice(0, room);
     setUploadingGallery(true);
+    // BUG CORRIGIDO (2026-08-15): antes, erros de upload só iam para a
+    // consola — o utilizador não via nada e ficava sem saber porque a
+    // foto não aparecia. Agora mostra mensagem de erro na UI.
+    setUploadGalleryError(null);
     try {
       const urls = await uploadMediaBatch(accepted, "gallery", user.id);
       const next = [...gallery, ...urls];
@@ -470,6 +504,7 @@ function MerchantPanel() {
       updateBusiness({ gallery: next });
     } catch (err) {
       console.warn("Falha ao enviar fotos da galeria:", err);
+      setUploadGalleryError("Não foi possível enviar as fotos. Verifique a ligação e tente novamente.");
     } finally {
       setUploadingGallery(false);
     }
@@ -553,11 +588,15 @@ function MerchantPanel() {
     const file = e.target.files?.[0];
     if (!file || !user) return;
     setUploadingProductImage(true);
+    // BUG CORRIGIDO (2026-08-15): erro de upload da foto do produto só
+    // ia para a consola — o comerciante ficava sem foto sem perceber porquê.
+    setUploadProductImageError(null);
     try {
       const url = await uploadMedia(file, "product", user.id);
       setPImage(url);
     } catch (err) {
       console.warn("Falha ao enviar a foto do produto:", err);
+      setUploadProductImageError("Não foi possível enviar a foto. Verifique a ligação e tente novamente.");
     } finally {
       setUploadingProductImage(false);
     }
@@ -1000,11 +1039,16 @@ function MerchantPanel() {
 
             <button
               onClick={saveProfile}
-              disabled={isBlocked || isOverdue}
+              disabled={isBlocked || isOverdue || syncing}
               className="press w-full h-12 rounded-2xl text-sm font-bold text-white shadow-[var(--shadow-soft)] flex items-center justify-center gap-2 transition-all disabled:opacity-50"
               style={{ background: "var(--gradient-primary)" }}
             >
-              {saved ? (
+              {syncing ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  A guardar…
+                </>
+              ) : saved ? (
                 <>
                   <Icon name="check" size={16} /> Guardado!
                 </>
@@ -1014,6 +1058,9 @@ function MerchantPanel() {
                 </>
               )}
             </button>
+            {saveError && (
+              <p className="mt-1.5 text-xs text-destructive font-medium text-center">{saveError}</p>
+            )}
           </div>
         )}
 
@@ -1272,6 +1319,9 @@ function MerchantPanel() {
                 className="hidden"
                 onChange={handleCoverUpload}
               />
+              {uploadCoverError && (
+                <p className="mt-1 text-xs text-destructive font-medium">{uploadCoverError}</p>
+              )}
             </Section>
 
             {/* galeria */}
@@ -1300,6 +1350,9 @@ function MerchantPanel() {
                 <div className="mb-2 flex items-center gap-1.5 text-[11px] text-primary">
                   <Icon name="pin" size={11} className="animate-spin" /> A enviar fotos…
                 </div>
+              )}
+              {uploadGalleryError && (
+                <p className="mb-2 text-xs text-destructive font-medium">{uploadGalleryError}</p>
               )}
               {gallery.length === 0 ? (
                 <button
@@ -1697,6 +1750,9 @@ function MerchantPanel() {
               className="hidden"
               onChange={handleProductImage}
             />
+            {uploadProductImageError && (
+              <p className="mt-1 text-xs text-destructive font-medium text-center">{uploadProductImageError}</p>
+            )}
 
             <div className="space-y-3">
               <Field label={tr("productNameLabel2")}>

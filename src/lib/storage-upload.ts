@@ -130,23 +130,28 @@ export async function uploadMedia(
   const path = `${kind}/${ownerId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
   if (SUPABASE_CONFIGURED && supabase) {
-    try {
-      const { error } = await supabase.storage.from(bucket).upload(path, processed, {
-        contentType: isImage ? "image/jpeg" : file.type || "application/octet-stream",
-        upsert: false,
-      });
-      if (error) throw error;
-      if (kind === "chat") {
-        // Bucket privado: não existe URL pública. Devolve o caminho —
-        // quem for renderizar o anexo troca isto por uma URL assinada
-        // (ver getChatAttachmentUrl), autenticado como participante.
-        return path;
-      }
-      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-      return data.publicUrl;
-    } catch (err) {
-      console.warn("uploadMedia: falha no Supabase Storage, a usar fallback local.", err);
+    // BUG CORRIGIDO (2026-08-15): antes, se o upload ao Supabase Storage
+    // falhasse (bucket inexistente, quota esgotada, RLS, rede), o código
+    // caía silenciosamente para base64 local — mesmo com Supabase
+    // configurado. Em produção, isso resulta em imagens gigantes (base64)
+    // gravadas directamente na base de dados Postgres, esgotando os 500MB
+    // gratuitos com poucas dezenas de fotos. O comentário no código até
+    // avisava "NÃO deve acontecer em produção" mas o código permitia-o
+    // sem avisar ninguém. Agora relança o erro para que a UI mostre uma
+    // mensagem de erro real em vez de fingir que correu bem.
+    const { error } = await supabase.storage.from(bucket).upload(path, processed, {
+      contentType: isImage ? "image/jpeg" : file.type || "application/octet-stream",
+      upsert: false,
+    });
+    if (error) throw error;
+    if (kind === "chat") {
+      // Bucket privado: não existe URL pública. Devolve o caminho —
+      // quem for renderizar o anexo troca isto por uma URL assinada
+      // (ver getChatAttachmentUrl), autenticado como participante.
+      return path;
     }
+    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+    return data.publicUrl;
   }
   // Fallback: sem Supabase configurado (ambiente de desenvolvimento
   // sem .env preenchido) — devolve base64 local para a UI continuar

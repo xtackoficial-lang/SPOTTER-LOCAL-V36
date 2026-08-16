@@ -297,7 +297,12 @@ export function useRealtimeChat(
         setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? saved : m)));
       }
     } catch (err) {
+      // BUG CORRIGIDO (2026-08-15): antes, se o upload do anexo ou o envio da mensagem
+      // falhasse, o catch apenas fazia console.warn — e a mensagem optimista
+      // (com data-URL local) ficava permanentemente na lista, enganando o utilizador
+      // de que a mensagem tinha sido enviada. Agora remove a mensagem optimista da lista.
       console.warn("sendChatMessage: falha ao enviar mensagem.", err);
+      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
     }
   };
 

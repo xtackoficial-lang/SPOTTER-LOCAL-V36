@@ -165,35 +165,34 @@ export interface Subscription {
   lastPaymentAt?: string;
 }
 
-const KEY = "xlocal.subscription.v1";
-
-// Novo comerciante entra directamente no Free — permanente, sem
-// trial e sem ciclo de cobrança. Não há período de teste: para usar
-// um plano pago, o comerciante paga directamente em /payment.
-function makeFreeSub(): Subscription {
-  const now = new Date();
-  return {
-    planId: "free",
-    status: "active",
-    startedAt: now.toISOString(),
-    renewsAt: now.toISOString(), // Free não renova — campo sem efeito aqui
-    paymentMethod: null,
-  };
+// BUG CORRIGIDO (2026-08-15): a subscrição era guardada numa chave única
+// ("xlocal.subscription.v1"). Se dois comerciantes usassem o mesmo dispositivo
+// (ou um utilizador administrasse múltiplos negócios), o plano de um
+// sobrepunha o do outro localmente. Agora associa a chave ao businessId.
+function getSubKey(businessId?: string): string {
+  return businessId ? `xlocal.subscription.${businessId}.v1` : "xlocal.subscription.v1";
 }
 
-function read(): Subscription | null {
+function read(businessId?: string): Subscription | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(KEY);
+    const key = getSubKey(businessId);
+    const raw = localStorage.getItem(key);
+    if (!raw && businessId) {
+      // Fallback para a chave global legado se ainda não tiver chave por businessId
+      const legacy = localStorage.getItem("xlocal.subscription.v1");
+      if (legacy) return JSON.parse(legacy);
+    }
     if (!raw) return null;
     return JSON.parse(raw);
   } catch {
     return null;
   }
 }
-function write(s: Subscription) {
+
+function write(s: Subscription, businessId?: string) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(s));
+    localStorage.setItem(getSubKey(businessId), JSON.stringify(s));
   } catch {
     /* ignorado: falha de quota/acesso ao localStorage */
   }
@@ -206,6 +205,7 @@ function write(s: Subscription) {
 export function activateSubscription(
   planId: PaidPlanId,
   method: Subscription["paymentMethod"],
+  businessId?: string,
 ): Subscription {
   const now = new Date();
   const renewsAt = new Date(now);
@@ -218,7 +218,7 @@ export function activateSubscription(
     paymentMethod: method,
     lastPaymentAt: now.toISOString(),
   };
-  write(next);
+  write(next, businessId);
   return next;
 }
 
@@ -227,9 +227,9 @@ export function activateSubscription(
 // apagados — ficam ocultos até voltar a fazer upgrade (ver galleryLimit
 // em merchant.tsx e maxProducts em products.tsx, que já só mostram/
 // permitem editar os primeiros N itens dentro do limite do plano activo).
-export function downgradeToFree(): Subscription {
+export function downgradeToFree(businessId?: string): Subscription {
   const next = makeFreeSub();
-  write(next);
+  write(next, businessId);
   return next;
 }
 
@@ -243,27 +243,27 @@ export function useSubscription(businessId?: string) {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    let s = read();
+    let s = read(businessId);
     if (!s) {
       s = makeFreeSub();
-      write(s);
+      write(s, businessId);
     }
     // Compatibilidade com contas antigas que ainda tinham um trial em
     // curso (status "trial") de versões anteriores do app — passam a
     // Free directamente, já que o trial deixou de existir.
     if (s.status === "trial") {
       s = makeFreeSub();
-      write(s);
+      write(s, businessId);
     }
     // Check if overdue > 30 dias (quem já pagou antes e deixou de pagar)
     // → bloquear o plano pago, mas sem impedir o acesso básico de Free.
     if (s.status === "overdue" && s.renewsAt && new Date() > new Date(s.renewsAt)) {
       s = { ...s, status: "blocked" };
-      write(s);
+      write(s, businessId);
     }
     setSub(s);
     setHydrated(true);
-  }, []);
+  }, [businessId]);
 
   useEffect(() => {
     if (!businessId || !SUPABASE_CONFIGURED || !supabase) return;
@@ -276,7 +276,7 @@ export function useSubscription(businessId?: string) {
           .eq("id", businessId)
           .maybeSingle();
         if (cancelled || error || !data) return;
-        const local = read();
+        const local = read(businessId);
         // O estado remoto (definido pelo admin no painel: active, overdue
         // ou blocked) é sempre a fonte de verdade quando existe — sobrepõe
         // o estado local. Contas antigas com plan_status "trial" no
@@ -296,7 +296,7 @@ export function useSubscription(businessId?: string) {
           paymentMethod: (data.payment_method as Subscription["paymentMethod"]) ?? null,
           lastPaymentAt: data.last_payment_at ?? undefined,
         };
-        write(remote);
+        write(remote, businessId);
         setSub(remote);
       } catch (err) {
         console.warn("useSubscription: falha ao sincronizar com Supabase.", err);
@@ -308,7 +308,7 @@ export function useSubscription(businessId?: string) {
   }, [businessId]);
 
   const activate = (planId: PaidPlanId, method: Subscription["paymentMethod"]) => {
-    const next = activateSubscription(planId, method);
+    const next = activateSubscription(planId, method, businessId);
     setSub(next);
   };
 

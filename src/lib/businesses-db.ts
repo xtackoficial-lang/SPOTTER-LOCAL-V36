@@ -254,16 +254,20 @@ export async function upsertBusiness(
   business: Partial<BusinessDB> & { id?: string; owner_id: string },
 ): Promise<BusinessDB | null> {
   if (SUPABASE_CONFIGURED && supabase) {
-    try {
-      const { data, error } = await supabase
-        .from("businesses")
-        .upsert({ ...business, updated_at: new Date().toISOString() })
-        .select()
-        .single();
-      if (!error && data) return data as BusinessDB;
-    } catch (err) {
-      console.warn("upsertBusiness: Supabase indisponível.", err);
-    }
+    // BUG CORRIGIDO (2026-08-15): antes, se o Supabase devolvesse um erro
+    // (ex: RLS, constraint, tipo de dado inválido), a função fazia
+    // `if (!error && data) return data` e depois caía silenciosamente
+    // para `return null` — sem lançar excepção. O chamador (saveProfile
+    // em merchant.tsx) não verificava esse null e mostrava sempre
+    // "Guardado!" mesmo quando a gravação tinha falhado de facto.
+    // Agora lança o erro do Supabase para que o chamador o possa tratar.
+    const { data, error } = await supabase
+      .from("businesses")
+      .upsert({ ...business, updated_at: new Date().toISOString() })
+      .select()
+      .single();
+    if (error) throw error;
+    return data as BusinessDB;
   }
   return null;
 }
@@ -317,16 +321,18 @@ export async function upsertProduct(
   product: Omit<ProductDB, "id" | "created_at"> & { id?: string },
 ): Promise<ProductDB | null> {
   if (SUPABASE_CONFIGURED && supabase) {
-    try {
-      const { data, error } = await supabase
-        .from("products")
-        .upsert({ ...product, updated_at: new Date().toISOString() })
-        .select()
-        .single();
-      if (!error && data) return data as ProductDB;
-    } catch (err) {
-      console.warn("upsertProduct: Supabase indisponível.", err);
-    }
+    // BUG CORRIGIDO (2026-08-15): mesmo padrão que upsertBusiness —
+    // erros do Supabase ({data: null, error: {...}}) eram engolidos e
+    // devolvidos como null. syncProductRemote() chamava isto e só fazia
+    // .catch(), nunca verificava null — produtos podiam não chegar ao
+    // servidor sem qualquer aviso. Agora lança o erro.
+    const { data, error } = await supabase
+      .from("products")
+      .upsert({ ...product, updated_at: new Date().toISOString() })
+      .select()
+      .single();
+    if (error) throw error;
+    return data as ProductDB;
   }
   return null;
 }
