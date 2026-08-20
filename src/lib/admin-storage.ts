@@ -113,7 +113,7 @@ const ADMIN_HASH = "29e66bc2d2abf3713471691afd5c27331a28607fb32caff350e3b01fe930
 const SESSION_KEY = "xlocal.admin.session.v2";
 const ATTEMPTS_KEY = "xlocal.admin.attempts.v1";
 const LOCKOUT_KEY = "xlocal.admin.lockout.v1";
-const SESSION_TTL_MS = 4 * 60 * 60 * 1000;
+const SESSION_TTL_MS = 5 * 60 * 1000; // Bloqueio automático em 5 minutos
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
 

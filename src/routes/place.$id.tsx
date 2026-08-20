@@ -338,11 +338,30 @@ function PlaceDetail() {
                 href={place.website.startsWith("http") ? place.website : `https://${place.website}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-1.5 flex items-center gap-2.5"
-                style={{ color: theme.accent }}
+                className="press mt-2 flex w-full items-center justify-between gap-3 rounded-2xl p-4 font-semibold shadow-sm transition hover:opacity-90"
+                style={{
+                  background: theme.accentSoft ?? "rgba(0,0,0,0.06)",
+                  border: `1px solid ${theme.border}`,
+                  color: theme.text,
+                }}
               >
-                <Icon name="globe" size={16} />
-                <span className="truncate">{place.website}</span>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-xl"
+                    style={{ background: theme.accent, color: theme.bg }}
+                  >
+                    <Icon name="globe" size={18} />
+                  </div>
+                  <div className="min-w-0 text-left">
+                    <div className="truncate text-sm font-bold">
+                      Site oficial de &quot;{place.name}&quot;
+                    </div>
+                    <div className="truncate text-[11px]" style={{ color: theme.sub }}>
+                      {place.website}
+                    </div>
+                  </div>
+                </div>
+                <Icon name="chevronRight" size={18} className="shrink-0" style={{ color: theme.sub }} />
               </a>
             )}
           </div>

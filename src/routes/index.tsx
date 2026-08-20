@@ -272,7 +272,7 @@ function Welcome() {
                 {SUPABASE_CONFIGURED ? tr("cloudDataSaved") : tr("demoModeLocalData")}
               </p>
 
-              {/* Social login */}
+              {/* Login social & Iniciar sessão */}
               <div className="mt-5 space-y-2.5">
                 <SocialButton
                   icon="google"
@@ -280,12 +280,16 @@ function Welcome() {
                   onClick={() => handleSocialLogin("google")}
                   delay={0}
                 />
-                <SocialButton
-                  icon="apple"
-                  label={tr("continueWithApple")}
-                  onClick={() => handleSocialLogin("apple")}
-                  delay={60}
-                />
+                <button
+                  className="press flex h-13 w-full items-center justify-center gap-3 rounded-2xl border border-primary/30 bg-primary/10 text-sm font-bold text-primary hover:bg-primary/15 transition shadow-sm"
+                  onClick={() => {
+                    setIsSignup(false);
+                    setMode("email");
+                  }}
+                >
+                  <Icon name="user" size={18} />
+                  Iniciar Sessão (Conta existente)
+                </button>
               </div>
 
               <div className="my-4 flex items-center gap-3">
@@ -304,15 +308,6 @@ function Welcome() {
                 >
                   <Icon name="mail" size={16} className="text-primary" />{" "}
                   {tr("createAccountWithEmail")}
-                </button>
-                <button
-                  className="press flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-border bg-muted/60 text-sm font-medium text-muted-foreground hover:bg-accent/50 transition"
-                  onClick={() => {
-                    setIsSignup(false);
-                    setMode("email");
-                  }}
-                >
-                  <Icon name="user" size={16} /> {tr("signInWithEmail")}
                 </button>
                 <ShimmerButton
                   className="press flex h-12 w-full items-center justify-center gap-1.5 rounded-2xl text-sm font-bold text-primary-foreground shadow-[var(--shadow-soft)] transition hover:opacity-90"

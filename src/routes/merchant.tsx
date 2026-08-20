@@ -472,6 +472,19 @@ function MerchantPanel() {
       const url = await uploadMedia(file, "cover", user.id);
       setCover(url);
       updateBusiness({ coverImage: url });
+      if (draft.business.businessId) {
+        const current = await fetchBusinessById(draft.business.businessId);
+        await upsertBusiness({
+          ...(current ?? {}),
+          id: draft.business.businessId,
+          owner_id: user.id,
+          business_name: name || draft.business.businessName || "Negócio",
+          category: category || draft.business.category || "other",
+          city: city || draft.business.city || "",
+          country: draft.business.country || tr("defaultCountry"),
+          cover_image: url,
+        });
+      }
     } catch (err) {
       console.warn("Falha ao enviar a foto de capa:", err);
       setUploadCoverError("Não foi possível enviar a foto de capa. Verifique a ligação e tente novamente.");
@@ -493,15 +506,25 @@ function MerchantPanel() {
     if (room <= 0) return; // limite do plano atingido — botão já fica escondido neste caso
     const accepted = files.slice(0, room);
     setUploadingGallery(true);
-    // BUG CORRIGIDO (2026-08-15): antes, erros de upload só iam para a
-    // consola — o utilizador não via nada e ficava sem saber porque a
-    // foto não aparecia. Agora mostra mensagem de erro na UI.
     setUploadGalleryError(null);
     try {
       const urls = await uploadMediaBatch(accepted, "gallery", user.id);
       const next = [...gallery, ...urls];
       setGallery(next);
       updateBusiness({ gallery: next });
+      if (draft.business.businessId) {
+        const current = await fetchBusinessById(draft.business.businessId);
+        await upsertBusiness({
+          ...(current ?? {}),
+          id: draft.business.businessId,
+          owner_id: user.id,
+          business_name: name || draft.business.businessName || "Negócio",
+          category: category || draft.business.category || "other",
+          city: city || draft.business.city || "",
+          country: draft.business.country || tr("defaultCountry"),
+          gallery: next,
+        });
+      }
     } catch (err) {
       console.warn("Falha ao enviar fotos da galeria:", err);
       setUploadGalleryError("Não foi possível enviar as fotos. Verifique a ligação e tente novamente.");
@@ -510,34 +533,85 @@ function MerchantPanel() {
     }
   }
 
-  function removeGalleryPhoto(idx: number) {
+  async function removeGalleryPhoto(idx: number) {
     const removedUrl = gallery[idx];
     const next = gallery.filter((_, i) => i !== idx);
     setGallery(next);
     updateBusiness({ gallery: next });
     if (removedUrl) void deleteMediaByUrl(removedUrl);
+    if (user && draft.business.businessId) {
+      try {
+        const current = await fetchBusinessById(draft.business.businessId);
+        await upsertBusiness({
+          ...(current ?? {}),
+          id: draft.business.businessId,
+          owner_id: user.id,
+          business_name: name || draft.business.businessName || "Negócio",
+          category: category || draft.business.category || "other",
+          city: city || draft.business.city || "",
+          country: draft.business.country || tr("defaultCountry"),
+          gallery: next,
+        });
+      } catch {
+        // ignore
+      }
+    }
   }
 
   // Move uma foto para a posição anterior/seguinte — usado pelas setas e
   // como alternativa acessível ao arrastar e soltar (que pode ser difícil
   // de usar em telas pequenas ou para quem prefere não arrastar).
-  function moveGalleryPhoto(idx: number, direction: -1 | 1) {
+  async function moveGalleryPhoto(idx: number, direction: -1 | 1) {
     const target = idx + direction;
     if (target < 0 || target >= gallery.length) return;
     const next = [...gallery];
     [next[idx], next[target]] = [next[target], next[idx]];
     setGallery(next);
     updateBusiness({ gallery: next });
+    if (user && draft.business.businessId) {
+      try {
+        const current = await fetchBusinessById(draft.business.businessId);
+        await upsertBusiness({
+          ...(current ?? {}),
+          id: draft.business.businessId,
+          owner_id: user.id,
+          business_name: name || draft.business.businessName || "Negócio",
+          category: category || draft.business.category || "other",
+          city: city || draft.business.city || "",
+          country: draft.business.country || tr("defaultCountry"),
+          gallery: next,
+        });
+      } catch {
+        // ignore
+      }
+    }
   }
 
   // Reordenação por arrastar e soltar (drag-and-drop).
-  function reorderGalleryByDrag(fromIdx: number, toIdx: number) {
+  async function reorderGalleryByDrag(fromIdx: number, toIdx: number) {
     if (fromIdx === toIdx) return;
     const next = [...gallery];
     const [moved] = next.splice(fromIdx, 1);
     next.splice(toIdx, 0, moved);
     setGallery(next);
     updateBusiness({ gallery: next });
+    if (user && draft.business.businessId) {
+      try {
+        const current = await fetchBusinessById(draft.business.businessId);
+        await upsertBusiness({
+          ...(current ?? {}),
+          id: draft.business.businessId,
+          owner_id: user.id,
+          business_name: name || draft.business.businessName || "Negócio",
+          category: category || draft.business.category || "other",
+          city: city || draft.business.city || "",
+          country: draft.business.country || tr("defaultCountry"),
+          gallery: next,
+        });
+      } catch {
+        // ignore
+      }
+    }
   }
 
   function reorderBlocksByDrag(fromIdx: number, toIdx: number) {

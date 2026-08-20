@@ -162,7 +162,7 @@ function Home() {
       >
         {/* Fundo animado — smoke + glass blobs (sempre activo, atrás de tudo) */}
         <HeroBgCanvas />
-        {appearance.enabled && <ThemeAnimationOnly appearance={appearance} />}
+        <ThemeAnimationOnly appearance={appearance} />
         {/* Decorative orbs */}
         <div className="pointer-events-none absolute -right-16 -top-10 h-56 w-56 rounded-full bg-white/10 blur-3xl animate-float" />
         <div

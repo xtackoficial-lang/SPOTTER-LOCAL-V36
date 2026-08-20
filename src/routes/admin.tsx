@@ -2057,11 +2057,13 @@ function AdminDashboard() {
 
   const quickAction = (id: string, action: "activate" | "block" | "unblock") => {
     const now = new Date();
+    const renews = new Date(now);
+    renews.setMonth(renews.getMonth() + 1);
     const patches: Record<string, Partial<MerchantRecord>> = {
       activate: {
         status: "active",
         lastPaymentAt: now.toISOString(),
-        renewsAt: new Date(now.setMonth(now.getMonth() + 1)).toISOString(),
+        renewsAt: renews.toISOString(),
       },
       block: { status: "blocked" },
       // "Desbloquear" devolve o acesso sem fingir uma renovação que não
@@ -2487,6 +2489,11 @@ function AdminPage() {
   const [authed, setAuthed] = useState(false);
   useEffect(() => {
     setAuthed(getAdminSession());
+    const interval = setInterval(() => {
+      const isStillAuthed = getAdminSession();
+      if (!isStillAuthed) setAuthed(false);
+    }, 10000);
+    return () => clearInterval(interval);
   }, []);
   return authed ? <AdminDashboard /> : <AdminLogin onAuth={() => setAuthed(true)} />;
 }

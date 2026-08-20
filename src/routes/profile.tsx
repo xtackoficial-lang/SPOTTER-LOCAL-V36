@@ -14,6 +14,8 @@ import { useScreenAppearance } from "@/lib/theme-storage";
 import { ThemeAnimationOnly, resolveBackgroundStyle } from "@/components/ThemeBackdrop";
 import { registerPushToken } from "@/lib/push-storage";
 
+import { useAuth } from "@/lib/auth-context";
+
 export const Route = createFileRoute("/profile")({
   head: () => ({ meta: [{ title: "Perfil — Spotter Local" }] }),
   component: Profile,
@@ -21,6 +23,7 @@ export const Route = createFileRoute("/profile")({
 
 function Profile() {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const { draft, hydrated, reset } = useOnboarding();
   const { ids } = useFavorites();
   const tr = useT();
@@ -54,8 +57,9 @@ function Profile() {
   const isBiz = draft.profileType === "business";
   const profile = isBiz ? draft.business : draft.personal;
 
-  const signOut = () => {
+  const signOut = async () => {
     reset();
+    await logout();
     navigate({ to: "/" });
   };
 

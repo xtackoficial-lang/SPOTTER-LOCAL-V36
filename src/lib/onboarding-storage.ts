@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { supabase, SUPABASE_CONFIGURED } from "./supabase";
+import { useAuth } from "./auth-context";
 
 export type ProfileType = "personal" | "business" | null;
 
@@ -73,7 +75,11 @@ export interface OnboardingDraft {
   verificationSubmittedAt?: string;
 }
 
-const KEY = "xlocal.onboarding.v1";
+const DEFAULT_KEY = "xlocal.onboarding.v1";
+
+function getStorageKey(userId?: string): string {
+  return userId ? `xlocal.onboarding.${userId}.v1` : DEFAULT_KEY;
+}
 
 const empty: OnboardingDraft = {
   profileType: null,
@@ -86,15 +92,17 @@ const empty: OnboardingDraft = {
   completed: false,
 };
 
-function read(): OnboardingDraft {
+function read(userId?: string): OnboardingDraft {
   if (typeof window === "undefined") return empty;
   try {
-    const raw = window.localStorage.getItem(KEY);
+    const key = getStorageKey(userId);
+    let raw = window.localStorage.getItem(key);
+    // Se a chave específica por utilizador ainda não existir, tenta ler da chave por omissão
+    if (!raw && userId) {
+      raw = window.localStorage.getItem(DEFAULT_KEY);
+    }
     if (!raw) return empty;
     const parsed = { ...empty, ...JSON.parse(raw) };
-    // Garante um businessId estável mesmo para drafts antigos criados antes
-    // desta correcção (que não tinham o campo). Gerado uma única vez e
-    // nunca derivado do nome do negócio, para não se perder ao editar o nome.
     if (!parsed.business?.businessId) {
       parsed.business = { ...parsed.business, businessId: crypto.randomUUID() };
     }
@@ -104,23 +112,151 @@ function read(): OnboardingDraft {
   }
 }
 
+function saveToStorage(draft: OnboardingDraft, userId?: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const key = getStorageKey(userId);
+    window.localStorage.setItem(key, JSON.stringify(draft));
+    if (userId) {
+      window.localStorage.setItem(DEFAULT_KEY, JSON.stringify(draft));
+    }
+  } catch {
+    // ignore
+  }
+}
+
+async function checkSupabaseOnboarding(userId: string): Promise<OnboardingDraft | null> {
+  if (!SUPABASE_CONFIGURED || !supabase) return null;
+  try {
+    const { data: biz } = await supabase
+      .from("businesses")
+      .select("*")
+      .eq("owner_id", userId)
+      .maybeSingle();
+
+    if (biz) {
+      const draft: OnboardingDraft = {
+        profileType: "business",
+        step: 0,
+        completed: true,
+        personal: {},
+        business: {
+          businessId: biz.id,
+          businessName: biz.business_name || "",
+          ownerName: biz.owner_name || "",
+          category: biz.category || "",
+          province: biz.province || undefined,
+          city: biz.city || "",
+          neighborhood: biz.neighborhood || undefined,
+          country: biz.country || "Moçambique",
+          phone: biz.phone || "",
+          description: biz.description || "",
+          website: biz.website || "",
+          coverImage: biz.cover_image || undefined,
+          gallery: biz.gallery || [],
+          hours: {
+            open: biz.hours_open || "08:00",
+            close: biz.hours_close || "18:00",
+            alwaysOpen: Boolean(biz.always_open),
+            openDays: biz.open_days ?? [0, 1, 2, 3, 4, 5, 6],
+          },
+          isDigital: Boolean(biz.is_digital),
+          structureId: biz.structure_id,
+          themeId: biz.theme_id,
+          backgroundId: biz.background_id,
+          blockOrder: biz.block_order,
+        },
+      };
+      saveToStorage(draft, userId);
+      return draft;
+    }
+
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (prof) {
+      const pType = (prof.profile_type as ProfileType) || "personal";
+      const draft: OnboardingDraft = {
+        profileType: pType,
+        step: 0,
+        completed: true,
+        personal: {
+          name: prof.name || undefined,
+          email: prof.email || undefined,
+          province: prof.province || undefined,
+          city: prof.city || "",
+          country: prof.country || "Moçambique",
+          interests: [],
+        },
+        business: {
+          businessId: crypto.randomUUID(),
+          hours: { open: "08:00", close: "18:00", alwaysOpen: false, openDays: [0, 1, 2, 3, 4, 5, 6] },
+          gallery: [],
+          businessName: "",
+          category: "",
+          city: "",
+          country: "Moçambique",
+          description: "",
+          phone: "",
+          ownerName: "",
+          website: "",
+        },
+      };
+      saveToStorage(draft, userId);
+      return draft;
+    }
+  } catch (err) {
+    console.warn("checkSupabaseOnboarding error:", err);
+  }
+  return null;
+}
+
 export function useOnboarding() {
+  const { user } = useAuth();
   const [draft, setDraft] = useState<OnboardingDraft>(empty);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    setDraft(read());
-    setHydrated(true);
-  }, []);
+    let cancelled = false;
+    async function load() {
+      const initial = read(user?.id);
+      if (initial.completed) {
+        if (!cancelled) {
+          setDraft(initial);
+          setHydrated(true);
+        }
+        return;
+      }
+      if (user?.id && SUPABASE_CONFIGURED && supabase) {
+        try {
+          const synced = await checkSupabaseOnboarding(user.id);
+          if (synced && !cancelled) {
+            setDraft(synced);
+            setHydrated(true);
+            return;
+          }
+        } catch {
+          // ignore
+        }
+      }
+      if (!cancelled) {
+        setDraft(initial);
+        setHydrated(true);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const update = (patch: Partial<OnboardingDraft>) => {
     setDraft((prev) => {
       const next = { ...prev, ...patch };
-      try {
-        window.localStorage.setItem(KEY, JSON.stringify(next));
-      } catch {
-        // ignore
-      }
+      saveToStorage(next, user?.id);
       return next;
     });
   };
@@ -133,7 +269,9 @@ export function useOnboarding() {
 
   const reset = () => {
     try {
-      window.localStorage.removeItem(KEY);
+      const key = getStorageKey(user?.id);
+      window.localStorage.removeItem(key);
+      window.localStorage.removeItem(DEFAULT_KEY);
     } catch {
       // ignore
     }
