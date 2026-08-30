@@ -1268,3 +1268,101 @@ create policy "Utilizador autenticado envia anexo de chat"
 -- detalhe de erro ao chamador.
 --
 -- Fim do bloco v32
+
+-- ============================================================
+-- BLOCO v33 — Comerciante notifica os clientes que o favoritaram
+-- (pedido do Abrão, 2026-08-23)
+-- ------------------------------------------------------------
+-- Até aqui, "favoritos" viviam SÓ no localStorage do telemóvel do
+-- cliente (ver src/lib/favorites-storage.ts) — nunca chegavam ao
+-- Supabase. Sem uma tabela real, era impossível um comerciante saber
+-- quem o favoritou, e portanto impossível mandar-lhes notificação
+-- nenhuma. Este bloco cria essa ligação, mais a função que permite ao
+-- comerciante (não só ao admin) disparar um envio real por FCM,
+-- limitado às pessoas que favoritaram especificamente o SEU negócio.
+--
+-- Depois de correr este bloco, é preciso publicar a nova Edge Function
+-- supabase/functions/send-merchant-promo/ (supabase functions deploy
+-- send-merchant-promo) — usa o mesmo segredo FIREBASE_SERVICE_ACCOUNT_JSON
+-- já configurado para send-scheduled-notifications.
+-- ============================================================
+
+-- TABELA: favorites (substitui/complementa o localStorage do cliente)
+create table if not exists public.favorites (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  business_id uuid not null references public.businesses(id) on delete cascade,
+  created_at timestamptz default now(),
+  primary key (user_id, business_id)
+);
+alter table public.favorites enable row level security;
+
+-- O cliente só gere os seus próprios favoritos.
+drop policy if exists "Cliente gere os seus favoritos" on public.favorites;
+create policy "Cliente gere os seus favoritos" on public.favorites
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- O DONO do negócio só pode ver a CONTAGEM de quem o favoritou — nunca a
+-- identidade de cada pessoa (privacidade). A lista de tokens para envio
+-- real é resolvida só dentro da Edge Function, com a service_role key,
+-- nunca exposta ao browser do comerciante.
+drop policy if exists "Dono ve contagem de favoritos do seu negocio" on public.favorites;
+create policy "Dono ve contagem de favoritos do seu negocio" on public.favorites
+  for select using (
+    business_id in (select id from public.businesses where owner_id = auth.uid())
+  );
+
+-- Admin gere tudo, para suporte/auditoria.
+drop policy if exists "Admin gere favoritos" on public.favorites;
+create policy "Admin gere favoritos" on public.favorites
+  for all using (public.is_admin()) with check (public.is_admin());
+
+-- Junta ao push_log um business_id opcional, para distinguir campanhas de
+-- promoção de um comerciante (ligadas a um negócio) das campanhas gerais
+-- do admin (business_id nulo).
+alter table public.push_log add column if not exists business_id uuid references public.businesses(id) on delete set null;
+
+-- TABELA: business_promos — histórico e limite (validade) de cada
+-- promoção enviada por um comerciante aos seus favoritos.
+create table if not exists public.business_promos (
+  id uuid primary key default gen_random_uuid(),
+  business_id uuid not null references public.businesses(id) on delete cascade,
+  title text not null,
+  body text not null,
+  -- "limite da promoção": até quando a promoção é válida — mostrado na
+  -- própria notificação (ex: "Válido até 30/08"), não é um limite de
+  -- quantas notificações podem ser enviadas.
+  valid_until date not null,
+  recipients_count int default 0,
+  success_count int default 0,
+  created_at timestamptz default now()
+);
+alter table public.business_promos enable row level security;
+drop policy if exists "Dono ve e cria promos do seu negocio" on public.business_promos;
+create policy "Dono ve e cria promos do seu negocio" on public.business_promos
+  for all using (
+    business_id in (select id from public.businesses where owner_id = auth.uid())
+  ) with check (
+    business_id in (select id from public.businesses where owner_id = auth.uid())
+  );
+drop policy if exists "Admin gere business_promos" on public.business_promos;
+create policy "Admin gere business_promos" on public.business_promos
+  for all using (public.is_admin()) with check (public.is_admin());
+
+-- Limite de segurança/anti-spam: no máximo 1 promoção por negócio a
+-- cada 24h (a Edge Function confirma isto antes de enviar; esta função
+-- auxiliar fica disponível para a UI mostrar "podes enviar a próxima
+-- promoção a partir de HH:MM de amanhã" sem precisar de outra chamada).
+create or replace function public.business_can_send_promo(p_business_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select not exists (
+    select 1 from public.business_promos
+    where business_id = p_business_id
+      and created_at > now() - interval '24 hours'
+  );
+$$;
+
+-- Fim do bloco v33

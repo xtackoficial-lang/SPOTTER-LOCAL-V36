@@ -7,13 +7,13 @@ import { type Place } from "@/lib/places-data";
 import { fetchBusinessById, businessToPlace } from "@/lib/businesses-db";
 import { PlaceCard } from "@/components/PlaceCard";
 import { BottomNav } from "@/components/BottomNav";
+import { BusinessBottomNav } from "@/components/BusinessBottomNav";
 import { Icon } from "@/components/Icon";
 import { useT, useLocale, LOCALE_LABELS, INTL_TAG } from "@/lib/i18n";
 import { LanguageDropdown } from "@/components/LanguageSwitcher";
 import { useScreenAppearance } from "@/lib/theme-storage";
 import { ThemeAnimationOnly, resolveBackgroundStyle } from "@/components/ThemeBackdrop";
 import { registerPushToken } from "@/lib/push-storage";
-
 import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/profile")({
@@ -23,8 +23,8 @@ export const Route = createFileRoute("/profile")({
 
 function Profile() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
   const { draft, hydrated, reset } = useOnboarding();
+  const { logout } = useAuth();
   const { ids } = useFavorites();
   const tr = useT();
   const [locale] = useLocale();
@@ -57,9 +57,17 @@ function Profile() {
   const isBiz = draft.profileType === "business";
   const profile = isBiz ? draft.business : draft.personal;
 
+  // CRÍTICO (correção 2026-08-18): antes, este botão só limpava o draft de
+  // onboarding local e navegava para "/" — nunca terminava a sessão real do
+  // Supabase. Como a sessão continuava válida, ao chegar a "/" o utilizador
+  // era imediatamente devolvido a "/home" (ver useEffect em routes/index.tsx),
+  // ou então caía de novo no onboarding do zero por causa do draft acabado
+  // de apagar — dando a sensação de que "sair da conta" nunca funcionava e
+  // de que era preciso recadastrar tudo. Agora termina mesmo a sessão do
+  // Supabase (logout()) e só depois limpa o draft local e navega.
   const signOut = async () => {
-    reset();
     await logout();
+    reset();
     navigate({ to: "/" });
   };
 
@@ -237,7 +245,13 @@ function Profile() {
           Spotter Local · by XTACK · v22
         </p>
       </main>
-      <BottomNav />
+      {/* BUG DO ABRÃO (2026-08-21): antes, esta página mostrava SEMPRE o
+          menu inferior "pessoal" (Descobrir/Pesquisar/QR/Chat/Perfil),
+          mesmo para contas comerciantes — que deviam ver
+          Painel/Produtos/Mensagens/Perfil. Um comerciante que abrisse o
+          seu Perfil e tocasse "Descobrir" ou "Pesquisar" saía sem querer
+          do contexto comercial, para o modo de navegação de cliente. */}
+      {isBiz ? <BusinessBottomNav /> : <BottomNav />}
     </div>
   );
 }

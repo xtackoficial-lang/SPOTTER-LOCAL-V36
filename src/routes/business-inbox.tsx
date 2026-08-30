@@ -13,6 +13,7 @@ import { BusinessBottomNav } from "@/components/BusinessBottomNav";
 import { Icon } from "@/components/Icon";
 import { RequireBusiness } from "@/components/RequireBusiness";
 import { useT } from "@/lib/i18n";
+import { supabase, SUPABASE_CONFIGURED } from "@/lib/supabase";
 
 export const Route = createFileRoute("/business-inbox")({
   head: () => ({ meta: [{ title: "Mensagens — Spotter Local Business" }] }),
@@ -22,6 +23,27 @@ export const Route = createFileRoute("/business-inbox")({
     </RequireBusiness>
   ),
 });
+
+// BUG DO ABRÃO (2026-08-23): "adiciona tempo real" à lista de conversas
+// do comerciante — antes só a conversa aberta (ConversationView) tinha
+// Realtime; a lista em si só carregava uma vez ao entrar na página.
+// Reutiliza o mesmo canal de subscribeToMessages, mas ouvindo TODAS as
+// mensagens do negócio (não de um cliente específico) para actualizar a
+// lista de conversas em tempo real, mesmo sem abrir nenhuma.
+function subscribeToBusinessInbox(businessId: string, onChange: () => void) {
+  if (!SUPABASE_CONFIGURED || !supabase) return () => {};
+  const channel = supabase
+    .channel(`inbox:${businessId}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "messages", filter: `business_id=eq.${businessId}` },
+      () => onChange(),
+    )
+    .subscribe();
+  return () => {
+    supabase!.removeChannel(channel);
+  };
+}
 
 function BusinessInbox() {
   const tr = useT();
@@ -51,8 +73,21 @@ function BusinessInbox() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+    // BUG DO ABRÃO (2026-08-23): a lista de conversas só carregava uma
+    // vez ao entrar na página — uma mensagem nova de um cliente só
+    // aparecia depois de sair e voltar à aba. Agora subscreve o mesmo
+    // negócio em tempo real e recarrega a lista sempre que chega
+    // qualquer mensagem nova. Actualização silenciosa em segundo plano
+    // (sem mexer em "loading") para não fazer o ecrã piscar de cada vez
+    // que chega uma mensagem.
+    const unsubscribe = subscribeToBusinessInbox(businessId, () => {
+      fetchBusinessConversations(businessId, user.id).then((list) => {
+        if (!cancelled) setConversations(list);
+      });
+    });
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, [hydrated, user, businessId]);
 

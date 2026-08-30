@@ -8,6 +8,7 @@ import { ThemeBackdrop } from "@/components/ThemeBackdrop";
 import { ShimmerButton } from "@/components/ShimmerButton";
 import { BreathingLoader } from "@/components/BreathingLoader";
 import { useT } from "@/lib/i18n";
+import { IntroCarousel, hasSeenIntro } from "@/components/IntroCarousel";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -92,6 +93,15 @@ function Welcome() {
   } = useAuth();
   const { appearance } = useScreenAppearance("login");
   const tr = useT();
+  // Pedido do Abrão (2026-08-27): 3 fotos que a pessoa arrasta para o
+  // lado, mostradas só na primeira vez que a app abre, antes de
+  // qualquer ecrã de login/cadastro. Ver IntroCarousel.tsx.
+  // `null` = ainda não sabemos (evita mostrar/esconder com um "flash"
+  // antes do localStorage ser lido); calculado só uma vez ao montar.
+  const [showIntro, setShowIntro] = useState<boolean | null>(null);
+  useEffect(() => {
+    setShowIntro(!hasSeenIntro());
+  }, []);
   const [mode, setMode] = useState<Mode>("choose");
   const [isSignup, setIsSignup] = useState(true);
   const [name, setName] = useState("");
@@ -130,6 +140,16 @@ function Welcome() {
     return <BreathingLoader fullScreen label={tr("verifyingSession")} />;
   }
 
+  // showIntro === null só dura um instante (até o useEffect ler o
+  // localStorage) — mostra o mesmo loader para não haver um "flash" do
+  // ecrã de login antes do carrossel aparecer.
+  if (showIntro === null) {
+    return <BreathingLoader fullScreen label={tr("verifyingSession")} />;
+  }
+  if (showIntro) {
+    return <IntroCarousel onFinish={() => setShowIntro(false)} />;
+  }
+
   const handleContinue = async () => {
     if (!email || !password) return;
     setMode("loading");
@@ -145,7 +165,7 @@ function Welcome() {
 
   const handleGuest = () => navigate({ to: "/onboarding" });
 
-  const handleSocialLogin = async (provider: "google" | "apple") => {
+  const handleSocialLogin = async (provider: "google") => {
     setError("");
     setMode("loading");
     const { error: oauthError } = await loginWithOAuth(provider);
@@ -272,7 +292,8 @@ function Welcome() {
                 {SUPABASE_CONFIGURED ? tr("cloudDataSaved") : tr("demoModeLocalData")}
               </p>
 
-              {/* Login social & Iniciar sessão */}
+              {/* Social login — só Google (Apple removido a pedido do Abrão,
+                  2026-08-18: mantém o visual igual, só com um botão em vez de dois) */}
               <div className="mt-5 space-y-2.5">
                 <SocialButton
                   icon="google"
@@ -280,16 +301,6 @@ function Welcome() {
                   onClick={() => handleSocialLogin("google")}
                   delay={0}
                 />
-                <button
-                  className="press flex h-13 w-full items-center justify-center gap-3 rounded-2xl border border-primary/30 bg-primary/10 text-sm font-bold text-primary hover:bg-primary/15 transition shadow-sm"
-                  onClick={() => {
-                    setIsSignup(false);
-                    setMode("email");
-                  }}
-                >
-                  <Icon name="user" size={18} />
-                  Iniciar Sessão (Conta existente)
-                </button>
               </div>
 
               <div className="my-4 flex items-center gap-3">
@@ -308,6 +319,15 @@ function Welcome() {
                 >
                   <Icon name="mail" size={16} className="text-primary" />{" "}
                   {tr("createAccountWithEmail")}
+                </button>
+                <button
+                  className="press flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-border bg-muted/60 text-sm font-medium text-muted-foreground hover:bg-accent/50 transition"
+                  onClick={() => {
+                    setIsSignup(false);
+                    setMode("email");
+                  }}
+                >
+                  <Icon name="user" size={16} /> {tr("signInWithEmail")}
                 </button>
                 <ShimmerButton
                   className="press flex h-12 w-full items-center justify-center gap-1.5 rounded-2xl text-sm font-bold text-primary-foreground shadow-[var(--shadow-soft)] transition hover:opacity-90"
@@ -353,6 +373,29 @@ function Welcome() {
                 </button>
               </div>
 
+              {/* BUG DO ABRÃO (2026-08-19): "contas que iniciaram sessão
+                  com Google não têm como iniciar sessão, porque só nesta
+                  aba é email e senha". Quem criou conta com Google nunca
+                  teve senha — precisa do botão Google, não só email/senha.
+                  Já existia o botão "Voltar" acima que leva ao ecrã com o
+                  Google, mas para ninguém ficar preso aqui sem reparar
+                  nisso, mostra-se também directamente nesta aba de
+                  entrar (sem tirar nada do que já existia — só soma). */}
+              {!isSignup && (
+                <div className="mt-4">
+                  <SocialButton
+                    icon="google"
+                    label={tr("continueWithGoogle")}
+                    onClick={() => handleSocialLogin("google")}
+                  />
+                  <div className="my-3 flex items-center gap-3">
+                    <div className="h-px flex-1 bg-border" />
+                    <span className="text-[11px] text-muted-foreground">{tr("or")}</span>
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
+                </div>
+              )}
+
               <div className="mt-5 space-y-3">
                 {isSignup && (
                   <div className="animate-slide-up">
@@ -388,6 +431,19 @@ function Welcome() {
                     placeholder={tr("minSixChars")}
                     className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none focus:border-primary transition"
                   />
+                  {!isSignup && (
+                    // BUG DO ABRÃO (2026-08-23): quem criou a conta com
+                    // Google nunca teve senha nenhuma — ao tentar entrar
+                    // aqui, o Supabase devolve sempre "email ou senha
+                    // incorrectos" (por segurança, não distingue "conta
+                    // sem senha" de "senha errada"). Sem esta dica, a
+                    // pessoa ficava a tentar adivinhar uma senha que
+                    // nunca existiu.
+                    <p className="mt-1.5 text-[11px] text-muted-foreground">
+                      Criaste a conta com Google? Usa o botão "Continuar com
+                      Google" acima em vez da senha.
+                    </p>
+                  )}
                 </div>
                 {error && (
                   <div className="flex items-center gap-2 rounded-xl bg-destructive/10 border border-destructive/20 px-3 py-2.5 text-xs text-destructive animate-slide-up">

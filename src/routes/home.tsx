@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useOnboarding } from "@/lib/onboarding-storage";
 import { CATEGORY_FILTERS } from "@/lib/places-data";
 import { useDiscoverPlaces } from "@/lib/businesses-db";
+import { useAccountRecovery } from "@/lib/account-recovery";
 import { PlaceCard } from "@/components/PlaceCard";
 import { BottomNav } from "@/components/BottomNav";
 import { Icon } from "@/components/Icon";
@@ -43,6 +44,7 @@ function Home() {
   const navigate = useNavigate();
   const tr = useT();
   const { draft, hydrated } = useOnboarding();
+  const { ready } = useAccountRecovery();
   const { appearance } = useScreenAppearance("home");
   const isBiz = draft.profileType === "business";
   const profile = isBiz ? draft.business : draft.personal;
@@ -69,8 +71,9 @@ function Home() {
   }, []);
 
   useEffect(() => {
-    if (hydrated && !draft.completed) navigate({ to: "/onboarding" });
-  }, [hydrated, draft.completed, navigate]);
+    if (!ready) return;
+    if (!draft.completed) navigate({ to: "/onboarding" });
+  }, [ready, draft.completed, navigate]);
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 100);
@@ -126,7 +129,7 @@ function Home() {
   const featured = allPlaces.filter((p) => p.promo).slice(0, 5);
   const openNow = allPlaces.filter((p) => p.openNow);
 
-  if (!hydrated || placesLoading) {
+  if (!hydrated || placesLoading || !ready) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
         {/* Hero com BreathingLoader */}
@@ -162,7 +165,7 @@ function Home() {
       >
         {/* Fundo animado — smoke + glass blobs (sempre activo, atrás de tudo) */}
         <HeroBgCanvas />
-        <ThemeAnimationOnly appearance={appearance} />
+        {appearance.enabled && <ThemeAnimationOnly appearance={appearance} />}
         {/* Decorative orbs */}
         <div className="pointer-events-none absolute -right-16 -top-10 h-56 w-56 rounded-full bg-white/10 blur-3xl animate-float" />
         <div
@@ -332,11 +335,12 @@ function Home() {
 
         {/* Main list */}
         <section className="mt-6 px-5">
-          <h2 className="mb-3.5 text-sm font-bold tracking-tight text-foreground animate-slide-up">
+          <h2 className="mb-3.5 flex items-center gap-1.5 text-sm font-bold tracking-tight text-foreground animate-slide-up">
+            {cat === "online" && <Icon name="delivery" size={15} className="text-violet-500" />}
             {cat === "all"
               ? `${tr("openNowWithCount")} · ${openNow.length}`
               : cat === "online"
-                ? "🌐 Negócios Online"
+                ? "Negócios Online"
                 : CATEGORY_FILTERS.find((c) => c.id === cat)?.label}
           </h2>
           {cat === "online" && (

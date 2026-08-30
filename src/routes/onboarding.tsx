@@ -45,20 +45,33 @@ type Step =
 function Onboarding() {
   const tr = useT();
   const navigate = useNavigate();
-  const { draft, hydrated, update, updatePersonal, updateBusiness, reset } = useOnboarding();
-  const { user, setProfileType } = useAuth();
+  const { draft, hydrated, update, updatePersonal, updateBusiness, reset, ensureOwner } = useOnboarding();
+  const { user, loading: authLoading, setProfileType } = useAuth();
   const [step, setStepRaw] = useState<Step>("profileType");
   const [syncError, setSyncError] = useState<string | null>(null);
   const [syncingBusiness, setSyncingBusiness] = useState(false);
   const [restoredOnce, setRestoredOnce] = useState(false);
 
-  // Restaura o último passo visitado (uma única vez, depois de hidratar),
-  // para que recarregar a página a meio do onboarding não obrigue o
-  // utilizador a recomeçar do zero. Só restaura se ainda não completou
-  // e se o passo guardado for um dos passos válidos.
+  // Restaura o último passo visitado (uma única vez, depois de hidratar E
+  // de confirmar a quem pertence o rascunho — ver ensureOwner), para que
+  // recarregar a página a meio do onboarding não obrigue o utilizador a
+  // recomeçar do zero. Só restaura se ainda não completou e se o passo
+  // guardado for um dos passos válidos.
+  //
+  // BUG DO ABRÃO (2026-08-19): antes, isto corria assim que "hydrated"
+  // ficasse true, sem esperar a sessão de autenticação resolver. Se o
+  // rascunho neste aparelho pertencesse a OUTRA conta (ex: alguém
+  // abandonou um cadastro de negócio a meio), este efeito podia
+  // restaurar esse passo antigo ANTES do ensureOwner() ter oportunidade
+  // de limpar o rascunho — mostrando por instantes (ou permanentemente,
+  // por causa do "restoredOnce") dados de uma conta que não é a que
+  // está autenticada agora. Agora espera authLoading resolver e chama
+  // ensureOwner() primeiro, no mesmo efeito, antes de ler lastStep.
   useEffect(() => {
-    if (!hydrated || restoredOnce) return;
+    if (!hydrated || authLoading || restoredOnce) return;
+    const wasReset = user ? ensureOwner(user.id) : false;
     setRestoredOnce(true);
+    if (wasReset) return; // rascunho era de outra conta e foi limpo agora — nada para restaurar
     const VALID_STEPS: Step[] = [
       "profileType",
       "p-language",
@@ -76,7 +89,7 @@ function Onboarding() {
     if (!draft.completed && draft.lastStep && (VALID_STEPS as string[]).includes(draft.lastStep)) {
       setStepRaw(draft.lastStep as Step);
     }
-  }, [hydrated, restoredOnce, draft.completed, draft.lastStep]);
+  }, [hydrated, authLoading, restoredOnce, draft.completed, draft.lastStep]);
 
   // Substitui setStep directo: além de mudar o passo localmente, grava-o
   // no draft (localStorage) para a função de restauro acima funcionar.
@@ -115,8 +128,17 @@ function Onboarding() {
         step={step}
         currentStepNum={currentStepNum}
         totalSteps={totalSteps}
-        onBack={() => goBack(step, setStep)}
-        onReset={reset}
+        onBack={() => goBack(step, setStep, navigate)}
+        onReset={() => {
+          // BUG DO ABRÃO (2026-08-21): "Recomeçar" limpava os dados do
+          // rascunho mas deixava o ecrã no MESMO passo onde a pessoa
+          // estava (ex: "b-details", passo 5 de 6) — agora vazio, mas
+          // sem voltar ao início. Parecia que o botão tinha travado ou
+          // feito outra coisa em vez de "recomeçar". Agora volta mesmo
+          // ao primeiro passo (escolher tipo de perfil).
+          reset();
+          setStepRaw("profileType");
+        }}
       />
       <div key={step} className="flex-1 px-6 pb-8 animate-slide-up">
         {step === "profileType" && (
@@ -306,7 +328,7 @@ function Onboarding() {
   );
 }
 
-function goBack(step: Step, setStep: (s: Step) => void) {
+function goBack(step: Step, setStep: (s: Step) => void, navigate: (opts: { to: string }) => void) {
   const order: Step[] = [
     "profileType",
     "p-language",
@@ -321,7 +343,16 @@ function goBack(step: Step, setStep: (s: Step) => void) {
     "b-verifying",
   ];
   const idx = order.indexOf(step);
-  if (idx <= 0) return;
+  // BUG DO ABRÃO (2026-08-19): "bug crítico de navegação ao criar
+  // contas" — no primeiro passo (escolher tipo de perfil), o botão
+  // "Voltar" ficava visível mas não fazia NADA ao clicar (idx <= 0
+  // apenas terminava a função em silêncio). Parecia que a app tinha
+  // travado. Agora, no primeiro passo, volta mesmo para o ecrã de
+  // login/boas-vindas, como o botão promete.
+  if (idx <= 0) {
+    navigate({ to: "/" });
+    return;
+  }
   const prev = order[idx - 1];
   if (step === "p-language" || step === "b-language") {
     setStep("profileType");

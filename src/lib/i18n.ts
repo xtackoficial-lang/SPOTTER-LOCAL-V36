@@ -3713,13 +3713,6 @@ export const LOCALE_LABELS: Record<Locale, string> = {
   fr: "Français",
 };
 
-export const LOCALE_FLAGS: Record<Locale, string> = {
-  pt: "🇲🇿",
-  en: "🇬🇧",
-  es: "🇪🇸",
-  fr: "🇫🇷",
-};
-
 export const LOCALE_LIST: Locale[] = ["pt", "en", "es", "fr"];
 
 // Mapeia o nosso Locale para uma tag BCP-47 usada por toLocaleDateString/

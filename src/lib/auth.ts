@@ -32,6 +32,33 @@ export async function isSelfSuspended(userId: string): Promise<boolean> {
   }
 }
 
+// Busca o perfil pessoal já sincronizado em public.profiles (ver
+// syncProfileToSupabase). Usado na recuperação de conta em home.tsx: se
+// alguém entra numa conta já existente mas o draft local de onboarding
+// não sabe disso (outro dispositivo, cache limpa, etc.), isto permite
+// restaurar cidade/país/interesses sem obrigar a refazer o onboarding.
+export interface RemoteProfile {
+  name?: string;
+  province?: string;
+  city?: string;
+  country?: string;
+  favorite_category?: string;
+}
+export async function fetchProfile(userId: string): Promise<RemoteProfile | null> {
+  if (!SUPABASE_CONFIGURED || !supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("name, province, city, country, favorite_category")
+      .eq("id", userId)
+      .maybeSingle();
+    if (error || !data || !data.city) return null;
+    return data as RemoteProfile;
+  } catch {
+    return null;
+  }
+}
+
 // ---------- helpers localStorage (fallback offline) ----------
 // Guarda uma "base" de contas locais (simulação de utilizadores), não apenas
 // a sessão activa, para que signIn possa validar a password correctamente
@@ -159,6 +186,44 @@ export async function setProfileType(
 }
 
 // ---------- Sign Up ----------
+// ---------- Traduzir erros técnicos do Supabase para português claro ----------
+// BUG DO ABRÃO (2026-08-23): "não aceitava clicar colocar um email", e
+// contas criadas com Google presas ao tentar entrar. Causa real: o
+// supabase-js NÃO lança excepção em falhas de rede — devolve
+// { error: { message: "Failed to fetch" } } (texto em inglês, da própria
+// API fetch do browser) como um erro NORMAL, que o código antigo
+// mostrava tal e qual na tela. Numa ligação móvel instável (comum em
+// Moçambique), isto aparecia como "Failed to fetch" sem tradução — dava
+// a impressão de que o formulário "não aceitava" o email, quando na
+// verdade era só a internet a falhar naquele instante. O mesmo
+// acontecia com "User already registered" (alguém que já tem conta,
+// ex: criada com Google, tentando "Criar conta" de novo com o mesmo
+// email) — em inglês, sem indicar que devia era usar o botão Google.
+function translateAuthError(raw: string): string {
+  const msg = raw.toLowerCase();
+  if (
+    msg.includes("failed to fetch") ||
+    msg.includes("network") ||
+    msg.includes("load failed") ||
+    msg.includes("fetch failed")
+  ) {
+    return "Sem ligação à internet neste momento. Verifica a tua ligação e tenta novamente.";
+  }
+  if (msg.includes("already registered") || msg.includes("already exists") || msg.includes("user_repeated_signup")) {
+    return "Já existe uma conta com este email. Toca em \"Já tem conta? Entrar\" — se criaste a conta com Google, usa o botão \"Continuar com Google\".";
+  }
+  if (msg.includes("email not confirmed")) {
+    return "Confirma o teu email antes de entrar — verifica a caixa de entrada (e o spam).";
+  }
+  if (msg.includes("invalid login credentials") || msg.includes("invalid_credentials")) {
+    return "Email ou senha incorrectos.";
+  }
+  if (msg.includes("password") && msg.includes("6")) {
+    return "A senha precisa de pelo menos 6 caracteres.";
+  }
+  return raw; // erro específico do Supabase que já vem claro — mostra tal como está
+}
+
 export async function signUp(
   email: string,
   password: string,
@@ -171,7 +236,7 @@ export async function signUp(
         password,
         options: { data: { name } },
       });
-      if (error) return { user: null, error: error.message };
+      if (error) return { user: null, error: translateAuthError(error.message) };
       if (!data.user) return { user: null, error: "Erro ao criar conta" };
       const u: AuthUser = {
         id: data.user.id,
@@ -224,7 +289,12 @@ export async function signIn(
   if (SUPABASE_CONFIGURED && supabase) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) return { user: null, error: "Email ou senha incorrectos" };
+      // BUG DO ABRÃO (2026-08-23): antes, QUALQUER erro aqui (incluindo
+      // falha de rede pura) mostrava sempre "Email ou senha incorrectos"
+      // — alguém sem sinal por um instante era enganado a pensar que
+      // se tinha esquecido da senha. Agora distingue rede de
+      // credenciais erradas.
+      if (error) return { user: null, error: translateAuthError(error.message) };
       if (!data.user) return { user: null, error: "Erro ao entrar" };
       const u: AuthUser = {
         id: data.user.id,
@@ -288,9 +358,17 @@ export async function signInWithOAuth(
       provider,
       options: {
         redirectTo: `${window.location.origin}/`,
+        // BUG DO ABRÃO (2026-08-19): "tentei sair e iniciar sessão com
+        // outra conta, não aceitou... volta à conta antiga". Sem isto,
+        // se o telemóvel já tinha uma sessão Google aberta, o Google
+        // reentrava automaticamente nessa MESMA conta, sem sequer
+        // mostrar a lista de contas — parecia que a app estava "presa"
+        // na conta antiga, mas era o próprio Google a pular a escolha.
+        // Isto força sempre a lista de contas a aparecer.
+        queryParams: provider === "google" ? { prompt: "select_account" } : undefined,
       },
     });
-    if (error) return { error: error.message };
+    if (error) return { error: translateAuthError(error.message) };
     // Em sucesso o browser é redireccionado para o provider — não há mais
     // nada a devolver aqui; o fluxo continua noutra navegação da página.
     return { error: null };

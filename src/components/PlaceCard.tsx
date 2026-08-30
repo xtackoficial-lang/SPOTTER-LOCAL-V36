@@ -2,11 +2,22 @@ import { Link } from "@tanstack/react-router";
 import { type Place, priceText } from "@/lib/places-data";
 import { Icon } from "@/components/Icon";
 import { formatDistance } from "@/lib/geo-utils";
+import { provinceForCity } from "@/lib/mozambique-locations";
 import { useT } from "@/lib/i18n";
 
 export function PlaceCard({ place }: { place: Place }) {
   const tr = useT();
   const distStr = formatDistance(place.distanceKm);
+  // BUG DO ABRÃO (2026-08-24): "a localização deve estar bem vista,
+  // deve mostrar em que província depois a cidade". Antes, o cartão só
+  // mostrava a distância (ex: "2.3 km") — nunca o nome da província ou
+  // cidade, mesmo esses dados já existindo (place.province/city). Quem
+  // não tinha activado a localização via GPS não tinha NENHUMA forma de
+  // saber onde o negócio ficava, só olhando pelo cartão. province usa
+  // provinceForCity como reserva para negócios antigos, cadastrados
+  // antes deste campo existir e por isso sem province gravada.
+  const province = place.province ?? provinceForCity(place.city);
+  const locationLabel = province ? `${province} · ${place.city}` : place.city;
 
   return (
     <Link
@@ -84,6 +95,12 @@ export function PlaceCard({ place }: { place: Place }) {
               <div className="mt-0.5 text-xs text-muted-foreground">
                 {place.categoryLabel} · {priceText(place.priceLevel)}
               </div>
+              {locationLabel && (
+                <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <Icon name="pin" size={10} className="shrink-0" />
+                  <span className="truncate">{locationLabel}</span>
+                </div>
+              )}
             </div>
           </div>
           <div className="text-right">

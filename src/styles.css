@@ -272,8 +272,61 @@
 .stagger > *:nth-child(8) { animation-delay: 0.46s; }
 .stagger > *:nth-child(n+9) { animation-delay: 0.52s; }
 
-.press { transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.16s; }
-.press:active { transform: scale(0.96); opacity: 0.85; }
+/* Pedido do Abrão (2026-08-26): tornar TODOS os cliques da app mais
+   animados, sem quebrar nada — .press é usado em centenas de botões,
+   por isso qualquer melhoria aqui já se reflecte na app inteira, de
+   uma só vez. Antes só encolhia um pouco ao carregar; agora tem um
+   "bounce" leve ao soltar (a transição de saída é mais rápida e usa
+   overshoot, dando a sensação de mola/elástico), e ganha um leve
+   levantamento ao passar o rato por cima em ecrãs com hover real
+   (telemóvel ignora isto automaticamente, não afecta toque). */
+.press {
+  transition:
+    transform 0.16s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.16s,
+    box-shadow 0.2s ease;
+}
+.press:active { transform: scale(0.94); opacity: 0.85; }
+@media (hover: hover) {
+  .press:hover { transform: translateY(-1px); }
+  .press:hover:active { transform: scale(0.94) translateY(0); }
+}
+
+/* Onda ao tocar — opt-in (className="press ripple"), para botões
+   principais de confirmação (Guardar, Enviar, Criar conta, etc.) onde
+   vale a pena um destaque extra. Puramente CSS, sem JS: usa o próprio
+   :active do botão para expandir um círculo a partir do centro. */
+.ripple {
+  position: relative;
+  overflow: hidden;
+}
+.ripple::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.55) 0%, transparent 70%);
+  opacity: 0;
+  transform: scale(0.3);
+  transition: none;
+  pointer-events: none;
+}
+.ripple:active::after {
+  opacity: 1;
+  transform: scale(1.6);
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s ease-out 0.05s;
+}
+
+/* Linhas de lista/tabela — realce suave ao passar/tocar, para listas
+   do admin (comerciantes, contas) e do comerciante (produtos, pedidos)
+   parecerem mais vivas em vez de blocos estáticos. */
+.row-hover {
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+.row-hover:active { transform: scale(0.99); }
+@media (hover: hover) {
+  .row-hover:hover { background-color: var(--muted); }
+}
 
 .shine-text {
   background: linear-gradient(90deg, currentColor 0%, color-mix(in oklab, currentColor 30%, white) 50%, currentColor 100%);

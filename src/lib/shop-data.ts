@@ -119,13 +119,27 @@ export async function updateMerchant(
   if (patch.notes !== undefined) supabasePatch.notes = patch.notes;
 
   if (SUPABASE_CONFIGURED && supabase && Object.keys(supabasePatch).length > 0) {
-    try {
-      await supabase
-        .from("businesses")
-        .update({ ...supabasePatch, updated_at: new Date().toISOString() })
-        .eq("id", id);
-    } catch (err) {
-      console.warn("updateMerchant: Supabase indisponível.", err);
+    // BUG DO ABRÃO (2026-08-19): antes, um erro aqui (ex: RLS a bloquear
+    // a escrita porque quem está a chamar isto não está autenticado no
+    // Supabase como admin — ver checkSupabaseAdminAuthorized em
+    // admin-storage.ts) era só um console.warn. O admin clicava
+    // "Activar plano Pro", nada acontecia, a lista era recarregada com
+    // os MESMOS dados antigos (continuava "Free") e não havia nenhum
+    // aviso do porquê. Agora relança o erro para quem chamou (admin.tsx)
+    // poder mostrar isso na interface em vez de falhar em silêncio.
+    // Nota: uma RLS a bloquear silenciosamente não gera "error" no
+    // Supabase (0 linhas afectadas, sem excepção) — por isso também se
+    // confirma que pelo menos 1 linha foi mesmo alterada.
+    const { error, data } = await supabase
+      .from("businesses")
+      .update({ ...supabasePatch, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select("id");
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) {
+      throw new Error(
+        "A gravação não alterou nenhum registo — provavelmente falta autorização de administrador no Supabase (RLS). Confirma que a tua conta está na tabela \"admins\" e que tens sessão iniciada na app neste navegador.",
+      );
     }
   }
   return getMerchants();

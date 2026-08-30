@@ -26,6 +26,7 @@ import {
   BlockCatalog,
   BlockItinerary,
   type BlockContext,
+  glowShadow,
 } from "@/components/ProfileBlocks";
 import {
   familyForCategory,
@@ -334,34 +335,38 @@ function PlaceDetail() {
               </div>
             )}
             {place.website && (
+              // CORREÇÃO (2026-08-19, pedido do Abrão): antes era só um
+              // link de texto com a URL crua — pouco visível e nada
+              // convidativo para o cliente clicar. Agora é um botão no
+              // mesmo estilo do botão de Rota (BlockRouteBig), com o
+              // nome do negócio explícito.
               <a
                 href={place.website.startsWith("http") ? place.website : `https://${place.website}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="press mt-2 flex w-full items-center justify-between gap-3 rounded-2xl p-4 font-semibold shadow-sm transition hover:opacity-90"
+                className="press mt-1.5 flex w-full items-center gap-3 rounded-2xl p-3.5"
                 style={{
-                  background: theme.accentSoft ?? "rgba(0,0,0,0.06)",
                   border: `1px solid ${theme.border}`,
+                  background: theme.accentSoft,
                   color: theme.text,
+                  boxShadow: glowShadow(theme),
                 }}
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-xl"
-                    style={{ background: theme.accent, color: theme.bg }}
-                  >
-                    <Icon name="globe" size={18} />
+                <div
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full"
+                  style={{ background: theme.accent, color: theme.bg }}
+                >
+                  <Icon name="globe" size={16} />
+                </div>
+                <div className="min-w-0 text-left">
+                  <div className="truncate text-sm font-bold">
+                    Site oficial de {place.name}
                   </div>
-                  <div className="min-w-0 text-left">
-                    <div className="truncate text-sm font-bold">
-                      Site oficial de &quot;{place.name}&quot;
-                    </div>
-                    <div className="truncate text-[11px]" style={{ color: theme.sub }}>
-                      {place.website}
-                    </div>
+                  <div className="truncate text-[11px]" style={{ color: theme.sub }}>
+                    {place.website}
                   </div>
                 </div>
-                <Icon name="chevronRight" size={18} className="shrink-0" style={{ color: theme.sub }} />
+                <Icon name="chevronRight" size={16} className="ml-auto shrink-0" style={{ color: theme.sub }} />
               </a>
             )}
           </div>

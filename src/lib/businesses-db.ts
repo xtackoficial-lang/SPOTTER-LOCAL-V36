@@ -249,24 +249,49 @@ export async function fetchBusinessById(id: string): Promise<BusinessDB | null> 
   return place ? placeToBusinessDB(place) : null;
 }
 
+// ---------- Buscar negócio pelo dono (recuperação de conta) ----------
+// Usado quando alguém entra numa conta já existente (Google ou email) mas o
+// draft local de onboarding não tem "completed" — ex: outro dispositivo,
+// cache/localStorage limpo, ou depois de sair da conta. Sem isto, a app
+// assumia sempre que era um utilizador novo e obrigava a recomeçar o
+// cadastro do negócio do zero, mesmo já existindo em Supabase.
+export async function fetchBusinessByOwner(ownerId: string): Promise<BusinessDB | null> {
+  if (!SUPABASE_CONFIGURED || !supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from("businesses")
+      .select("*")
+      .eq("owner_id", ownerId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!error && data) return data as BusinessDB;
+  } catch (err) {
+    console.warn("fetchBusinessByOwner: Supabase indisponível.", err);
+  }
+  return null;
+}
+
 // ---------- Criar/actualizar negócio ----------
 export async function upsertBusiness(
   business: Partial<BusinessDB> & { id?: string; owner_id: string },
 ): Promise<BusinessDB | null> {
   if (SUPABASE_CONFIGURED && supabase) {
-    // BUG CORRIGIDO (2026-08-15): antes, se o Supabase devolvesse um erro
-    // (ex: RLS, constraint, tipo de dado inválido), a função fazia
-    // `if (!error && data) return data` e depois caía silenciosamente
-    // para `return null` — sem lançar excepção. O chamador (saveProfile
-    // em merchant.tsx) não verificava esse null e mostrava sempre
-    // "Guardado!" mesmo quando a gravação tinha falhado de facto.
-    // Agora lança o erro do Supabase para que o chamador o possa tratar.
+    // BUG DO ABRÃO (2026-08-19): "as actualizações do comerciante não
+    // chegam aos clientes". Causa: esta função engolia qualquer erro do
+    // Supabase (RLS a bloquear, coluna inválida, rede, etc.) e devolvia
+    // null em silêncio — quem chamava (saveProfile em merchant.tsx)
+    // nunca sabia que a gravação tinha falhado, e mostrava "Guardado!"
+    // na mesma. O comerciante achava que tinha publicado a alteração,
+    // mas ela nunca chegou à tabela "businesses" — logo nunca chegou
+    // aos clientes, que leem só dessa tabela. Agora lança o erro para
+    // quem chamou poder mostrar isso na interface.
     const { data, error } = await supabase
       .from("businesses")
       .upsert({ ...business, updated_at: new Date().toISOString() })
       .select()
       .single();
-    if (error) throw error;
+    if (error) throw new Error(error.message);
     return data as BusinessDB;
   }
   return null;
@@ -321,18 +346,16 @@ export async function upsertProduct(
   product: Omit<ProductDB, "id" | "created_at"> & { id?: string },
 ): Promise<ProductDB | null> {
   if (SUPABASE_CONFIGURED && supabase) {
-    // BUG CORRIGIDO (2026-08-15): mesmo padrão que upsertBusiness —
-    // erros do Supabase ({data: null, error: {...}}) eram engolidos e
-    // devolvidos como null. syncProductRemote() chamava isto e só fazia
-    // .catch(), nunca verificava null — produtos podiam não chegar ao
-    // servidor sem qualquer aviso. Agora lança o erro.
-    const { data, error } = await supabase
-      .from("products")
-      .upsert({ ...product, updated_at: new Date().toISOString() })
-      .select()
-      .single();
-    if (error) throw error;
-    return data as ProductDB;
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .upsert({ ...product, updated_at: new Date().toISOString() })
+        .select()
+        .single();
+      if (!error && data) return data as ProductDB;
+    } catch (err) {
+      console.warn("upsertProduct: Supabase indisponível.", err);
+    }
   }
   return null;
 }

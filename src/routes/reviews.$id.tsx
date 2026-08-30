@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Icon } from "@/components/Icon";
-import { useAuth } from "@/lib/auth-context";
 import {
   getBusinessReviews,
   computeReviewStats,
@@ -18,37 +17,23 @@ export const Route = createFileRoute("/reviews/$id")({
   component: ReviewsPage,
 });
 
-// BUG CORRIGIDO (2026-08-15): a chave de negócios avaliados era fixa
-// ("xlocal.reviewed_businesses.v1"), sem distinguir qual conta tinha sessão iniciada.
-// Ao trocar de conta no mesmo dispositivo, o utilizador B não podia avaliar
-// um negócio que o utilizador A já tinha avaliado. Agora associa a chave ao userId.
-function getReviewedKey(userId: string): string {
-  return `xlocal.reviewed_businesses.${userId}.v1`;
-}
+// Chave para guardar quais negócios o utilizador já avaliou
+const REVIEWED_KEY = "xlocal.reviewed_businesses.v1";
 
-function getReviewedBusinesses(userId: string): string[] {
+function getReviewedBusinesses(): string[] {
   try {
-    const raw = localStorage.getItem(getReviewedKey(userId));
-    if (raw) return JSON.parse(raw);
-    if (userId === "guest") {
-      const legacy = localStorage.getItem("xlocal.reviewed_businesses.v1");
-      return legacy ? JSON.parse(legacy) : [];
-    }
-    return [];
+    const raw = localStorage.getItem(REVIEWED_KEY);
+    return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
   }
 }
 
-function markAsReviewed(businessId: string, userId: string) {
-  const list = getReviewedBusinesses(userId);
+function markAsReviewed(businessId: string) {
+  const list = getReviewedBusinesses();
   if (!list.includes(businessId)) {
     list.push(businessId);
-    try {
-      localStorage.setItem(getReviewedKey(userId), JSON.stringify(list));
-    } catch {
-      /* ignorado: falha de quota/acesso ao localStorage */
-    }
+    localStorage.setItem(REVIEWED_KEY, JSON.stringify(list));
   }
 }
 
@@ -72,8 +57,6 @@ function ReviewsPage() {
   const navigate = useNavigate();
   const tr = useT();
   const [locale] = useLocale();
-  const { user } = useAuth();
-  const activeUserId = user?.id || "guest";
   const { id: businessId } = useParams({ from: "/reviews/$id" });
   const [reviews, setReviews] = useState<Review[]>([]);
   const [stats, setStats] = useState<ReviewStats | null>(null);
@@ -89,7 +72,7 @@ function ReviewsPage() {
     "recent" | "rating_high" | "rating_low" | "helpful"
   >("recent");
 
-  const alreadyReviewed = getReviewedBusinesses(activeUserId).includes(businessId);
+  const alreadyReviewed = getReviewedBusinesses().includes(businessId);
 
   const [retryKey, setRetryKey] = useState(0);
 
@@ -129,23 +112,12 @@ function ReviewsPage() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      // BUG CORRIGIDO (2026-08-15): antes, submitReview ignorava o utilizador
-      // autenticado (useAuth) e usava sempre um ID anónimo aleatório em
-      // xlocal.userId. Agora usa o ID real da conta Supabase (user.id) e o nome
-      // da conta quando disponível.
-      let currentUserId = user?.id;
-      let currentUserName = user?.name || (user?.email ? user.email.split("@")[0] : undefined);
-
-      if (!currentUserId) {
-        currentUserId = localStorage.getItem("xlocal.userId") || "user-" + Math.random().toString(36).slice(2, 8);
-        try { localStorage.setItem("xlocal.userId", currentUserId); } catch {}
-      }
-      if (!currentUserName) {
-        currentUserName = localStorage.getItem("xlocal.userName") || "Visitante";
-      }
-
-      const r = await submitReview(businessId, currentUserId, currentUserName, formRating, formText);
-      markAsReviewed(businessId, activeUserId);
+      const userId =
+        localStorage.getItem("xlocal.userId") || "user-" + Math.random().toString(36).slice(2, 8);
+      localStorage.setItem("xlocal.userId", userId);
+      const userName = localStorage.getItem("xlocal.userName") || "Visitante";
+      const r = await submitReview(businessId, userId, userName, formRating, formText);
+      markAsReviewed(businessId);
       setReviews((prev) => [r, ...prev]);
       setStats(computeReviewStats([r, ...reviews]));
       setFormText("");

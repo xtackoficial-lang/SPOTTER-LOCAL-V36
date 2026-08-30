@@ -38,6 +38,8 @@ import {
   Camera,
   Car,
   Wrench,
+  Dumbbell,
+  Droplets,
   ShoppingBag,
   Smartphone,
   Plug,
@@ -110,6 +112,19 @@ const MAP: Record<string, LucideIcon> = {
   wine: Wine,
   pizza: Utensils,
   hotel_restaurant: Bed,
+  // BUG DO ABRÃO (2026-08-24): "adicionar vários tipos de negócio —
+  // oficina, lavagem de veículos, gym, clínicas ou mais". "clinic" já
+  // existia; adicionadas as restantes categorias novas em todo o lado
+  // onde uma categoria precisa de existir: aqui (ícone), em
+  // onboarding-storage.ts (BUSINESS_CATEGORIES — escolha no cadastro
+  // do comerciante), em places-data.ts (CATEGORY_FILTERS — chips de
+  // busca do cliente) e em profile-styles.ts (FAMILY_BY_CATEGORY —
+  // qual layout de perfil usa).
+  auto_repair: Wrench,
+  car_wash: Droplets,
+  gym: Dumbbell,
+  bakery: Utensils,
+  hardware_store: Store,
   // interests
   food: Utensils,
   health: Pill,

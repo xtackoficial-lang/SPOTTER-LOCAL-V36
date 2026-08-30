@@ -3,15 +3,24 @@
 // estatísticas, perfil do negócio). Sem isto, uma conta pessoal
 // que navegue manualmente para /business, /merchant, /products
 // ou /analytics conseguia entrar e ver um painel vazio/quebrado.
+//
+// CORREÇÃO (2026-08-18): antes, isto decidia "conta comercial?" olhando
+// SÓ para draft.profileType no localStorage. Um comerciante que abrisse a
+// app directamente numa destas páginas (atalho salvo, notificação, ou o
+// APK reaberto nessa rota) — sem passar primeiro por /home — e cujo
+// draft local estivesse vazio (outro dispositivo, cache limpa, ou depois
+// de sair da conta) era expulso para o onboarding, mesmo já tendo negócio
+// cadastrado no Supabase. Agora usa o mesmo useAccountRecovery() de
+// routes/home.tsx, que verifica o Supabase antes de decidir.
 // ============================================================
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { useOnboarding } from "@/lib/onboarding-storage";
+import { useAccountRecovery } from "@/lib/account-recovery";
 import { Icon } from "@/components/Icon";
 
 export function RequireBusiness({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
-  const { draft, hydrated } = useOnboarding();
+  const { draft, ready } = useAccountRecovery();
 
   // "personal" = conta pessoal tentando entrar numa área comercial → bloquear.
   // null/undefined = ainda não escolheu tipo de conta → manda para o onboarding.
@@ -21,13 +30,13 @@ export function RequireBusiness({ children }: { children: React.ReactNode }) {
   const isUnset = !draft.profileType;
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!ready) return;
     if (isPersonal || isUnset) {
       navigate({ to: "/onboarding" });
     }
-  }, [hydrated, isPersonal, isUnset, navigate]);
+  }, [ready, isPersonal, isUnset, navigate]);
 
-  if (!hydrated) {
+  if (!ready) {
     return <div className="min-h-screen bg-background" />;
   }
 

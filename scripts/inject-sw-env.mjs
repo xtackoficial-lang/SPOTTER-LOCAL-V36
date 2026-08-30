@@ -52,7 +52,7 @@ let sw = readFileSync(SW_TEMPLATE_PATH, "utf-8");
 let replaced = 0;
 for (const key of keys) {
   const placeholder = `__${key}__`;
-  const value = process.env[key] || env[key] || "";
+  const value = env[key] ?? "";
   if (sw.includes(placeholder)) {
     sw = sw.split(placeholder).join(value);
     replaced++;
@@ -60,10 +60,10 @@ for (const key of keys) {
 }
 writeFileSync(SW_OUTPUT_PATH, sw, "utf-8");
 
-if (process.env.VITE_FIREBASE_API_KEY || env.VITE_FIREBASE_API_KEY) {
+if (env.VITE_FIREBASE_API_KEY) {
   console.log(`✓ sw.js: ${replaced} credenciais Firebase injectadas.`);
 } else {
   console.log(
-    "ℹ sw.js: Firebase ainda não configurado no .env ou nas variáveis de ambiente — notificações push ficam desactivadas até o configurares (ver FIREBASE_SETUP.md).",
+    "ℹ sw.js: Firebase ainda não configurado no .env — notificações push ficam desactivadas até o configurares (ver FIREBASE_SETUP.md).",
   );
 }

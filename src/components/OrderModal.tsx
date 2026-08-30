@@ -103,7 +103,7 @@ export function OrderModal({
         (i) => `• ${i.qty}× ${i.productName} — ${(i.qty * i.unitPrice).toLocaleString()} MZN`,
       );
       const summary = [
-        `🛒 *Pedido #${order.id.slice(0, 6).toUpperCase()}*`,
+        `*Pedido #${order.id.slice(0, 6).toUpperCase()}*`,
         ...lines,
         discount > 0 ? `Desconto: -${discount.toLocaleString()} MZN` : "",
         `*Total: ${total.toLocaleString()} MZN*`,
@@ -213,10 +213,11 @@ export function OrderModal({
           </div>
           {couponResult && (
             <div
-              className={`text-xs px-1 ${couponResult.valid ? "text-emerald-500" : "text-destructive"}`}
+              className={`flex items-center gap-1.5 px-1 text-xs ${couponResult.valid ? "text-emerald-500" : "text-destructive"}`}
             >
+              {couponResult.valid && <Icon name="check" size={12} className="shrink-0" />}
               {couponResult.valid
-                ? `✓ ${tr("discountAppliedPrefix")} ${couponResult.discountAmount?.toLocaleString()} MZN ${tr("discountAppliedSuffix")}`
+                ? `${tr("discountAppliedPrefix")} ${couponResult.discountAmount?.toLocaleString()} MZN ${tr("discountAppliedSuffix")}`
                 : couponResult.error}
             </div>
           )}

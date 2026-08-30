@@ -27,10 +27,12 @@ import { Route as BusinessInboxRouteImport } from './routes/business-inbox'
 import { Route as BusinessRouteImport } from './routes/business'
 import { Route as BoostRouteImport } from './routes/boost'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ReviewsIdRouteImport } from './routes/reviews.$id'
 import { Route as PlaceIdRouteImport } from './routes/place.$id'
 import { Route as ChatIdRouteImport } from './routes/chat.$id'
+import { Route as BusinessPromoRouteImport } from './routes/business.promo'
 import { Route as BusinessOrdersRouteImport } from './routes/business.orders'
 import { Route as BusinessCouponsRouteImport } from './routes/business.coupons'
 
@@ -124,6 +126,11 @@ const AnalyticsRoute = AnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -144,6 +151,11 @@ const ChatIdRoute = ChatIdRouteImport.update({
   path: '/chat/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BusinessPromoRoute = BusinessPromoRouteImport.update({
+  id: '/promo',
+  path: '/promo',
+  getParentRoute: () => BusinessRoute,
+} as any)
 const BusinessOrdersRoute = BusinessOrdersRouteImport.update({
   id: '/orders',
   path: '/orders',
@@ -157,6 +169,7 @@ const BusinessCouponsRoute = BusinessCouponsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/analytics': typeof AnalyticsRoute
   '/boost': typeof BoostRoute
   '/business': typeof BusinessRouteWithChildren
@@ -177,12 +190,14 @@ export interface FileRoutesByFullPath {
   '/subscribe': typeof SubscribeRoute
   '/business/coupons': typeof BusinessCouponsRoute
   '/business/orders': typeof BusinessOrdersRoute
+  '/business/promo': typeof BusinessPromoRoute
   '/chat/$id': typeof ChatIdRoute
   '/place/$id': typeof PlaceIdRoute
   '/reviews/$id': typeof ReviewsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/analytics': typeof AnalyticsRoute
   '/boost': typeof BoostRoute
   '/business': typeof BusinessRouteWithChildren
@@ -203,6 +218,7 @@ export interface FileRoutesByTo {
   '/subscribe': typeof SubscribeRoute
   '/business/coupons': typeof BusinessCouponsRoute
   '/business/orders': typeof BusinessOrdersRoute
+  '/business/promo': typeof BusinessPromoRoute
   '/chat/$id': typeof ChatIdRoute
   '/place/$id': typeof PlaceIdRoute
   '/reviews/$id': typeof ReviewsIdRoute
@@ -210,6 +226,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/analytics': typeof AnalyticsRoute
   '/boost': typeof BoostRoute
   '/business': typeof BusinessRouteWithChildren
@@ -230,6 +247,7 @@ export interface FileRoutesById {
   '/subscribe': typeof SubscribeRoute
   '/business/coupons': typeof BusinessCouponsRoute
   '/business/orders': typeof BusinessOrdersRoute
+  '/business/promo': typeof BusinessPromoRoute
   '/chat/$id': typeof ChatIdRoute
   '/place/$id': typeof PlaceIdRoute
   '/reviews/$id': typeof ReviewsIdRoute
@@ -238,6 +256,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/analytics'
     | '/boost'
     | '/business'
@@ -258,12 +277,14 @@ export interface FileRouteTypes {
     | '/subscribe'
     | '/business/coupons'
     | '/business/orders'
+    | '/business/promo'
     | '/chat/$id'
     | '/place/$id'
     | '/reviews/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
     | '/analytics'
     | '/boost'
     | '/business'
@@ -284,12 +305,14 @@ export interface FileRouteTypes {
     | '/subscribe'
     | '/business/coupons'
     | '/business/orders'
+    | '/business/promo'
     | '/chat/$id'
     | '/place/$id'
     | '/reviews/$id'
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/analytics'
     | '/boost'
     | '/business'
@@ -310,6 +333,7 @@ export interface FileRouteTypes {
     | '/subscribe'
     | '/business/coupons'
     | '/business/orders'
+    | '/business/promo'
     | '/chat/$id'
     | '/place/$id'
     | '/reviews/$id'
@@ -317,6 +341,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
   AnalyticsRoute: typeof AnalyticsRoute
   BoostRoute: typeof BoostRoute
   BusinessRoute: typeof BusinessRouteWithChildren
@@ -468,6 +493,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -496,6 +528,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/business/promo': {
+      id: '/business/promo'
+      path: '/promo'
+      fullPath: '/business/promo'
+      preLoaderRoute: typeof BusinessPromoRouteImport
+      parentRoute: typeof BusinessRoute
+    }
     '/business/orders': {
       id: '/business/orders'
       path: '/orders'
@@ -516,11 +555,13 @@ declare module '@tanstack/react-router' {
 interface BusinessRouteChildren {
   BusinessCouponsRoute: typeof BusinessCouponsRoute
   BusinessOrdersRoute: typeof BusinessOrdersRoute
+  BusinessPromoRoute: typeof BusinessPromoRoute
 }
 
 const BusinessRouteChildren: BusinessRouteChildren = {
   BusinessCouponsRoute: BusinessCouponsRoute,
   BusinessOrdersRoute: BusinessOrdersRoute,
+  BusinessPromoRoute: BusinessPromoRoute,
 }
 
 const BusinessRouteWithChildren = BusinessRoute._addFileChildren(
@@ -529,6 +570,7 @@ const BusinessRouteWithChildren = BusinessRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
   AnalyticsRoute: AnalyticsRoute,
   BoostRoute: BoostRoute,
   BusinessRoute: BusinessRouteWithChildren,

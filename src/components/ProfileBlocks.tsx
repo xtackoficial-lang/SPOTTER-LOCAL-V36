@@ -12,7 +12,18 @@ import { Icon } from "./Icon";
 import { priceText, type Place } from "@/lib/places-data";
 import type { ProductDB } from "@/lib/businesses-db";
 import type { ProfileTheme } from "@/lib/profile-styles";
+import { provinceForCity } from "@/lib/mozambique-locations";
 import { useT } from "@/lib/i18n";
+
+// BUG DO ABRÃO (2026-08-24): "a localização deve estar bem vista, deve
+// mostrar em que província depois a cidade" — usado nos dois blocos do
+// perfil que mostram morada (BlockInfo e BlockRouteBig), para nunca
+// ficar só com o nome da cidade sem a província.
+function locationLine(place: Place): string {
+  const province = place.province ?? provinceForCity(place.city);
+  const parts = [place.address, place.neighborhood, place.city, province].filter(Boolean);
+  return parts.join(", ");
+}
 
 export interface BlockContext {
   place: Place;
@@ -27,7 +38,7 @@ export interface BlockContext {
   onProductClick: (p: ProductDB) => void;
 }
 
-function glowShadow(theme: ProfileTheme) {
+export function glowShadow(theme: ProfileTheme) {
   return theme.glow ? `0 0 18px ${theme.accentSoft}` : "none";
 }
 
@@ -121,10 +132,7 @@ export function BlockInfo({ ctx }: { ctx: BlockContext }) {
       <div className="mt-3 space-y-2 text-sm">
         <div className="flex items-start gap-2.5" style={{ color: theme.text }}>
           <Icon name="pin" size={14} className="mt-0.5 shrink-0" style={{ color: theme.accent }} />
-          <span>
-            {place.address}
-            {place.neighborhood ? `, ${place.neighborhood}` : ""}, {place.city}
-          </span>
+          <span>{locationLine(place)}</span>
         </div>
         <div className="flex items-center gap-2.5" style={{ color: theme.text }}>
           <Icon name="clock" size={14} style={{ color: theme.accent }} />
@@ -255,8 +263,7 @@ export function BlockRouteHero({ ctx }: { ctx: BlockContext }) {
           <Icon name="navigation" size={13} /> Localização
         </div>
         <div className="mb-3 mt-1.5 text-sm" style={{ color: theme.text, opacity: 0.85 }}>
-          {place.address}
-          {place.neighborhood ? `, ${place.neighborhood}` : ""}, {place.city}
+          {locationLine(place)}
         </div>
         <button
           onClick={onRoute}

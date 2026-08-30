@@ -55,10 +55,33 @@ if (FIREBASE_CONFIG_SW.apiKey && !FIREBASE_CONFIG_SW.apiKey.startsWith("__")) {
 }
 
 self.addEventListener("notificationclick", (event) => {
+  // BUG DO ABRÃO (2026-08-21): "abri a notificação e apareceu bugado, saí
+  // e voltou à página inicial". Causa: ao tocar numa notificação com a
+  // app já aberta em segundo plano, este código só fazia `.focus()` na
+  // aba existente — SEM NAVEGAR para lado nenhum. Se essa aba estivesse
+  // parada num estado antigo/a meio de alguma coisa (ex: um passo do
+  // onboarding, um modal aberto, um ecrã de carregamento preso), a
+  // notificação trazia essa aba "congelada" para a frente tal e qual —
+  // parecia bugado porque, tecnicamente, era mesmo o estado antigo e
+  // esquecido daquela aba. Agora força sempre a aba a recarregar para um
+  // estado limpo e conhecido ao ser aberta por uma notificação — a
+  // própria app decide depois, de forma normal, se mostra login ou home
+  // consoante a sessão.
   event.notification.close();
   event.waitUntil(
     self.clients.matchAll({ type: "window" }).then((clients) => {
-      if (clients.length > 0) return clients[0].focus();
+      if (clients.length > 0) {
+        const client = clients[0];
+        return client.focus().then(() => {
+          if ("navigate" in client) {
+            return client.navigate("/").catch(() => {
+              // Alguns browsers não suportam client.navigate() em todos
+              // os contextos — falhar aqui não deve impedir o focus
+              // acima, que já traz a app para a frente.
+            });
+          }
+        });
+      }
       return self.clients.openWindow("/");
     }),
   );

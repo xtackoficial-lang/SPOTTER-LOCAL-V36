@@ -29,6 +29,8 @@ import {
 } from "@/lib/profile-styles";
 import { PROVINCES_MZ, citiesForProvince, PROVINCE_CENTER_MZ } from "@/lib/mozambique-locations";
 import { uploadMedia, uploadMediaBatch, deleteMediaByUrl } from "@/lib/storage-upload";
+import { ShimmerButton } from "@/components/ShimmerButton";
+import { useModalBackButton } from "@/lib/use-modal-back";
 
 export const Route = createFileRoute("/merchant")({
   head: () => ({ meta: [{ title: "Editar Perfil — Spotter Local" }] }),
@@ -77,21 +79,11 @@ function MerchantPanel() {
   const { sub, plan, isBlocked, isOverdue } = useSubscription(businessId);
   const { products, add, update, remove, toggle } = useProducts(businessId);
   const [syncing, setSyncing] = useState(false);
+  const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
   const { appearance } = useScreenAppearance("merchant");
 
   const [tab, setTab] = useState<Tab>("perfil");
   const [saved, setSaved] = useState(false);
-  // BUG CORRIGIDO (2026-08-15): saveProfile() mostrava sempre "Guardado!"
-  // mesmo quando a gravação no Supabase falhava — os dados ficavam só
-  // localmente, mas os clientes vêem o Supabase, não o localStorage do
-  // comerciante. Adicionado estado de erro explícito para guardar perfil.
-  const [saveError, setSaveError] = useState<string | null>(null);
-  // BUG CORRIGIDO (2026-08-15): erros de upload (capa/galeria/produto)
-  // só apareciam na consola — o utilizador não via nada. Adicionado
-  // estado de erro separado para cada tipo de upload.
-  const [uploadCoverError, setUploadCoverError] = useState<string | null>(null);
-  const [uploadGalleryError, setUploadGalleryError] = useState<string | null>(null);
-  const [uploadProductImageError, setUploadProductImageError] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   // perfil local
   const [name, setName] = useState(draft.business.businessName || "");
@@ -217,9 +209,33 @@ function MerchantPanel() {
 
   useEffect(() => {
     if (!draft.business.businessId) return;
-    countSwapsThisMonth(draft.business.businessId).then(setSwapsUsed);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // BUG DO ABRÃO (2026-08-24): "ver o meu perfil ao editar não
+    // funciona... pensei que não tinha forma de editar a estrutura".
+    // Causa: esta busca não tinha .catch() nenhum — se falhasse (rede
+    // instável, Supabase indisponível por um instante), a promessa
+    // rejeitava em silêncio e swapsUsed ficava preso em `null` PARA
+    // SEMPRE. Como saveVisual() bloqueia a gravação enquanto
+    // swapsUsed === null ("a verificar trocas…"), isto significava que
+    // o comerciante ficava impedido de gravar Estrutura/Tema — e o
+    // botão "Ver o perfil como um cliente vê" (que grava antes de
+    // pré-visualizar) ficava com o mesmo bloqueio, parecendo que nem a
+    // pré-visualização funcionava. Agora, se a contagem falhar, assume
+    // 0 trocas usadas em vez de bloquear para sempre — pior caso: uma
+    // troca extra além do limite mensal, o que é inofensivo comparado
+    // com deixar o comerciante completamente incapaz de editar.
+    countSwapsThisMonth(draft.business.businessId)
+      .then(setSwapsUsed)
+      .catch((err) => {
+        console.warn("countSwapsThisMonth: falha ao contar trocas, a assumir 0.", err);
+        setSwapsUsed(0);
+      });
+    // BUG DO ABRÃO (2026-08-24), parte 2: o array de dependências vazio
+    // fazia isto correr só UMA vez, ao montar. Se businessId ainda não
+    // estivesse disponível nesse instante exacto (ex: a meio da
+    // recuperação de conta em account-recovery.ts), o efeito saía sem
+    // fazer nada e nunca mais tentava — mesmo depois de businessId
+    // aparecer. Agora corre de novo sempre que businessId muda.
+  }, [draft.business.businessId]);
 
   // Sincroniza Estrutura/blocos quando a categoria muda de família (ex:
   // Restaurante → Farmácia: comida → saude_servicos). BUG CORRIGIDO:
@@ -253,6 +269,48 @@ function MerchantPanel() {
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
   const [uploadingProductImage, setUploadingProductImage] = useState(false);
+  // BUG DO ABRÃO (2026-08-21): "abri uma secção, não gostei, saí, ficou
+  // bugado, voltou à página inicial" — ver use-modal-back.ts para a
+  // explicação completa. Este modal de produto é o mais aberto/fechado
+  // pelo comerciante no dia a dia, por isso é o primeiro a ganhar esta
+  // correcção: o botão físico/gesto "Voltar" do Android agora fecha só
+  // este modal, em vez de navegar a página toda para trás.
+  useModalBackButton(showAddProduct, () => setShowAddProduct(false));
+  // BUG DO ABRÃO (2026-08-18): "as fotos/capa publicadas não aparecem para
+  // o povo, e qualquer alteração também não". Causa: os handlers de
+  // upload/remoção de foto (mais abaixo) só faziam updateBusiness(), que
+  // grava apenas no localStorage deste dispositivo. A foto só chegava ao
+  // Supabase (e portanto ao público, que lê SÓ da tabela "businesses" —
+  // ver fetchBusinesses em businesses-db.ts) se o comerciante depois
+  // clicasse em "Guardar" numa aba de perfil separada — e, mesmo aí, uma
+  // falha na gravação remota era só um console.warn silencioso. Ou seja:
+  // o comerciante via a foto no seu próprio painel (dados locais) e
+  // achava que estava tudo publicado, mas o Supabase podia nunca ter
+  // recebido a alteração. Este helper publica a foto no Supabase
+  // imediatamente após cada alteração, e mostra um erro visível (em vez
+  // de engolir) quando a publicação falha.
+  const [mediaSyncError, setMediaSyncError] = useState<string | null>(null);
+  async function syncMediaToSupabase(patch: { cover_image?: string; gallery?: string[] }) {
+    if (!user || !draft.business.businessId) return; // ainda a meio do onboarding: guarda só local por agora
+    try {
+      const current = await fetchBusinessById(draft.business.businessId);
+      await upsertBusiness({
+        ...(current ?? {}),
+        id: draft.business.businessId,
+        owner_id: user.id,
+        business_name: current?.business_name || draft.business.businessName || "",
+        category: current?.category || draft.business.category || "",
+        city: current?.city || draft.business.city || "",
+        country: current?.country || draft.business.country || tr("defaultCountry"),
+        address: current?.address || "",
+        ...patch,
+      });
+      setMediaSyncError(null);
+    } catch (err) {
+      console.warn("syncMediaToSupabase: falha ao publicar foto no Supabase.", err);
+      setMediaSyncError(tr("saveErrorInternet"));
+    }
+  }
 
   if (!hydrated) return <div className="min-h-screen bg-background" />;
 
@@ -290,18 +348,10 @@ function MerchantPanel() {
       lng: isDigital ? undefined : mapsCoords?.lng,
       isDigital,
     });
-    // BUG CORRIGIDO (2026-08-15): antes, a sincronização com o Supabase
-    // era "best-effort" — se falhasse, os dados ficavam só no localStorage
-    // local do comerciante. Mas os clientes vêem o Supabase, não o
-    // localStorage do comerciante. O "Guardado!" aparecia sempre, mesmo
-    // quando o nome/descrição/fotos nunca chegaram ao servidor.
-    // Agora: quando o Supabase está configurado, só mostra "Guardado!"
-    // após confirmação real. Se falhar, mostra erro claro.
-    // Sem Supabase configurado (modo de desenvolvimento), guarda só
-    // localmente e mostra "Guardado!" como antes (comportamento intencional).
+    // Sincroniza com o Supabase em segundo plano (best-effort). Se falhar,
+    // os dados já estão guardados localmente — não bloqueia o "Guardado!".
     if (user && draft.business.businessId) {
       setSyncing(true);
-      setSaveError(null);
       try {
         // upsert() do Supabase não preserva colunas omitidas do payload
         // (UPDATE SET só com as colunas enviadas) — busca-se o registo
@@ -341,20 +391,24 @@ function MerchantPanel() {
           // Reenviá-los como 0 sempre que o perfil é guardado zerava a
           // média de avaliações de qualquer negócio que editasse o perfil.
         });
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2500);
       } catch (err) {
+        // BUG DO ABRÃO (2026-08-19): antes isto só fazia console.warn e
+        // o botão "Guardar" mostrava "Guardado!" na mesma — o comerciante
+        // achava que a alteração estava publicada quando na verdade
+        // nunca chegou ao Supabase (e portanto nunca chegou aos
+        // clientes, que só leem dali). Agora mostra um erro visível e
+        // NÃO finge sucesso.
         console.warn("Falha ao sincronizar perfil do negócio com Supabase:", err);
-        setSaveError(tr("saveErrorInternet"));
+        setSyncing(false);
+        setProfileSaveError(tr("saveErrorInternet"));
+        return;
       } finally {
         setSyncing(false);
       }
-    } else {
-      // Modo sem Supabase configurado (desenvolvimento local) —
-      // guarda só localmente e mostra "Guardado!" como antes.
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
     }
+    setProfileSaveError(null);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
   }
 
   // ── guardar Estrutura/Tema do perfil (aba Visual) ──
@@ -464,30 +518,14 @@ function MerchantPanel() {
     const file = e.target.files?.[0];
     if (!file || !user) return;
     setUploadingCover(true);
-    // BUG CORRIGIDO (2026-08-15): antes, erros de upload só iam para a
-    // consola — o utilizador não via nada e ficava sem saber porque a
-    // foto de capa não aparecia. Agora mostra mensagem de erro na UI.
-    setUploadCoverError(null);
     try {
       const url = await uploadMedia(file, "cover", user.id);
       setCover(url);
       updateBusiness({ coverImage: url });
-      if (draft.business.businessId) {
-        const current = await fetchBusinessById(draft.business.businessId);
-        await upsertBusiness({
-          ...(current ?? {}),
-          id: draft.business.businessId,
-          owner_id: user.id,
-          business_name: name || draft.business.businessName || "Negócio",
-          category: category || draft.business.category || "other",
-          city: city || draft.business.city || "",
-          country: draft.business.country || tr("defaultCountry"),
-          cover_image: url,
-        });
-      }
+      await syncMediaToSupabase({ cover_image: url });
     } catch (err) {
       console.warn("Falha ao enviar a foto de capa:", err);
-      setUploadCoverError("Não foi possível enviar a foto de capa. Verifique a ligação e tente novamente.");
+      setMediaSyncError(tr("saveErrorInternet"));
     } finally {
       setUploadingCover(false);
     }
@@ -506,112 +544,51 @@ function MerchantPanel() {
     if (room <= 0) return; // limite do plano atingido — botão já fica escondido neste caso
     const accepted = files.slice(0, room);
     setUploadingGallery(true);
-    setUploadGalleryError(null);
     try {
       const urls = await uploadMediaBatch(accepted, "gallery", user.id);
       const next = [...gallery, ...urls];
       setGallery(next);
       updateBusiness({ gallery: next });
-      if (draft.business.businessId) {
-        const current = await fetchBusinessById(draft.business.businessId);
-        await upsertBusiness({
-          ...(current ?? {}),
-          id: draft.business.businessId,
-          owner_id: user.id,
-          business_name: name || draft.business.businessName || "Negócio",
-          category: category || draft.business.category || "other",
-          city: city || draft.business.city || "",
-          country: draft.business.country || tr("defaultCountry"),
-          gallery: next,
-        });
-      }
+      await syncMediaToSupabase({ gallery: next });
     } catch (err) {
       console.warn("Falha ao enviar fotos da galeria:", err);
-      setUploadGalleryError("Não foi possível enviar as fotos. Verifique a ligação e tente novamente.");
+      setMediaSyncError(tr("saveErrorInternet"));
     } finally {
       setUploadingGallery(false);
     }
   }
 
-  async function removeGalleryPhoto(idx: number) {
+  function removeGalleryPhoto(idx: number) {
     const removedUrl = gallery[idx];
     const next = gallery.filter((_, i) => i !== idx);
     setGallery(next);
     updateBusiness({ gallery: next });
+    void syncMediaToSupabase({ gallery: next });
     if (removedUrl) void deleteMediaByUrl(removedUrl);
-    if (user && draft.business.businessId) {
-      try {
-        const current = await fetchBusinessById(draft.business.businessId);
-        await upsertBusiness({
-          ...(current ?? {}),
-          id: draft.business.businessId,
-          owner_id: user.id,
-          business_name: name || draft.business.businessName || "Negócio",
-          category: category || draft.business.category || "other",
-          city: city || draft.business.city || "",
-          country: draft.business.country || tr("defaultCountry"),
-          gallery: next,
-        });
-      } catch {
-        // ignore
-      }
-    }
   }
 
   // Move uma foto para a posição anterior/seguinte — usado pelas setas e
   // como alternativa acessível ao arrastar e soltar (que pode ser difícil
   // de usar em telas pequenas ou para quem prefere não arrastar).
-  async function moveGalleryPhoto(idx: number, direction: -1 | 1) {
+  function moveGalleryPhoto(idx: number, direction: -1 | 1) {
     const target = idx + direction;
     if (target < 0 || target >= gallery.length) return;
     const next = [...gallery];
     [next[idx], next[target]] = [next[target], next[idx]];
     setGallery(next);
     updateBusiness({ gallery: next });
-    if (user && draft.business.businessId) {
-      try {
-        const current = await fetchBusinessById(draft.business.businessId);
-        await upsertBusiness({
-          ...(current ?? {}),
-          id: draft.business.businessId,
-          owner_id: user.id,
-          business_name: name || draft.business.businessName || "Negócio",
-          category: category || draft.business.category || "other",
-          city: city || draft.business.city || "",
-          country: draft.business.country || tr("defaultCountry"),
-          gallery: next,
-        });
-      } catch {
-        // ignore
-      }
-    }
+    void syncMediaToSupabase({ gallery: next });
   }
 
   // Reordenação por arrastar e soltar (drag-and-drop).
-  async function reorderGalleryByDrag(fromIdx: number, toIdx: number) {
+  function reorderGalleryByDrag(fromIdx: number, toIdx: number) {
     if (fromIdx === toIdx) return;
     const next = [...gallery];
     const [moved] = next.splice(fromIdx, 1);
     next.splice(toIdx, 0, moved);
     setGallery(next);
     updateBusiness({ gallery: next });
-    if (user && draft.business.businessId) {
-      try {
-        const current = await fetchBusinessById(draft.business.businessId);
-        await upsertBusiness({
-          ...(current ?? {}),
-          id: draft.business.businessId,
-          owner_id: user.id,
-          business_name: name || draft.business.businessName || "Negócio",
-          category: category || draft.business.category || "other",
-          city: city || draft.business.city || "",
-          country: draft.business.country || tr("defaultCountry"),
-          gallery: next,
-        });
-      } catch {
-        // ignore
-      }
-    }
+    void syncMediaToSupabase({ gallery: next });
   }
 
   function reorderBlocksByDrag(fromIdx: number, toIdx: number) {
@@ -633,6 +610,7 @@ function MerchantPanel() {
   function setCoverFromGallery(img: string) {
     setCover(img);
     updateBusiness({ coverImage: img });
+    void syncMediaToSupabase({ cover_image: img });
   }
 
   // ── produto form ──
@@ -662,15 +640,11 @@ function MerchantPanel() {
     const file = e.target.files?.[0];
     if (!file || !user) return;
     setUploadingProductImage(true);
-    // BUG CORRIGIDO (2026-08-15): erro de upload da foto do produto só
-    // ia para a consola — o comerciante ficava sem foto sem perceber porquê.
-    setUploadProductImageError(null);
     try {
       const url = await uploadMedia(file, "product", user.id);
       setPImage(url);
     } catch (err) {
       console.warn("Falha ao enviar a foto do produto:", err);
-      setUploadProductImageError("Não foi possível enviar a foto. Verifique a ligação e tente novamente.");
     } finally {
       setUploadingProductImage(false);
     }
@@ -760,6 +734,12 @@ function MerchantPanel() {
             )}
           </div>
         </div>
+
+        {mediaSyncError && (
+          <p className="mt-3 rounded-xl bg-destructive/15 px-3 py-2 text-[11px] text-white">
+            {mediaSyncError}
+          </p>
+        )}
 
         {/* Ver o perfil como um cliente vê — só faz sentido depois do
             negócio já ter sido criado (tem businessId).
@@ -1111,18 +1091,18 @@ function MerchantPanel() {
               </div>
             </Section>
 
-            <button
+            {profileSaveError && (
+              <p className="rounded-xl bg-destructive/10 px-3 py-2 text-[11px] text-destructive">
+                {profileSaveError}
+              </p>
+            )}
+            <ShimmerButton
               onClick={saveProfile}
-              disabled={isBlocked || isOverdue || syncing}
-              className="press w-full h-12 rounded-2xl text-sm font-bold text-white shadow-[var(--shadow-soft)] flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+              disabled={isBlocked || isOverdue}
+              className="press ripple w-full h-12 rounded-2xl text-sm font-bold text-white shadow-[var(--shadow-soft)] disabled:opacity-50"
               style={{ background: "var(--gradient-primary)" }}
             >
-              {syncing ? (
-                <>
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  A guardar…
-                </>
-              ) : saved ? (
+              {saved ? (
                 <>
                   <Icon name="check" size={16} /> Guardado!
                 </>
@@ -1131,10 +1111,7 @@ function MerchantPanel() {
                   <Icon name="send" size={16} /> Guardar alterações
                 </>
               )}
-            </button>
-            {saveError && (
-              <p className="mt-1.5 text-xs text-destructive font-medium text-center">{saveError}</p>
-            )}
+            </ShimmerButton>
           </div>
         )}
 
@@ -1393,9 +1370,6 @@ function MerchantPanel() {
                 className="hidden"
                 onChange={handleCoverUpload}
               />
-              {uploadCoverError && (
-                <p className="mt-1 text-xs text-destructive font-medium">{uploadCoverError}</p>
-              )}
             </Section>
 
             {/* galeria */}
@@ -1424,9 +1398,6 @@ function MerchantPanel() {
                 <div className="mb-2 flex items-center gap-1.5 text-[11px] text-primary">
                   <Icon name="pin" size={11} className="animate-spin" /> A enviar fotos…
                 </div>
-              )}
-              {uploadGalleryError && (
-                <p className="mb-2 text-xs text-destructive font-medium">{uploadGalleryError}</p>
               )}
               {gallery.length === 0 ? (
                 <button
@@ -1548,10 +1519,15 @@ function MerchantPanel() {
               )}
             </Section>
 
-            <button
+            {profileSaveError && (
+              <p className="rounded-xl bg-destructive/10 px-3 py-2 text-[11px] text-destructive">
+                {profileSaveError}
+              </p>
+            )}
+            <ShimmerButton
               onClick={saveProfile}
               disabled={isBlocked || isOverdue}
-              className="press w-full h-12 rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-50"
+              className="press ripple w-full h-12 rounded-2xl text-sm font-bold text-white disabled:opacity-50"
               style={{ background: "var(--gradient-primary)" }}
             >
               {saved ? (
@@ -1563,7 +1539,7 @@ function MerchantPanel() {
                   <Icon name="send" size={16} /> Guardar fotos
                 </>
               )}
-            </button>
+            </ShimmerButton>
           </div>
         )}
 
@@ -1608,7 +1584,8 @@ function MerchantPanel() {
                 {products.map((p) => (
                   <div
                     key={p.id}
-                    className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3 shadow-[var(--shadow-soft)]"
+                    onClick={() => openEditProduct(p)}
+                    className="row-hover flex cursor-pointer items-center gap-3 rounded-2xl border border-border bg-card p-3 shadow-[var(--shadow-soft)]"
                   >
                     {p.imageUrl ? (
                       <img
@@ -1637,19 +1614,28 @@ function MerchantPanel() {
                     </div>
                     <div className="flex flex-col gap-1.5 items-end">
                       <button
-                        onClick={() => openEditProduct(p)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditProduct(p);
+                        }}
                         className="rounded-lg border border-border p-1.5 text-muted-foreground hover:text-foreground"
                       >
                         <Icon name="schedule" size={14} />
                       </button>
                       <button
-                        onClick={() => toggle(p.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggle(p.id);
+                        }}
                         className={`rounded-lg border p-1.5 transition-colors ${p.available ? "border-emerald-300 text-emerald-600" : "border-border text-muted-foreground"}`}
                       >
                         <Icon name="check" size={14} />
                       </button>
                       <button
-                        onClick={() => remove(p.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          remove(p.id);
+                        }}
                         className="rounded-lg border border-destructive/30 p-1.5 text-destructive/70"
                       >
                         <Icon name="logout" size={14} />
@@ -1752,10 +1738,15 @@ function MerchantPanel() {
               </>
             )}
 
-            <button
+            {profileSaveError && (
+              <p className="rounded-xl bg-destructive/10 px-3 py-2 text-[11px] text-destructive">
+                {profileSaveError}
+              </p>
+            )}
+            <ShimmerButton
               onClick={saveProfile}
               disabled={isBlocked || isOverdue}
-              className="press w-full h-12 rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-50"
+              className="press ripple w-full h-12 rounded-2xl text-sm font-bold text-white disabled:opacity-50"
               style={{ background: "var(--gradient-primary)" }}
             >
               {saved ? (
@@ -1767,7 +1758,7 @@ function MerchantPanel() {
                   <Icon name="send" size={16} /> Guardar horário
                 </>
               )}
-            </button>
+            </ShimmerButton>
           </div>
         )}
       </main>
@@ -1824,9 +1815,6 @@ function MerchantPanel() {
               className="hidden"
               onChange={handleProductImage}
             />
-            {uploadProductImageError && (
-              <p className="mt-1 text-xs text-destructive font-medium text-center">{uploadProductImageError}</p>
-            )}
 
             <div className="space-y-3">
               <Field label={tr("productNameLabel2")}>

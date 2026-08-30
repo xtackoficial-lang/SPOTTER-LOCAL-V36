@@ -113,7 +113,10 @@ const ADMIN_HASH = "29e66bc2d2abf3713471691afd5c27331a28607fb32caff350e3b01fe930
 const SESSION_KEY = "xlocal.admin.session.v2";
 const ATTEMPTS_KEY = "xlocal.admin.attempts.v1";
 const LOCKOUT_KEY = "xlocal.admin.lockout.v1";
-const SESSION_TTL_MS = 5 * 60 * 1000; // Bloqueio automático em 5 minutos
+// Pedido do Abrão (2026-08-18): sessão do admin expira a cada 5 minutos —
+// a senha oficial tem de ser introduzida de novo passado esse tempo,
+// mesmo com o separador aberto (ver verificação periódica em admin.tsx).
+const SESSION_TTL_MS = 5 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
 
@@ -194,6 +197,43 @@ export async function adminLogin(password: string): Promise<"ok" | "wrong" | "lo
 export async function adminLogout() {
   await addAuditLog("logout", "admin", "Sessão terminada");
   localStorage.removeItem(SESSION_KEY);
+}
+
+// ============================================================
+// BUG DO ABRÃO (2026-08-19): "as alterações no painel admin não
+// funcionam, todos — activar pacotes fica tudo no Free".
+//
+// CAUSA RAIZ: adminLogin() acima só compara a senha a um hash local —
+// nunca autentica no Supabase. Mas TODAS as políticas de segurança
+// (RLS) que permitem ao admin escrever em businesses/profiles/
+// app_theme/etc. exigem is_admin() = true, que por sua vez exige uma
+// sessão REAL do Supabase Auth cujo auth.uid() esteja na tabela
+// "admins" (ver SUPABASE_SETUP.sql, bloco "ADMIN REAL"). Ou seja: a
+// senha do /admin só controla quem VÊ o painel — quem realmente
+// consegue GRAVAR depende de estar logado na app (Google/email) com
+// uma conta que esteja na tabela "admins", no mesmo navegador.
+//
+// Sem isso, o Supabase não devolve erro nenhum — a query de UPDATE
+// simplesmente afecta 0 linhas (RLS silenciosamente bloqueia), e o
+// painel volta a mostrar os dados antigos como se nada tivesse sido
+// gravado. Daí "fica tudo no Free" sem nenhum aviso de erro.
+//
+// Esta função verifica isso mesmo, para o painel poder avisar
+// claramente em vez de falhar em silêncio.
+// ============================================================
+export type AdminAuthStatus = "ok" | "not-logged-in" | "not-admin" | "offline";
+
+export async function checkSupabaseAdminAuthorized(): Promise<AdminAuthStatus> {
+  if (!SUPABASE_CONFIGURED || !supabase) return "offline";
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) return "not-logged-in";
+    const { data, error } = await supabase.rpc("is_admin");
+    if (error) return "offline";
+    return data === true ? "ok" : "not-admin";
+  } catch {
+    return "offline";
+  }
 }
 
 export function adminChangePassword(currentPw: string, _newPw: string): Promise<boolean> {

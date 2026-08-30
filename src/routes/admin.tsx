@@ -31,6 +31,8 @@ import {
   fetchAccounts,
   setAccountSuspended,
   type AccountRecord,
+  checkSupabaseAdminAuthorized,
+  type AdminAuthStatus,
 } from "@/lib/admin-storage";
 import { Icon } from "@/components/Icon";
 import {
@@ -72,6 +74,8 @@ import {
   type BackgroundType,
 } from "@/lib/theme-storage";
 import { ThemeBackdrop } from "@/components/ThemeBackdrop";
+import { useModalBackButton } from "@/lib/use-modal-back";
+import { BreathingLoader } from "@/components/BreathingLoader";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "XTACK Admin — Spotter Local" }] }),
@@ -227,6 +231,10 @@ function MerchantModal({
 }) {
   const tr = useT();
   const isNew = merchant === null;
+  // BUG DO ABRÃO (2026-08-21): este modal só existe montado enquanto
+  // está aberto — por isso "isOpen" é sempre true aqui; o hook cuida de
+  // registar/desregistar a entrada de histórico ao montar/desmontar.
+  useModalBackButton(true, onClose);
   const [form, setForm] = useState<Partial<MerchantRecord>>(
     merchant ?? {
       businessName: "",
@@ -1950,6 +1958,7 @@ function AdminDashboard() {
   const tr = useT();
   const navigate = useNavigate();
   const [merchants, setMerchants] = useState<MerchantRecord[]>([]);
+  const [merchantSaveError, setMerchantSaveError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | MerchantRecord["status"]>("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<MerchantRecord | null | "new" | undefined>(undefined);
@@ -2046,9 +2055,16 @@ function AdminDashboard() {
   };
 
   const handleSave = (id: string, patch: Partial<MerchantRecord>) => {
-    if (id === "__new__")
-      addMerchant(patch as Omit<MerchantRecord, "id" | "joinedAt">).then(setMerchants);
-    else updateMerchant(id, patch).then(setMerchants);
+    setMerchantSaveError(null);
+    if (id === "__new__") {
+      addMerchant(patch as Omit<MerchantRecord, "id" | "joinedAt">)
+        .then(setMerchants)
+        .catch((err) => setMerchantSaveError(err.message ?? String(err)));
+    } else {
+      updateMerchant(id, patch)
+        .then(setMerchants)
+        .catch((err) => setMerchantSaveError(err.message ?? String(err)));
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -2056,14 +2072,13 @@ function AdminDashboard() {
   };
 
   const quickAction = (id: string, action: "activate" | "block" | "unblock") => {
+    setMerchantSaveError(null);
     const now = new Date();
-    const renews = new Date(now);
-    renews.setMonth(renews.getMonth() + 1);
     const patches: Record<string, Partial<MerchantRecord>> = {
       activate: {
         status: "active",
         lastPaymentAt: now.toISOString(),
-        renewsAt: renews.toISOString(),
+        renewsAt: new Date(now.setMonth(now.getMonth() + 1)).toISOString(),
       },
       block: { status: "blocked" },
       // "Desbloquear" devolve o acesso sem fingir uma renovação que não
@@ -2071,7 +2086,9 @@ function AdminDashboard() {
       // como estado real desde a remoção do período de teste).
       unblock: { status: "active" },
     };
-    updateMerchant(id, patches[action]).then(setMerchants);
+    updateMerchant(id, patches[action])
+      .then(setMerchants)
+      .catch((err) => setMerchantSaveError(err.message ?? String(err)));
   };
 
   const TABS = [
@@ -2182,6 +2199,13 @@ function AdminDashboard() {
                 <Icon name="plus" size={20} />
               </button>
             </div>
+
+            {merchantSaveError && (
+              <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
+                <span className="font-semibold">Falha ao gravar: </span>
+                {merchantSaveError}
+              </div>
+            )}
 
             <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
               {(["all", "active", "trial", "overdue", "blocked"] as const).map((f) => (
@@ -2487,13 +2511,116 @@ function AdminDashboard() {
 // ── Route component ───────────────────────────────────────────────────
 function AdminPage() {
   const [authed, setAuthed] = useState(false);
+  // BUG DO ABRÃO (2026-08-23): "clico na senha e já mostra tudo para
+  // mim, mas não dá para activar planos". Causa (ver
+  // checkSupabaseAdminAuthorized em admin-storage.ts): a senha do
+  // /admin nunca autenticou no Supabase — a LEITURA de dados (ver
+  // comerciantes, contas) tem uma política pública mais aberta, por
+  // isso "mostra tudo" e parece estar tudo bem. Mas a ESCRITA (activar
+  // plano, publicar tema) exige estar autenticado na app com uma conta
+  // na tabela "admins" — sem isso falha em silêncio. Um aviso fino no
+  // topo (versão anterior desta correcção) era fácil de ignorar
+  // enquanto o resto do painel parecia funcionar. Agora, sem
+  // autorização confirmada, a app NÃO mostra o painel de todo — mostra
+  // só os passos para resolver, para nunca mais parecer que "está tudo
+  // bem" quando não está.
+  const [authStatus, setAuthStatus] = useState<AdminAuthStatus | null>(null);
+  const [checking, setChecking] = useState(false);
   useEffect(() => {
     setAuthed(getAdminSession());
-    const interval = setInterval(() => {
-      const isStillAuthed = getAdminSession();
-      if (!isStillAuthed) setAuthed(false);
-    }, 10000);
-    return () => clearInterval(interval);
   }, []);
-  return authed ? <AdminDashboard /> : <AdminLogin onAuth={() => setAuthed(true)} />;
+  const runCheck = () => {
+    setChecking(true);
+    checkSupabaseAdminAuthorized()
+      .then(setAuthStatus)
+      .finally(() => setChecking(false));
+  };
+  useEffect(() => {
+    if (!authed) return;
+    runCheck();
+  }, [authed]);
+  useEffect(() => {
+    const iv = setInterval(() => {
+      setAuthed((prev) => (prev && !getAdminSession() ? false : prev));
+    }, 10_000);
+    return () => clearInterval(iv);
+  }, []);
+  if (!authed) return <AdminLogin onAuth={() => setAuthed(true)} />;
+  if (authStatus === null) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-background">
+        <BreathingLoader size={40} />
+      </div>
+    );
+  }
+  if (authStatus !== "ok") {
+    return <AdminNotAuthorized status={authStatus} onRetry={runCheck} checking={checking} />;
+  }
+  return <AdminDashboard />;
+}
+
+// Ecrã bloqueante mostrado sempre que a conta autenticada neste navegador
+// não está confirmada como admin no Supabase — em vez de deixar entrar
+// no painel com a escrita silenciosamente quebrada. Ver comentário em
+// AdminPage acima e em checkSupabaseAdminAuthorized (admin-storage.ts).
+function AdminNotAuthorized({
+  status,
+  onRetry,
+  checking,
+}: {
+  status: AdminAuthStatus;
+  onRetry: () => void;
+  checking: boolean;
+}) {
+  return (
+    <div className="min-h-screen bg-background px-5 py-10">
+      <div className="mx-auto max-w-md space-y-5">
+        <div className="grid h-14 w-14 place-items-center rounded-2xl bg-destructive/10 text-destructive">
+          <Icon name="x" size={26} />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold text-foreground">
+            Autorização de administrador em falta
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {status === "not-logged-in" &&
+              "Não estás com sessão iniciada na app normal (Google/email) neste navegador. Sem isso, o Supabase não te reconhece como admin — a leitura de dados funciona (por isso o painel \"parece\" normal), mas activar planos, publicar temas ou qualquer outra gravação falha sempre em silêncio."}
+            {status === "not-admin" &&
+              "Já estás com sessão iniciada, mas esta conta ainda não está na tabela \"admins\" do Supabase. Sem isso, as gravações falham em silêncio mesmo com o painel a parecer normal."}
+            {status === "offline" &&
+              "Não foi possível confirmar a autorização de administrador — ou o Supabase está indisponível, ou a função is_admin() ainda não foi criada (bloco \"ADMIN REAL\" em SUPABASE_SETUP.sql)."}
+          </p>
+        </div>
+
+        <div className="space-y-3 rounded-2xl border border-border bg-card p-4 text-sm">
+          <p className="font-semibold text-foreground">Como resolver:</p>
+          <ol className="list-decimal space-y-2 pl-4 text-muted-foreground">
+            <li>
+              Abre o Spotter Local normal (não o /admin) neste MESMO navegador e
+              faz login com Google ou email/senha — a conta que vai ser admin.
+            </li>
+            <li>
+              No Supabase → SQL Editor, corre (com o teu email real):
+              <pre className="mt-1.5 overflow-x-auto rounded-xl bg-muted p-2.5 text-[11px] text-foreground">
+{`insert into public.admins (id)
+select id from auth.users
+where email = 'o-teu-email@aqui.com';`}
+              </pre>
+            </li>
+            <li>Volta aqui e toca em "Verificar de novo" abaixo.</li>
+          </ol>
+        </div>
+
+        <button
+          onClick={onRetry}
+          disabled={checking}
+          className="press flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-bold text-white shadow-[var(--shadow-soft)] disabled:opacity-60"
+          style={{ background: "var(--gradient-primary)" }}
+        >
+          {checking ? <BreathingLoader size={16} /> : <Icon name="check" size={16} />}
+          Verificar de novo
+        </button>
+      </div>
+    </div>
+  );
 }

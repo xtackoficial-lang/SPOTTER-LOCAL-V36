@@ -238,6 +238,7 @@ function BusinessDash() {
               { i: "schedule", l: tr("qaSchedule"), to: "/merchant" },
               { i: "megaphone", l: tr("qaAdvertise"), to: "/subscribe" },
               { i: "star", l: tr("qaReviews"), to: "/analytics" },
+              { i: "bell", l: "Promoção", to: "/business/promo" },
             ].map((a) => (
               <Link
                 key={a.l}
@@ -250,6 +251,7 @@ function BusinessDash() {
                     | "/analytics"
                     | "/business/orders"
                     | "/business/coupons"
+                    | "/business/promo"
                 }
                 className="press flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-card p-3.5 text-xs font-medium hover:border-primary/40"
               >
