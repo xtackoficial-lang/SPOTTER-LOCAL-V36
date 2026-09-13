@@ -56,7 +56,13 @@ export const FREE_PLAN: Plan = {
   hasVerifiedBadge: false,
   maxStructures: 2,
   hasMultiCategory: false,
-  themeSwapsPerMonth: 1,
+  // 0 = Free escolhe Estrutura/Tema uma vez (no cadastro, antes de
+  // businessId existir — ver saveVisual() em merchant.tsx, que não conta
+  // limite nesse momento) e depois fica preso a essa escolha; trocar
+  // depois disso exige um plano pago. Decisão do Abrão (2026-09-02):
+  // antes o Free tinha 1 troca/mês incluída, o que não dava incentivo
+  // real de upgrade.
+  themeSwapsPerMonth: 0,
   features: [
     "featFreeProfile",
     "featFreeMessages",

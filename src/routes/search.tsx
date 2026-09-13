@@ -1,14 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { CATEGORY_FILTERS } from "@/lib/places-data";
+import { CATEGORY_FILTERS, matchesCategoryFilter } from "@/lib/places-data";
+import {
+  LocationScopeButton,
+  type LocationScope,
+} from "@/components/LocationScopePicker";
 import { useDiscoverPlaces } from "@/lib/businesses-db";
 import { useOnboarding } from "@/lib/onboarding-storage";
 import { PlaceCard } from "@/components/PlaceCard";
 import { BottomNav } from "@/components/BottomNav";
 import { Icon } from "@/components/Icon";
 import {
-  getUserLocation,
+  useLocationPermission,
   distanceKm as calculateDistanceKm,
   type Coordinates,
 } from "@/lib/geo-utils";
@@ -35,17 +39,27 @@ function SearchPage() {
   const profile = draft.profileType === "business" ? draft.business : draft.personal;
   const profileCity = profile.city?.trim();
   const profileProvince = profile.province?.trim();
-  const [nationwide, setNationwide] = useState(false);
+  const [locationScope, setLocationScope] = useState<LocationScope>({ mode: "mine" });
   // Sem cidade/província guardada no perfil (ainda não preencheu, ou
   // negócio digital sem localização) não há o que restringir — cai
   // para nacional automaticamente, sem mostrar uma lista vazia sem
   // motivo.
   const { places: allPlaces } = useDiscoverPlaces(
-    nationwide || (!profileProvince && !profileCity)
+    !profileProvince && !profileCity
       ? undefined
-      : { province: profileProvince, city: profileCity },
+      : locationScope.mode === "country"
+        ? undefined
+        : locationScope.mode === "provinces"
+          ? { provinces: locationScope.provinces }
+          : { province: profileProvince, city: profileCity },
   );
-  const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
+  // BUG DO ABRÃO (2026-08-30): mesma correção aplicada em home.tsx —
+  // ver o comentário completo lá. Um negócio "online"/digital não está
+  // preso a nenhuma cidade em particular; sem esta busca à parte
+  // (sempre nacional), um negócio online cadastrado numa província
+  // diferente da do cliente nunca aparecia na aba Online da Busca.
+  const { places: onlinePlaces } = useDiscoverPlaces(undefined);
+  const { location: userLocation, denied: locationDenied } = useLocationPermission();
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("all");
   const [openOnly, setOpenOnly] = useState(false);
@@ -56,12 +70,11 @@ function SearchPage() {
     getActiveBoostedBusinessIds().then(setBoostedIds);
   }, []);
 
-  useEffect(() => {
-    getUserLocation().then(setUserLocation);
-  }, []);
-
   const results = useMemo(() => {
-    let list = allPlaces.map((p) => {
+    // Aba Online usa a lista sem filtro de localização — ver comentário
+    // junto a onlinePlaces acima.
+    const source = cat === "online" ? onlinePlaces : allPlaces;
+    let list = source.map((p) => {
       if (userLocation && typeof p.lat === "number" && typeof p.lng === "number") {
         return { ...p, distanceKm: calculateDistanceKm(userLocation, { lat: p.lat, lng: p.lng }) };
       }
@@ -83,7 +96,7 @@ function SearchPage() {
     } else {
       list = list.filter((p) => !p.isDigital);
       list = list.filter((p) => {
-        if (cat !== "all" && p.category !== cat) return false;
+        if (cat !== "all" && !matchesCategoryFilter(p.category, cat)) return false;
         if (openOnly && !p.openNow) return false;
         if (q) {
           const s = q.toLowerCase();
@@ -115,7 +128,7 @@ function SearchPage() {
       list = applyBoostOrder(list, boostedIds);
     }
     return list;
-  }, [allPlaces, userLocation, q, cat, openOnly, sort, boostedIds]);
+  }, [allPlaces, onlinePlaces, userLocation, q, cat, openOnly, sort, boostedIds]);
 
   const SORT_OPTIONS: { value: Sort; label: string; icon: string }[] = [
     { value: "distance", label: tr("sortNearest"), icon: "navigation" },
@@ -177,27 +190,12 @@ function SearchPage() {
             inteiro. Escondido para negócios digitais (já são nacionais
             por natureza) ou quando não há cidade guardada no perfil. */}
         {cat !== "online" && (profileProvince || profileCity) && (
-          <div className="mt-3 flex items-center gap-2">
-            <button
-              onClick={() => setNationwide(false)}
-              className={`press flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                !nationwide
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-muted-foreground"
-              }`}
-            >
-              <Icon name="pin" size={12} /> {profileProvince || profileCity}
-            </button>
-            <button
-              onClick={() => setNationwide(true)}
-              className={`press flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                nationwide
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-muted-foreground"
-              }`}
-            >
-              <Icon name="tourism" size={12} /> {tr("searchScopeCountry")}
-            </button>
+          <div className="mt-3">
+            <LocationScopeButton
+              scope={locationScope}
+              onChange={setLocationScope}
+              fallbackCityLabel={profileProvince || profileCity || ""}
+            />
           </div>
         )}
 
@@ -240,12 +238,22 @@ function SearchPage() {
         {cat === "online" && (
           <div className="mt-3 flex items-center gap-1.5 rounded-2xl bg-violet-50 px-3 py-2 text-[11px] text-violet-700">
             <Icon name="delivery" size={12} />
-            Serviços digitais · disponíveis em todo o país
+            {tr("digitalServicesNationwide")}
           </div>
         )}
       </header>
 
       <main className="flex-1 space-y-4 px-5 py-5">
+        {/* Mesmo aviso accionável já aplicado em home.tsx — sem isto,
+            locationDenied ficava capturado mas nunca visível aqui
+            também, e a ordenação por distância ficava incorrecta
+            (todos "Infinity") sem o utilizador saber porquê. */}
+        {locationDenied && (
+          <div className="flex items-start gap-2 rounded-2xl bg-primary/5 px-4 py-3 text-xs text-primary">
+            <Icon name="lock" size={13} className="mt-0.5 shrink-0" />
+            <span>{tr("locationBlockedNoSortHint")}</span>
+          </div>
+        )}
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>
             {results.length} {results.length === 1 ? tr("resultCount") : tr("resultCountPlural")}

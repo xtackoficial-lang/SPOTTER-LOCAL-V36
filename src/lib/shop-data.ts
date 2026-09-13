@@ -31,15 +31,23 @@ export interface MerchantRecord {
 // seedMerchants() com negocios inventados. Removida.
 
 // ── MERCHANTS — lê da tabela businesses do Supabase ──────────────────
-function rowToMerchant(r: Record<string, unknown>): MerchantRecord {
+// CONSERTO (auditoria de segurança, bloco v37): owner_name e email já
+// não vêm da tabela "businesses" (ver businesses-db.ts) — vivem em
+// "business_accounts", só legível pelo dono/admin. rowToMerchant recebe
+// esses dois valores já resolvidos à parte (accountsById), em vez de
+// olhar para r.owner_name/r.email, que deixaram de existir na tabela.
+function rowToMerchant(
+  r: Record<string, unknown>,
+  account?: { ownerName?: string; email?: string },
+): MerchantRecord {
   return {
     id: r.id as string,
     businessName: (r.business_name as string) ?? "",
-    ownerName: (r.owner_name as string) ?? "",
+    ownerName: account?.ownerName ?? "",
     category: (r.category as string) ?? "",
     city: (r.city as string) ?? "",
     phone: (r.phone as string) ?? "",
-    email: r.email as string | undefined,
+    email: account?.email,
     planId: (r.plan_id as MerchantRecord["planId"]) ?? "free",
     status: (r.plan_status as MerchantRecord["status"]) ?? "active",
     joinedAt: (r.created_at as string) ?? new Date().toISOString(),
@@ -63,7 +71,7 @@ export async function getMerchants(): Promise<MerchantRecord[]> {
       const { data, error } = await supabase
         .from("businesses")
         .select(
-          "id, business_name, owner_name, category, city, phone, email, plan_id, plan_status, created_at, plan_renews_at, last_payment_at, payment_method, notes",
+          "id, business_name, category, city, phone, plan_id, plan_status, created_at, plan_renews_at, last_payment_at, payment_method, notes",
         )
         .order("created_at", { ascending: false });
       if (!error && data) {
@@ -82,8 +90,29 @@ export async function getMerchants(): Promise<MerchantRecord[]> {
             }
           }
         }
+        // CONSERTO (auditoria de segurança, bloco v37): owner_name/email
+        // vêm de "business_accounts" (RLS: só dono/admin) numa segunda
+        // query, em vez de estarem juntos na tabela "businesses" que
+        // qualquer visitante consegue ler linhas de. Como quem chama
+        // getMerchants() é sempre o /admin, is_admin() garante que esta
+        // segunda query devolve dados reais aqui.
+        const accountsById: Record<string, { ownerName?: string; email?: string }> = {};
+        if (ids.length > 0) {
+          const { data: accounts } = await supabase
+            .from("business_accounts")
+            .select("business_id, owner_name, email")
+            .in("business_id", ids);
+          if (accounts) {
+            for (const a of accounts) {
+              accountsById[a.business_id as string] = {
+                ownerName: a.owner_name as string | undefined,
+                email: a.email as string | undefined,
+              };
+            }
+          }
+        }
         return data.map((r) => ({
-          ...rowToMerchant(r as Record<string, unknown>),
+          ...rowToMerchant(r as Record<string, unknown>, accountsById[r.id as string]),
           productCount: productCounts[r.id as string] ?? 0,
         }));
       }
@@ -106,17 +135,23 @@ export async function updateMerchant(
 ): Promise<MerchantRecord[]> {
   const supabasePatch: Record<string, unknown> = {};
   if (patch.businessName !== undefined) supabasePatch.business_name = patch.businessName;
-  if (patch.ownerName !== undefined) supabasePatch.owner_name = patch.ownerName;
   if (patch.category !== undefined) supabasePatch.category = patch.category;
   if (patch.city !== undefined) supabasePatch.city = patch.city;
   if (patch.phone !== undefined) supabasePatch.phone = patch.phone;
-  if (patch.email !== undefined) supabasePatch.email = patch.email;
   if (patch.planId !== undefined) supabasePatch.plan_id = patch.planId;
   if (patch.status !== undefined) supabasePatch.plan_status = patch.status;
   if (patch.renewsAt !== undefined) supabasePatch.plan_renews_at = patch.renewsAt;
   if (patch.lastPaymentAt !== undefined) supabasePatch.last_payment_at = patch.lastPaymentAt;
   if (patch.paymentMethod !== undefined) supabasePatch.payment_method = patch.paymentMethod;
   if (patch.notes !== undefined) supabasePatch.notes = patch.notes;
+
+  // CONSERTO (auditoria de segurança, bloco v37): owner_name/email já
+  // não são colunas de "businesses" — vão para "business_accounts"
+  // (upsert separado), que só o dono do negócio ou um admin conseguem
+  // escrever (RLS).
+  const accountPatch: Record<string, unknown> = {};
+  if (patch.ownerName !== undefined) accountPatch.owner_name = patch.ownerName;
+  if (patch.email !== undefined) accountPatch.email = patch.email;
 
   if (SUPABASE_CONFIGURED && supabase && Object.keys(supabasePatch).length > 0) {
     // BUG DO ABRÃO (2026-08-19): antes, um erro aqui (ex: RLS a bloquear
@@ -142,6 +177,14 @@ export async function updateMerchant(
       );
     }
   }
+
+  if (SUPABASE_CONFIGURED && supabase && Object.keys(accountPatch).length > 0) {
+    const { error: accountError } = await supabase
+      .from("business_accounts")
+      .upsert({ business_id: id, ...accountPatch, updated_at: new Date().toISOString() });
+    if (accountError) throw new Error(accountError.message);
+  }
+
   return getMerchants();
 }
 
@@ -156,12 +199,10 @@ export async function addMerchant(
         id: newId,
         owner_id: newId, // admin-criado, sem owner real
         business_name: data.businessName,
-        owner_name: data.ownerName,
         category: data.category,
         city: data.city,
         country: "Moçambique",
         phone: data.phone,
-        email: data.email,
         plan_id: data.planId,
         plan_status: data.status,
         plan_renews_at: data.renewsAt,
@@ -170,6 +211,15 @@ export async function addMerchant(
         created_at: now,
         updated_at: now,
       });
+      // CONSERTO (auditoria de segurança, bloco v37): owner_name/email
+      // vão para "business_accounts", não para "businesses".
+      if (data.ownerName || data.email) {
+        await supabase.from("business_accounts").insert({
+          business_id: newId,
+          owner_name: data.ownerName || null,
+          email: data.email || null,
+        });
+      }
     } catch (err) {
       console.warn("addMerchant: Supabase indisponível.", err);
     }

@@ -144,7 +144,7 @@ function PrivacyPage() {
           <Icon name="arrowLeft" size={16} />
         </Link>
         <h1 className="text-base font-semibold tracking-tight text-foreground">
-          Privacidade & Termos
+          {tr("privacyAndTermsTitle")}
         </h1>
       </header>
 
@@ -154,13 +154,13 @@ function PrivacyPage() {
           onClick={() => setTab("privacy")}
           className={`press flex-1 rounded-xl py-2 text-xs font-semibold transition ${tab === "privacy" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
         >
-          Privacidade
+          {tr("privacyTabLabel")}
         </button>
         <button
           onClick={() => setTab("terms")}
           className={`press flex-1 rounded-xl py-2 text-xs font-semibold transition ${tab === "terms" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
         >
-          Termos de Uso
+          {tr("termsTabLabel")}
         </button>
       </div>
 
@@ -194,85 +194,70 @@ function PrivacyPage() {
             <Section title={tr("privacyFullPolicyTitle")}>
               <LegalBlock title={tr("privacyWhoWeAre")}>
                 <p>
-                  O Spotter Local é uma aplicação desenvolvida pela XTACK OFICIAL (doravante "nós"),
-                  com sede em Inhambane e Maputo, Moçambique. Contacto: xtackoficial@gmail.com
+                  {tr("whoWeAreBody")}
                 </p>
               </LegalBlock>
               <LegalBlock title={tr("privacyDataCollected")}>
                 <p>
-                  <strong>Dados de localização:</strong> Apenas usados para ordenar resultados por
-                  proximidade. Nunca guardados nos nossos servidores sem o teu consentimento
-                  explícito.
+                  <strong>{tr("dataLocationLabel")}</strong> {tr("dataLocationBody")}
                 </p>
                 <p>
-                  <strong>Dados de conta:</strong> Nome, email e password (com hash SHA-256)
-                  guardados de forma segura no Supabase (infra-estrutura na UE).
+                  <strong>{tr("dataAccountLabel")}</strong> {tr("dataAccountBody")}
                 </p>
                 <p>
-                  <strong>Dados de negócio:</strong> Nome, categoria, localização, fotos, horários e
-                  contactos fornecidos voluntariamente pelos comerciantes.
+                  <strong>{tr("emailUsageLabel")}</strong> {tr("emailUsageBody")}
                 </p>
                 <p>
-                  <strong>Dados de uso:</strong> Pesquisas e visualizações de perfis, usados para
-                  melhorar recomendações (apenas se "{tr("privacyAds")}" estiver activo).
+                  <strong>{tr("dataBusinessLabel")}</strong> {tr("dataBusinessBody")}
+                </p>
+                <p>
+                  <strong>{tr("dataUsageLabel")}</strong> {tr("dataUsageBody").replace("{ads}", tr("privacyAds"))}
                 </p>
               </LegalBlock>
               <LegalBlock title={tr("privacyDevicePerms")}>
                 <p>
-                  <strong>Localização (GPS):</strong> Opcional. Usada para ordenar negócios por
-                  distância. Podes recusar e a app funciona na mesma.
+                  <strong>{tr("gpsPermLabel")}</strong> {tr("gpsPermBody")}
                 </p>
                 <p>
-                  <strong>Câmara:</strong> Usada apenas pelo scanner QR. Nunca acedemos à câmara sem
-                  acção explícita tua.
+                  <strong>{tr("cameraPermLabel")}</strong> {tr("cameraPermBody")}
                 </p>
                 <p>
-                  <strong>Notificações Push:</strong> Opcionais. Usadas para alertar sobre promoções
-                  e mensagens de negócios.
+                  <strong>{tr("pushPermLabel")}</strong> {tr("pushPermBody")}
                 </p>
                 <p>
-                  <strong>Internet:</strong> Necessária para sincronizar dados com o Supabase e
-                  carregar imagens.
+                  <strong>{tr("internetPermLabel")}</strong> {tr("internetPermBody")}
                 </p>
               </LegalBlock>
               <LegalBlock title={tr("privacyThirdParty")}>
-                <p>Não vendemos os teus dados a terceiros. Usamos:</p>
+                <p>{tr("thirdPartyIntro")}</p>
                 <p>
-                  • <strong>Supabase</strong> (base de dados, infra-estrutura EU) — para guardar
-                  perfis de negócios e contas.
+                  • <strong>{tr("supabaseLabel")}</strong> {tr("supabaseBody")}
                 </p>
                 <p>
-                  • <strong>Firebase</strong> (Google) — apenas para notificações push, se
-                  activadas.
+                  • <strong>{tr("firebaseLabel")}</strong> {tr("firebaseBody")}
                 </p>
                 <p>
-                  • <strong>Unsplash</strong> — imagens de capa genéricas para negócios sem foto
-                  própria.
+                  • <strong>{tr("unsplashLabel")}</strong> {tr("unsplashBody")}
                 </p>
               </LegalBlock>
               <LegalBlock title={tr("privacyYourRights")}>
                 <p>
-                  Tens direito a: aceder aos teus dados, rectificá-los, exportá-los (botão abaixo) e
-                  eliminá-los a qualquer momento. Para exerceres esses direitos envia um email para
-                  xtackoficial@gmail.com.
+                  {tr("yourRightsBody")}
                 </p>
               </LegalBlock>
               <LegalBlock title={tr("privacyMinors")}>
                 <p>
-                  O Spotter Local não é dirigido a menores de 13 anos. Se souberes que um menor
-                  forneceu dados pessoais, contacta-nos para os eliminar.
+                  {tr("minorsBody")}
                 </p>
               </LegalBlock>
               <LegalBlock title={tr("privacySecurity")}>
                 <p>
-                  Passwords são armazenadas com hash (nunca em texto claro). A comunicação com o
-                  servidor usa HTTPS/TLS. Os tokens de sessão expiram automaticamente.
+                  {tr("securityBody")}
                 </p>
               </LegalBlock>
               <LegalBlock title={tr("privacyPolicyChanges")}>
                 <p>
-                  Qualquer alteração significativa será comunicada via notificação na app. A data de
-                  última actualização é: Junho 2026.
+                  {tr("policyChangesBody")}
                 </p>
               </LegalBlock>
             </Section>
@@ -292,12 +277,11 @@ function PrivacyPage() {
                 />
               </button>
               <a
-                href="mailto:xtackoficial@gmail.com?subject=Política%20de%20Privacidade%20Spotter%20Local"
+                href={`mailto:xtackoficial@gmail.com?subject=${encodeURIComponent(tr("privacyPolicyLabel") + " Spotter Local")}`}
                 className="press flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3.5 text-left hover:bg-accent/40"
               >
                 <span className="inline-flex items-center gap-3 text-sm font-medium text-foreground">
-                  <Icon name="help" size={16} className="text-primary" /> Contactar sobre
-                  privacidade
+                  <Icon name="help" size={16} className="text-primary" /> {tr("contactAboutPrivacyLabel")}
                 </span>
                 <Icon name="chevronRight" size={14} className="text-muted-foreground" />
               </a>
@@ -339,97 +323,84 @@ function PrivacyPage() {
         {tab === "terms" && (
           <>
             <div className="rounded-2xl border border-border bg-card px-4 py-3.5 text-[11px] text-muted-foreground">
-              Última actualização: Junho 2026 · Desenvolvido por XTACK OFICIAL ·
+              {tr("lastUpdatedLabel")}: Junho 2026 · {tr("developedBySuffix")} XTACK OFICIAL ·
               xtackoficial@gmail.com
             </div>
 
             <Section title={tr("termsOfUseTitle")}>
-              <LegalBlock title="1. Aceitação dos Termos">
+              <LegalBlock title={tr("termsSection1Title")}>
                 <p>
-                  Ao utilizar o Spotter Local, aceitas estes Termos de Uso. Se não concordares, não
-                  deverás utilizar a aplicação.
+                  {tr("termsSection1Body")}
                 </p>
               </LegalBlock>
-              <LegalBlock title="2. Descrição do serviço">
+              <LegalBlock title={tr("termsSection2Title")}>
                 <p>
-                  O Spotter Local é uma plataforma de descoberta de negócios locais em Moçambique.
-                  Permite aos utilizadores encontrar restaurantes, hotéis, farmácias e outros
-                  serviços perto de si, e aos comerciantes listarem e promoverem os seus negócios.
+                  {tr("termsSection2Body")}
                 </p>
               </LegalBlock>
-              <LegalBlock title="3. Conta de utilizador">
-                <p>• Podes usar o Spotter Local sem conta para explorar negócios.</p>
-                <p>• Para criar avaliações ou enviar mensagens é necessária conta.</p>
-                <p>• Comerciantes precisam de conta para gerir o perfil do seu negócio.</p>
-                <p>• És responsável pela confidencialidade da tua password.</p>
-                <p>• Só podes ter uma conta por pessoa/negócio.</p>
+              <LegalBlock title={tr("termsSection3Title")}>
+                <p>• {tr("termsAccountBullet1")}</p>
+                <p>• {tr("termsAccountBullet2")}</p>
+                <p>• {tr("termsAccountBullet3")}</p>
+                <p>• {tr("termsAccountBullet4")}</p>
+                <p>• {tr("termsAccountBullet5")}</p>
               </LegalBlock>
-              <LegalBlock title="4. Regras de uso">
-                <p>É proibido:</p>
-                <p>• Publicar informações falsas ou enganosas sobre negócios.</p>
-                <p>• Criar avaliações falsas ou pagas (astroturfing).</p>
-                <p>• Usar a plataforma para spam, fraude ou actividades ilegais.</p>
-                <p>• Tentar aceder a contas de outros utilizadores.</p>
-                <p>• Fazer scraping ou uso automatizado sem autorização.</p>
+              <LegalBlock title={tr("termsSection4Title")}>
+                <p>{tr("termsUsageIntro")}</p>
+                <p>• {tr("termsUsageBullet1")}</p>
+                <p>• {tr("termsUsageBullet2")}</p>
+                <p>• {tr("termsUsageBullet3")}</p>
+                <p>• {tr("termsUsageBullet4")}</p>
+                <p>• {tr("termsUsageBullet5")}</p>
               </LegalBlock>
-              <LegalBlock title="5. Conteúdo dos comerciantes">
+              <LegalBlock title={tr("termsSection5Title")}>
                 <p>
-                  Os comerciantes são responsáveis pelo conteúdo que publicam (fotos, descrições,
-                  horários, preços). A XTACK OFICIAL reserva-se o direito de remover conteúdo que
-                  viole estes termos ou que seja enganoso.
+                  {tr("termsSection5Body")}
                 </p>
               </LegalBlock>
-              <LegalBlock title="6. Planos e pagamentos">
-                <p>• O plano Free é gratuito e permanece sempre disponível.</p>
+              <LegalBlock title={tr("termsSection6Title")}>
+                <p>• {tr("termsPlansBullet1")}</p>
                 <p>
-                  • Planos pagos (Starter 300 MZN, Pro 500 MZN, Premium 900 MZN) são cobrados
-                  mensalmente via M-Pesa ou e-Mola.
+                  • {tr("termsPlansBullet2")}
                 </p>
-                <p>• Cancelamentos entram em vigor no fim do período pago.</p>
-                <p>• Não há reembolsos por períodos parciais.</p>
-                <p>• Os preços podem ser actualizados com aviso prévio de 30 dias.</p>
+                <p>• {tr("termsPlansBullet3")}</p>
+                <p>• {tr("termsPlansBullet4")}</p>
+                <p>• {tr("termsPlansBullet5")}</p>
               </LegalBlock>
-              <LegalBlock title="7. Propriedade intelectual">
+              <LegalBlock title={tr("termsSection7Title")}>
                 <p>
-                  O Spotter Local, logótipo, marca e código são propriedade da XTACK OFICIAL. Ao
-                  publicar fotos ou texto na plataforma, concedes à XTACK OFICIAL uma licença
-                  não-exclusiva para exibir esse conteúdo na app.
+                  {tr("termsSection7Body")}
                 </p>
               </LegalBlock>
-              <LegalBlock title="8. Limitação de responsabilidade">
+              <LegalBlock title={tr("termsSection8Title")}>
                 <p>
-                  A XTACK OFICIAL não garante a exactidão de horários, preços ou disponibilidade dos
-                  negócios listados. Essas informações são fornecidas pelos próprios comerciantes.
-                  Não somos responsáveis por experiências negativas em negócios descobertos através
-                  da app.
+                  {tr("termsSection8Body")}
                 </p>
               </LegalBlock>
-              <LegalBlock title="9. Disponibilidade do serviço">
+              <LegalBlock title={tr("termsSection9Title")}>
                 <p>
-                  Fazemos o possível para manter o Spotter Local disponível 24/7, mas não garantimos
-                  disponibilidade ininterrupta. Manutenções ou falhas técnicas podem ocorrer.
+                  {tr("termsSection9Body")}
                 </p>
               </LegalBlock>
-              <LegalBlock title="10. Lei aplicável">
+              <LegalBlock title={tr("termsSection10Title")}>
                 <p>
-                  Estes termos são regidos pela lei moçambicana. Para questões legais, o foro
-                  competente é o de Inhambane, Moçambique.
+                  {tr("termsSection10Body")}
                 </p>
               </LegalBlock>
-              <LegalBlock title="11. Contacto">
+              <LegalBlock title={tr("termsSection11Title")}>
                 <p>XTACK OFICIAL · xtackoficial@gmail.com · WhatsApp: +258 870 480 970</p>
                 <p>
-                  Para reclamações, dúvidas ou remoção de conteúdo, responderemos em até 72 horas.
+                  {tr("complaintsResponseHint")}
                 </p>
               </LegalBlock>
             </Section>
 
             <a
-              href="mailto:xtackoficial@gmail.com?subject=Termos%20de%20Uso%20Spotter%20Local"
+              href={`mailto:xtackoficial@gmail.com?subject=${encodeURIComponent(tr("termsOfUseShortLabel") + " Spotter Local")}`}
               className="press flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3.5 text-left hover:bg-accent/40"
             >
               <span className="inline-flex items-center gap-3 text-sm font-medium text-foreground">
-                <Icon name="help" size={16} className="text-primary" /> Dúvidas sobre os termos
+                <Icon name="help" size={16} className="text-primary" /> {tr("termsQuestionsLabel")}
               </span>
               <Icon name="chevronRight" size={14} className="text-muted-foreground" />
             </a>

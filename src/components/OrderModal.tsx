@@ -15,6 +15,7 @@ import {
   type CouponValidation,
 } from "@/lib/coupons-storage";
 import { useT } from "@/lib/i18n";
+import { useModalBackButton } from "@/lib/use-modal-back";
 
 interface OrderModalProps {
   businessId: string;
@@ -32,6 +33,10 @@ export function OrderModal({
   onOrderSent,
 }: OrderModalProps) {
   const tr = useT();
+  // Modal só existe montado enquanto está aberto (o pai controla isso
+  // com {showOrderModal && <OrderModal .../>}) — por isso "isOpen" é
+  // sempre true aqui; o hook cuida do resto ao montar/desmontar.
+  useModalBackButton(true, onClose);
   const [products, setProducts] = useState<ProductDB[]>([]);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<Record<string, number>>({}); // id → qty

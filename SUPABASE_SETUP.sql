@@ -36,6 +36,10 @@ create table if not exists public.businesses (
   owner_id uuid references auth.users(id) on delete cascade,
   business_name text not null,
   category text,
+  -- Sub-tipo do veículo quando category = 'taxi': 'taxi_moto' | 'taxi_carro'
+  -- | 'txopela' (ver TAXI_TYPES em onboarding-storage.ts). NULL para
+  -- qualquer outra categoria.
+  taxi_type text,
   -- Província (só Moçambique — ver mozambique-locations.ts). Nível
   -- PRINCIPAL de correspondência com clientes na Home/Busca. "city" e
   -- "neighborhood" continuam a ser só detalhe visual do endereço.
@@ -434,6 +438,7 @@ create policy "Todos podem ler o tema" on public.app_theme
   for select using (true);
 -- CONSERTO (auditoria de segurança): só admin escreve; leitura continua pública.
 drop policy if exists "Todos podem actualizar o tema (protegido na app)" on public.app_theme;
+drop policy if exists "app_theme_admin_write" on public.app_theme;
 create policy "app_theme_admin_write" on public.app_theme
   for all using (public.is_admin()) with check (public.is_admin());
 
@@ -516,6 +521,7 @@ create table if not exists public.scheduled_notifications (
 alter table public.scheduled_notifications enable row level security;
 -- CONSERTO (auditoria de segurança): "protegida na app" não é RLS. Só admin.
 drop policy if exists "Leitura e escrita protegidas na app (admin)" on public.scheduled_notifications;
+drop policy if exists "scheduled_notifications_admin" on public.scheduled_notifications;
 create policy "scheduled_notifications_admin" on public.scheduled_notifications
   for all using (public.is_admin()) with check (public.is_admin());
 
@@ -534,6 +540,7 @@ create table if not exists public.push_log (
 alter table public.push_log enable row level security;
 -- CONSERTO (auditoria de segurança): idem — só admin.
 drop policy if exists "Leitura protegida na app (admin)" on public.push_log;
+drop policy if exists "push_log_admin" on public.push_log;
 create policy "push_log_admin" on public.push_log
   for all using (public.is_admin()) with check (public.is_admin());
 
@@ -1366,3 +1373,185 @@ as $$
 $$;
 
 -- Fim do bloco v33
+
+-- ============================================================
+-- BLOCO v36 — CONSERTO (auditoria de segurança 2026-09-03)
+-- ------------------------------------------------------------
+-- Achado crítico: a policy "Todos vêem negócios activos" liberta
+-- LINHAS (RLS é por linha, não por coluna) — e as colunas owner_name
+-- e email (adicionadas no bloco v20 só para o /admin mostrar a
+-- "Conta" do comerciante) iam juntas em qualquer select("*") feito
+-- pelo lado público (fetchBusinesses/fetchBusinessById, usadas na
+-- Home/Busca). Ou seja: qualquer visitante, mesmo sem sessão, sacava
+-- o email de login e o nome real de TODOS os comerciantes ativos só
+-- a inspecionar o tráfego de rede.
+--
+-- Correção: uma view pública sem essas duas colunas. security_invoker
+-- garante que a view usa as policies de RLS de quem está a chamá-la
+-- (não do dono da view) — ou seja, continua só a mostrar negócios
+-- active/trial, exactamente como a tabela já fazia, só que sem email
+-- nem owner_name. src/lib/businesses-db.ts foi actualizado para ler
+-- desta view no caminho público (fetchBusinesses, fetchBusinessById);
+-- o painel do comerciante e o /admin continuam a ler da tabela
+-- "businesses" directamente, onde já são o dono ou admin (RLS já
+-- restringe correctamente esses casos).
+-- ============================================================
+
+create or replace view public.businesses_public
+with (security_invoker = true) as
+select
+  id, owner_id, business_name, category, province, neighborhood, city,
+  country, address, phone, description, tags, website, hours_open,
+  hours_close, open_days, structure_id, theme_id, background_id,
+  block_order, always_open, cover_image, gallery, verified, plan_id,
+  plan_status, is_digital, lat, lng, rating, reviews_count,
+  created_at, updated_at
+from public.businesses;
+
+grant select on public.businesses_public to anon, authenticated;
+
+-- Achado secundário: "using(true)"/"with check(true)" em analytics
+-- deixava QUALQUER pessoa (autenticada ou não) escrever views/clicks/
+-- calls de QUALQUER negócio directamente na tabela — não expõe dados
+-- de utilizadores, mas permite inflar ou zerar as estatísticas de um
+-- concorrente. src/lib/analytics-db.ts confirma que o cliente só
+-- escreve via a função increment_analytic (RPC, já "security
+-- definer" — continua a funcionar sem estas policies, porque corre
+-- com privilégios próprios, não os de quem chama). Sem policy de
+-- insert/update aberta, só a RPC consegue escrever.
+drop policy if exists "Qualquer um regista evento via função" on public.analytics;
+drop policy if exists "Qualquer um actualiza contagem via função" on public.analytics;
+
+-- Fim do bloco v36
+
+-- ============================================================
+-- BLOCO v37 — CONSERTO (auditoria de segurança, continuação)
+-- ------------------------------------------------------------
+-- O bloco v36 tapou a fuga no caminho público (app só lê a view sem
+-- owner_name/email). Mas a fuga real estava um nível abaixo: a policy
+-- "Todos vêem negócios activos" é por LINHA — qualquer conta normal
+-- (não precisa ser admin) conseguia pedir directamente à API do
+-- Supabase (contornando a app) select owner_name, email de qualquer
+-- negócio active/trial, porque essas colunas continuavam na mesma
+-- tabela que tem uma policy pública.
+--
+-- Correcção definitiva: owner_name e email saem de "businesses" e vão
+-- para uma tabela nova, "business_accounts", com RLS que só deixa o
+-- dono do negócio ou um admin ler/escrever — não existe (nem pode
+-- existir por engano no futuro) nenhuma policy pública nesta tabela.
+-- ============================================================
+
+create table if not exists public.business_accounts (
+  business_id uuid primary key references public.businesses(id) on delete cascade,
+  owner_name text,
+  email text,
+  updated_at timestamptz default now()
+);
+alter table public.business_accounts enable row level security;
+
+drop policy if exists "Dono gere a sua conta" on public.business_accounts;
+create policy "Dono gere a sua conta" on public.business_accounts
+  for all using (
+    auth.uid() = (select owner_id from public.businesses where id = business_id)
+  ) with check (
+    auth.uid() = (select owner_id from public.businesses where id = business_id)
+  );
+
+drop policy if exists "Admin gere contas de negocio" on public.business_accounts;
+create policy "Admin gere contas de negocio" on public.business_accounts
+  for all using (public.is_admin()) with check (public.is_admin());
+
+drop trigger if exists trg_business_accounts_updated_at on public.business_accounts;
+create trigger trg_business_accounts_updated_at
+  before update on public.business_accounts
+  for each row execute function public.set_updated_at();
+
+-- Migra os dados que já existiam nas colunas antigas antes de as
+-- apagar (idempotente: corre sem duplicar se este bloco for executado
+-- mais de uma vez).
+insert into public.business_accounts (business_id, owner_name, email)
+select id, owner_name, email from public.businesses
+where owner_name is not null or email is not null
+on conflict (business_id) do update
+  set owner_name = excluded.owner_name,
+      email = excluded.email;
+
+-- Remove as colunas da tabela pública. É este passo que fecha a fuga
+-- de vez — sem as colunas lá, não há select("*") nem chamada directa
+-- à API que consiga devolvê-las através de "businesses".
+alter table public.businesses drop column if exists owner_name;
+alter table public.businesses drop column if exists email;
+
+-- Fim do bloco v37
+
+-- ============================================================
+-- NOVA CATEGORIA "TAXI" (pedido do Abrão, 2026-09-07)
+-- ============================================================
+-- Se a tua tabela "businesses" já existe em produção (é o teu caso),
+-- corre esta linha uma vez no SQL Editor do Supabase — sem ela, gravar
+-- um negócio com category = 'taxi' vai falhar silenciosamente, porque
+-- a coluna taxi_type não existe ainda na base de dados real.
+alter table public.businesses add column if not exists taxi_type text;
+
+-- ============================================================
+-- BUG CORRIGIDO: "Útil (122)" — voto ilimitado em avaliações
+-- (pedido do Abrão, 2026-09-09)
+-- ============================================================
+-- increment_helpful() não tinha NENHUMA verificação de quem já tinha
+-- votado — cada chamada somava +1 sem limite, para qualquer pessoa
+-- (com ou sem conta). Esta tabela guarda um registo por (review, quem
+-- votou) com UNIQUE, para a função rejeitar votos repetidos.
+-- voter_key = auth.uid()::text para quem tem sessão, ou um ID anónimo
+-- gerado no aparelho para quem comenta sem conta (ver getDeviceVoterId
+-- em reviews-db.ts) — a app permite avaliar sem login, por isso não dá
+-- para depender só de auth.uid().
+create table if not exists public.review_helpful_votes (
+  review_id uuid references public.reviews(id) on delete cascade,
+  voter_key text not null,
+  created_at timestamptz default now(),
+  primary key (review_id, voter_key)
+);
+
+alter table public.review_helpful_votes enable row level security;
+
+drop policy if exists "review_helpful_votes_insert" on public.review_helpful_votes;
+create policy "review_helpful_votes_insert" on public.review_helpful_votes
+  for insert with check (true); -- qualquer visitante pode registar 1 voto
+
+drop policy if exists "review_helpful_votes_select" on public.review_helpful_votes;
+create policy "review_helpful_votes_select" on public.review_helpful_votes
+  for select using (true);
+
+-- IMPORTANTE: a versão antiga tinha só 1 parâmetro (p_review_id). Como
+-- mudámos a assinatura (agora são 2 parâmetros), "create or replace"
+-- SOZINHO não a substitui — o Postgres trata funções com o mesmo nome
+-- mas parâmetros diferentes como coisas separadas, e ficarias com as
+-- DUAS versões na base de dados (a antiga, sem proteção nenhuma, ainda
+-- lá, só sem ser chamada por ninguém). Este DROP apaga mesmo a antiga.
+drop function if exists public.increment_helpful(uuid);
+
+create or replace function public.increment_helpful(
+  p_review_id uuid,
+  p_voter_key text
+) returns void
+language plpgsql
+security definer
+as $$
+begin
+  -- Tenta registar o voto; se (review_id, voter_key) já existir, o
+  -- ON CONFLICT DO NOTHING impede duplicados — e por isso também
+  -- impede o UPDATE seguinte de correr outra vez para o mesmo voto.
+  insert into public.review_helpful_votes (review_id, voter_key)
+  values (p_review_id, p_voter_key)
+  on conflict (review_id, voter_key) do nothing;
+
+  if found then
+    update public.reviews
+    set helpful = helpful + 1
+    where id = p_review_id;
+  end if;
+end;
+$$;
+
+-- Fim do bloco taxi/helpful-votes
+

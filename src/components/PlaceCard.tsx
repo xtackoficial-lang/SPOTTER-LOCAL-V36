@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { type Place, priceText } from "@/lib/places-data";
 import { Icon } from "@/components/Icon";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { formatDistance } from "@/lib/geo-utils";
 import { provinceForCity } from "@/lib/mozambique-locations";
 import { useT } from "@/lib/i18n";
@@ -84,8 +85,7 @@ export function PlaceCard({ place }: { place: Place }) {
               <div className="flex items-center gap-1">
                 <div className="truncate text-base font-semibold text-foreground">{place.name}</div>
                 {place.verified && (
-                  <Icon
-                    name="verified"
+                  <VerifiedBadge
                     size={14}
                     className="shrink-0 text-primary"
                     aria-label={tr("verifiedBusinessAria")}

@@ -7,10 +7,12 @@ import {
   submitReview,
   markHelpful,
   reportReview,
+  hasVotedHelpfulLocally,
   type Review,
   type ReviewStats,
 } from "@/lib/reviews-db";
 import { useT, useLocale, INTL_TAG } from "@/lib/i18n";
+import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/reviews/$id")({
   head: () => ({ meta: [{ title: "Avaliações — Spotter Local" }] }),
@@ -57,6 +59,7 @@ function ReviewsPage() {
   const navigate = useNavigate();
   const tr = useT();
   const [locale] = useLocale();
+  const { user } = useAuth();
   const { id: businessId } = useParams({ from: "/reviews/$id" });
   const [reviews, setReviews] = useState<Review[]>([]);
   const [stats, setStats] = useState<ReviewStats | null>(null);
@@ -68,11 +71,27 @@ function ReviewsPage() {
   const [formText, setFormText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Reviews que ESTE aparelho já marcou como "Útil" — recalculado sempre
+  // que a lista de reviews muda, para o botão nascer já desactivado nas
+  // que já foram votadas antes (ex: reabrir a página).
+  const [votedHelpful, setVotedHelpful] = useState<Set<string>>(new Set());
   const [sortReviews, setSortReviews] = useState<
     "recent" | "rating_high" | "rating_low" | "helpful"
   >("recent");
 
   const alreadyReviewed = getReviewedBusinesses().includes(businessId);
+  // Ponto levantado pelo Abrão (2026-09-09): submitReview() aceitava
+  // qualquer authorId/authorName sem verificar sessão nenhuma — qualquer
+  // visitante conseguia comentar como "Visitante" com um ID aleatório.
+  // Agora só abre o formulário para quem tem sessão; sem sessão, manda
+  // para o ecrã de login em vez de mostrar o formulário.
+  const handleRatePress = () => {
+    if (!user) {
+      navigate({ to: "/" });
+      return;
+    }
+    setShowForm((f) => !f);
+  };
 
   const [retryKey, setRetryKey] = useState(0);
 
@@ -85,6 +104,7 @@ function ReviewsPage() {
         if (cancelled) return;
         setReviews(r);
         setStats(computeReviewStats(r));
+        setVotedHelpful(new Set(r.filter((x) => hasVotedHelpfulLocally(x.id)).map((x) => x.id)));
       })
       .catch(() => {
         if (cancelled) return;
@@ -108,15 +128,12 @@ function ReviewsPage() {
   });
 
   const handleSubmit = async () => {
-    if (!formText.trim() || alreadyReviewed) return;
+    if (!formText.trim() || alreadyReviewed || !user) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const userId =
-        localStorage.getItem("xlocal.userId") || "user-" + Math.random().toString(36).slice(2, 8);
-      localStorage.setItem("xlocal.userId", userId);
-      const userName = localStorage.getItem("xlocal.userName") || "Visitante";
-      const r = await submitReview(businessId, userId, userName, formRating, formText);
+      const userName = user.name || user.email?.split("@")[0] || tr("guestVisitorLabel");
+      const r = await submitReview(businessId, user.id, userName, formRating, formText);
       markAsReviewed(businessId);
       setReviews((prev) => [r, ...prev]);
       setStats(computeReviewStats([r, ...reviews]));
@@ -132,11 +149,20 @@ function ReviewsPage() {
   };
 
   const handleHelpful = async (id: string) => {
+    // Já votado neste aparelho — não faz nada (o botão já devia estar
+    // desactivado, isto é só uma segunda barreira).
+    if (votedHelpful.has(id)) return;
     // Actualização optimista primeiro — se a sincronização falhar em
     // segundo plano, a interface já reflectiu o clique do utilizador.
     setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, helpful: r.helpful + 1 } : r)));
+    setVotedHelpful((prev) => new Set(prev).add(id));
     try {
-      await markHelpful(id);
+      const counted = await markHelpful(id, user?.id);
+      if (!counted) {
+        // markHelpful já tinha registo local de voto anterior — desfaz
+        // o incremento optimista para não ficar errado no ecrã.
+        setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, helpful: r.helpful - 1 } : r)));
+      }
     } catch (err) {
       console.warn("Falha ao marcar como útil:", err);
     }
@@ -189,7 +215,7 @@ function ReviewsPage() {
           </div>
         ) : (
           <button
-            onClick={() => setShowForm((f) => !f)}
+            onClick={handleRatePress}
             className="press flex items-center gap-1.5 rounded-full bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
           >
             <Icon name="star" size={12} /> {tr("rateAction")}
@@ -376,7 +402,12 @@ function ReviewsPage() {
               <div className="flex items-center gap-3 pt-1 border-t border-border/50">
                 <button
                   onClick={() => handleHelpful(r.id)}
-                  className="press flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                  disabled={votedHelpful.has(r.id)}
+                  className={`press flex items-center gap-1 text-[11px] ${
+                    votedHelpful.has(r.id)
+                      ? "text-primary"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
                 >
                   <Icon name="thumbsUp" size={12} /> {tr("helpfulAction")} ({r.helpful})
                 </button>
@@ -401,7 +432,7 @@ function ReviewsPage() {
               <p className="text-xs text-muted-foreground">{tr("beTheFirstToReview")}</p>
               {!alreadyReviewed && (
                 <button
-                  onClick={() => setShowForm(true)}
+                  onClick={handleRatePress}
                   className="press mt-1 rounded-full px-5 py-2.5 text-xs font-semibold text-primary-foreground"
                   style={{ background: "var(--gradient-primary)" }}
                 >

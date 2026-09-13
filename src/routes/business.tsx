@@ -13,6 +13,7 @@ import {
 } from "@/lib/boost-storage";
 import { BusinessBottomNav } from "@/components/BusinessBottomNav";
 import { Icon } from "@/components/Icon";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { RequireBusiness } from "@/components/RequireBusiness";
 import { useScreenAppearance } from "@/lib/theme-storage";
 import { useT } from "@/lib/i18n";
@@ -179,7 +180,7 @@ function BusinessDash() {
             </div>
             {plan.hasVerifiedBadge && (
               <div className="inline-flex items-center gap-2 rounded-full bg-primary-foreground/20 px-3 py-1.5 text-[11px] ring-1 ring-white/20 backdrop-blur-xl">
-                <Icon name="verified" size={12} /> {tr("premiumBadgeActive")}
+                <VerifiedBadge size={12} /> {tr("premiumBadgeActive")}
               </div>
             )}
             <button
@@ -238,7 +239,7 @@ function BusinessDash() {
               { i: "schedule", l: tr("qaSchedule"), to: "/merchant" },
               { i: "megaphone", l: tr("qaAdvertise"), to: "/subscribe" },
               { i: "star", l: tr("qaReviews"), to: "/analytics" },
-              { i: "bell", l: "Promoção", to: "/business/promo" },
+              { i: "bell", l: tr("promotionLabel"), to: "/business/promo" },
             ].map((a) => (
               <Link
                 key={a.l}

@@ -29,7 +29,7 @@ import { useEffect, useState } from "react";
 import { useOnboarding } from "./onboarding-storage";
 import { useAuth } from "./auth-context";
 import { fetchProfile } from "./auth";
-import { fetchBusinessByOwner } from "./businesses-db";
+import { fetchBusinessByOwner, fetchBusinessAccount } from "./businesses-db";
 
 export type RecoveryStatus = "checking" | "done";
 
@@ -67,6 +67,9 @@ export function useAccountRecovery() {
       try {
         const business = await fetchBusinessByOwner(user.id);
         if (business) {
+          // CONSERTO (bloco v37): owner_name já não vem em "business" —
+          // vive em "business_accounts" desde a migração de segurança.
+          const account = await fetchBusinessAccount(business.id);
           updateBusiness({
             businessId: business.id,
             businessName: business.business_name,
@@ -76,7 +79,7 @@ export function useAccountRecovery() {
             neighborhood: business.neighborhood,
             country: business.country,
             phone: business.phone,
-            ownerName: business.owner_name,
+            ownerName: account?.owner_name,
             website: business.website,
             description: business.description,
             coverImage: business.cover_image,

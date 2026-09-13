@@ -4,10 +4,12 @@ import { Icon } from "@/components/Icon";
 import { ShimmerButton } from "@/components/ShimmerButton";
 import {
   createPaymentRequest,
+  createZumboPayPayment,
   getPaymentInstructions,
   type PaymentRequest,
   type PaymentMethod,
 } from "@/lib/payments-db";
+import { supabase, SUPABASE_CONFIGURED } from "@/lib/supabase";
 import { PLANS, type PaidPlanId } from "@/lib/subscription-storage";
 import {
   getPaymentConfig,
@@ -38,6 +40,12 @@ function getMethods(
   tr: (k: string) => string,
 ): { id: PaymentMethod; label: string; color: string; hint: string }[] {
   return [
+    {
+      id: "zumbopay",
+      label: "Pagar online (ZumboPay)",
+      color: "bg-emerald-600",
+      hint: "M-Pesa, e-Mola, mKesh ou cartão — confirmação automática",
+    },
     { id: "mpesa", label: "M-Pesa", color: "bg-rose-600", hint: tr("mpesaNumbersHint") },
     { id: "emola", label: "e-Mola", color: "bg-orange-500", hint: tr("emolaNumbersHint") },
     {
@@ -138,6 +146,7 @@ function PaymentPage() {
   }, [step]);
 
   const [initError, setInitError] = useState<string | null>(null);
+  const [zumboPopupBlocked, setZumboPopupBlocked] = useState(false);
 
   const handleInitiate = async () => {
     if (!method) return;
@@ -145,6 +154,22 @@ function PaymentPage() {
     setLoading(true);
     setInitError(null);
     try {
+      // ZumboPay: sem USSD/comprovativo manual — abre o link de pagamento
+      // hospedado pela ZumboPay e fica a aguardar a confirmação automática
+      // via webhook (ver useEffect de subscrição abaixo).
+      if (method === "zumbopay") {
+        const { payment, paymentUrl } = await createZumboPayPayment(businessId, planId);
+        setReq(payment);
+        const opened = window.open(paymentUrl, "_blank", "noopener,noreferrer");
+        if (!opened) {
+          // Popup bloqueado pelo browser — guarda o link para o botão
+          // "Abrir link de pagamento" no passo "waiting" (ver abaixo).
+          setZumboPopupBlocked(true);
+        }
+        setStep("waiting");
+        return;
+      }
+
       const r = await createPaymentRequest(businessId, planId, method, phone);
       setReq(r);
       setStep("instructions");
@@ -155,6 +180,59 @@ function PaymentPage() {
       setLoading(false);
     }
   };
+
+  // Subscrição em tempo real: quando o webhook da ZumboPay confirma o
+  // pagamento (payments.status → "confirmed"), avançamos automaticamente
+  // para o passo "done" sem precisar do admin confirmar manualmente.
+  useEffect(() => {
+    if (step !== "waiting" || method !== "zumbopay" || !req?.id) return;
+    if (!SUPABASE_CONFIGURED || !supabase) return;
+    const client = supabase; // fixa a referência não-nula para os closures abaixo
+
+    const channel = client
+      .channel(`zumbopay-payment-${req.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "payments", filter: `id=eq.${req.id}` },
+        (payload) => {
+          if (payload.new.status === "confirmed") {
+            setStep("done");
+          } else if (payload.new.status === "failed" || payload.new.status === "expired") {
+            setStep("failed");
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, [step, method, req?.id]);
+
+  // Fallback de segurança: se por algum motivo o Realtime não disparar
+  // (ex: publicação não activada na tabela, ligação instável), esta
+  // verificação por polling a cada 5s garante que a app não fica presa
+  // em "a aguardar" mesmo que o evento em tempo real se perca.
+  useEffect(() => {
+    if (step !== "waiting" || method !== "zumbopay" || !req?.id) return;
+    if (!SUPABASE_CONFIGURED || !supabase) return;
+    const client = supabase; // fixa a referência não-nula para o closure do setInterval
+
+    const interval = setInterval(async () => {
+      const { data } = await client
+        .from("payments")
+        .select("status")
+        .eq("id", req.id)
+        .maybeSingle();
+      if (data?.status === "confirmed") {
+        setStep("done");
+      } else if (data?.status === "failed" || data?.status === "expired") {
+        setStep("failed");
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [step, method, req?.id]);
 
   // v24 — Dispara o alerta ao admin IMEDIATAMENTE ao clicar "Já paguei /
   // Comprovar", ainda no passo de instruções — antes disso o registo em
@@ -502,6 +580,18 @@ function PaymentPage() {
               <div className="text-xs text-muted-foreground">{tr("referenceLabel")}</div>
               <div className="font-mono font-semibold text-sm text-primary">{req?.merchantRef}</div>
             </div>
+            {method === "zumbopay" && req?.paymentUrl && (
+              <ShimmerButton
+                onClick={() => {
+                  const opened = window.open(req.paymentUrl, "_blank", "noopener,noreferrer");
+                  if (opened) setZumboPopupBlocked(false);
+                }}
+                className="press h-12 w-full rounded-2xl text-sm font-semibold text-primary-foreground"
+                style={{ background: "var(--gradient-primary)" }}
+              >
+                {zumboPopupBlocked ? "Abrir link de pagamento" : "Reabrir link de pagamento"}
+              </ShimmerButton>
+            )}
             {initError && <p className="text-xs text-destructive">{initError}</p>}
           </div>
         )}

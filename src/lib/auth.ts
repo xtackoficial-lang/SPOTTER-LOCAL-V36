@@ -393,6 +393,31 @@ export async function signOut(): Promise<void> {
   localSetSessionUser(null);
 }
 
+// Pedido do Abrão (2026-09-09): apagar a própria conta, de vez.
+// Não dá para fazer isto directamente do browser — apagar um utilizador
+// do Supabase Auth exige a service_role key, que nunca pode estar no
+// código do cliente (dá acesso total à base de dados, ignorando RLS).
+// Por isso isto só invoca a Edge Function delete-own-account, que corre
+// no servidor com essa key — ver supabase/functions/delete-own-account.
+// Devolve { error } (string) em caso de falha, ou {} em caso de sucesso.
+export async function deleteOwnAccount(): Promise<{ error?: string }> {
+  if (!SUPABASE_CONFIGURED || !supabase) {
+    return { error: "Supabase não está configurado." };
+  }
+  try {
+    const { error } = await supabase.functions.invoke("delete-own-account");
+    if (error) {
+      console.warn("deleteOwnAccount: falha na Edge Function.", error);
+      return { error: "Não foi possível apagar a conta. Tenta novamente mais tarde." };
+    }
+    localSetSessionUser(null);
+    return {};
+  } catch (err) {
+    console.warn("deleteOwnAccount: erro inesperado.", err);
+    return { error: "Não foi possível apagar a conta. Tenta novamente mais tarde." };
+  }
+}
+
 // ---------- Get current user ----------
 // CRÍTICO: usa getSession() em vez de getUser().
 // getUser() faz SEMPRE uma chamada de rede para validar o token contra o

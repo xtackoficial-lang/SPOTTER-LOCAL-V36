@@ -113,25 +113,24 @@ function AnalyticsPage() {
           >
             <Icon name="arrowLeft" size={16} />
           </button>
-          <h1 className="text-lg font-bold tracking-tight text-foreground">Analytics</h1>
+          <h1 className="text-lg font-bold tracking-tight text-foreground">{tr("analyticsTitle")}</h1>
         </header>
         <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
           <div className="grid h-16 w-16 place-items-center rounded-full bg-primary/10">
             <Icon name="trendingUp" size={28} className="text-primary" />
           </div>
           <h2 className="mt-4 text-lg font-bold text-foreground">
-            Analytics é exclusivo dos planos Pro e Premium
+            {tr("analyticsProOnly")}
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Veja visitas, cliques no telefone e mensagens recebidas, com comparação mês a mês.
-            Disponível a partir do plano Pro.
+            {tr("analyticsProDescription")}
           </p>
           <button
             onClick={() => navigate({ to: "/subscribe" })}
             className="press mt-6 h-12 w-full rounded-2xl text-sm font-semibold text-primary-foreground"
             style={{ background: "var(--gradient-primary)" }}
           >
-            Ver planos
+            {tr("viewPlansAction")}
           </button>
         </main>
       </div>
@@ -150,12 +149,12 @@ function AnalyticsPage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-6 text-center">
         <Icon name="x" size={28} className="text-destructive" />
-        <p className="text-sm text-muted-foreground">Não foi possível carregar as estatísticas.</p>
+        <p className="text-sm text-muted-foreground">{tr("analyticsUnavailable")}</p>
         <button
           onClick={() => setRetryKey((k) => k + 1)}
           className="press rounded-xl border border-border px-4 py-2 text-sm font-medium text-foreground"
         >
-          Tentar novamente
+          {tr("tryAgainAction")}
         </button>
       </div>
     );
@@ -171,8 +170,8 @@ function AnalyticsPage() {
           <Icon name="arrowLeft" size={16} />
         </button>
         <div className="flex-1">
-          <h1 className="text-lg font-bold tracking-tight text-foreground">Analytics</h1>
-          <p className="text-xs text-muted-foreground">Últimos 30 dias</p>
+          <h1 className="text-lg font-bold tracking-tight text-foreground">{tr("analyticsTitle")}</h1>
+          <p className="text-xs text-muted-foreground">{tr("last30Days")}</p>
         </div>
         <div
           className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
@@ -244,7 +243,7 @@ function AnalyticsPage() {
             {/* Gráfico visitas 14 dias */}
             <div className="rounded-2xl border border-border bg-card p-4">
               <div className="mb-3 text-sm font-semibold text-foreground">
-                Visitas — últimos 14 dias
+                {tr("visits14DaysTitle")}
               </div>
               <BarChart data={summary.last30} />
               <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
@@ -255,7 +254,7 @@ function AnalyticsPage() {
 
             {/* Taxa de conversão */}
             <div className="rounded-2xl border border-border bg-card p-4">
-              <div className="mb-2 text-sm font-semibold text-foreground">Taxa de conversão</div>
+              <div className="mb-2 text-sm font-semibold text-foreground">{tr("conversionRate")}</div>
               <div className="flex items-center gap-3">
                 <div className="flex-1 space-y-1.5">
                   {[
@@ -295,7 +294,7 @@ function AnalyticsPage() {
         {activeTab === "detail" && (
           <div className="space-y-2">
             <div className="text-xs font-semibold text-muted-foreground px-1">
-              Top 5 dias com mais visitas
+              {tr("top5DaysTitle")}
             </div>
             {summary.topDays.map((d) => (
               <div
@@ -311,19 +310,19 @@ function AnalyticsPage() {
                     })}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {d.clicks} cliques · {d.messages} mensagens
+                    {d.clicks} {tr("clicksLabel")} · {d.messages} {tr("messagesLabel")}
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="text-lg font-bold text-primary">{d.views}</div>
-                  <div className="text-[10px] text-muted-foreground">visitas</div>
+                  <div className="text-[10px] text-muted-foreground">{tr("visitsTitle")}</div>
                 </div>
               </div>
             ))}
 
             {/* Tabela completa */}
             <div className="text-xs font-semibold text-muted-foreground px-1 pt-2">
-              Últimos 30 dias
+              {tr("last30Days")}
             </div>
             {summary.last30.map((d) => (
               <div

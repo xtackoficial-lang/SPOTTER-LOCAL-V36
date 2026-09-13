@@ -9,6 +9,7 @@
 // brilho-sobre-brilho).
 // ============================================================
 import { Icon } from "./Icon";
+import { VerifiedBadge } from "./VerifiedBadge";
 import { priceText, type Place } from "@/lib/places-data";
 import type { ProductDB } from "@/lib/businesses-db";
 import type { ProfileTheme } from "@/lib/profile-styles";
@@ -35,6 +36,10 @@ export interface BlockContext {
   onRoute: () => void;
   onCall: () => void;
   onWhatsapp: () => void;
+  // Chat dentro da app — usado no lugar do WhatsApp para a categoria
+  // "taxi" (pedido do Abrão, 2026-09-07): motoristas de táxi/txopela só
+  // têm chamada + chat da app, nunca WhatsApp.
+  onChat: () => void;
   onProductClick: (p: ProductDB) => void;
 }
 
@@ -105,8 +110,7 @@ export function BlockInfo({ ctx }: { ctx: BlockContext }) {
               {place.name}
             </h1>
             {place.verified && (
-              <Icon
-                name="verified"
+              <VerifiedBadge
                 size={16}
                 className="shrink-0"
                 style={{ color: theme.accent }}
@@ -173,12 +177,18 @@ export function BlockAbout({ ctx }: { ctx: BlockContext }) {
 }
 
 export function BlockContactRow({ ctx }: { ctx: BlockContext }) {
-  const { theme, onRoute, onCall, onWhatsapp } = ctx;
+  const { theme, place, onRoute, onCall, onWhatsapp, onChat } = ctx;
   const tr = useT();
+  // Categoria "taxi" (Táxi Moto/Carro/Txopela): nunca mostra WhatsApp —
+  // só Chamar e Chat da app (pedido do Abrão, 2026-09-07). Também sem
+  // Rotas — motorista não tem morada fixa (pedido do Abrão, 2026-09-09).
+  const isTaxi = place.category === "taxi";
   const items = [
-    { icon: "navigation" as const, label: tr("routeAction"), onClick: onRoute },
+    ...(isTaxi ? [] : [{ icon: "navigation" as const, label: tr("routeAction"), onClick: onRoute }]),
     { icon: "phoneCall" as const, label: tr("callAction"), onClick: onCall },
-    { icon: "message" as const, label: "WhatsApp", onClick: onWhatsapp },
+    isTaxi
+      ? { icon: "message" as const, label: tr("chatAction"), onClick: onChat }
+      : { icon: "message" as const, label: "WhatsApp", onClick: onWhatsapp },
   ];
   return (
     <div className="flex gap-2 px-4 pb-3">
@@ -205,9 +215,13 @@ export function BlockContactRow({ ctx }: { ctx: BlockContext }) {
 // Botão de Rota grande — versão destacada das estruturas básicas
 // (pedido do Abrão: Free também ganha um botão de Rota mais visível,
 // mesmo sem cardápio/blocos avançados).
+// Categoria "taxi" (2026-09-09): motorista não tem morada fixa para
+// onde levar o cliente — o bloco de Rota não faz sentido aqui, esconde-se
+// por completo.
 export function BlockRouteBig({ ctx }: { ctx: BlockContext }) {
-  const { theme, onRoute } = ctx;
+  const { theme, place, onRoute } = ctx;
   const tr = useT();
+  if (place.category === "taxi") return null;
   return (
     <div className="px-4 pb-3">
       <button
@@ -231,7 +245,7 @@ export function BlockRouteBig({ ctx }: { ctx: BlockContext }) {
         <div className="text-left">
           <div className="text-sm font-bold">{tr("routeAction")}</div>
           <div className="text-[11px]" style={{ color: theme.sub }}>
-            Abre no Google Maps ou Apple Maps
+            {tr("openInMapsHint")}
           </div>
         </div>
         <Icon name="chevronRight" size={18} className="ml-auto" style={{ color: theme.sub }} />
@@ -241,9 +255,12 @@ export function BlockRouteBig({ ctx }: { ctx: BlockContext }) {
 }
 
 // Versão "hero" do bloco de rota — fica logo abaixo da capa, antes da
-// info textual, para a estrutura "Foco na Rota".
+// info textual, para a estrutura "Foco na Rota". Também escondido para
+// a categoria "taxi" — ver nota em BlockRouteBig acima.
 export function BlockRouteHero({ ctx }: { ctx: BlockContext }) {
   const { place, theme, onRoute } = ctx;
+  const tr = useT();
+  if (place.category === "taxi") return null;
   return (
     <div className="px-4 pb-1 pt-3">
       <div
@@ -260,7 +277,7 @@ export function BlockRouteHero({ ctx }: { ctx: BlockContext }) {
           className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide"
           style={{ color: theme.accent }}
         >
-          <Icon name="navigation" size={13} /> Localização
+          <Icon name="navigation" size={13} /> {tr("locationSectionLabel")}
         </div>
         <div className="mb-3 mt-1.5 text-sm" style={{ color: theme.text, opacity: 0.85 }}>
           {locationLine(place)}
@@ -270,7 +287,7 @@ export function BlockRouteHero({ ctx }: { ctx: BlockContext }) {
           className="press w-full rounded-xl py-3 text-sm font-bold"
           style={{ background: theme.accent, color: theme.bg }}
         >
-          Iniciar rota
+          {tr("startRouteAction")}
         </button>
       </div>
     </div>

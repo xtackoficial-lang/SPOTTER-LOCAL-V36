@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { priceText, type Place } from "@/lib/places-data";
 import {
-  fetchBusinessById,
+  fetchBusinessPublicById,
   businessToPlace,
   fetchProducts,
   type ProductDB,
@@ -108,7 +108,7 @@ function PlaceDetail() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchBusinessById(id)
+    fetchBusinessPublicById(id)
       .then((b) => {
         if (cancelled) return;
         setPlace(b ? businessToPlace(b) : null);
@@ -170,7 +170,7 @@ function PlaceDetail() {
   const structure = place
     ? getStructure(family, place.structureId ?? DEFAULT_STRUCTURE_ID, maxStructures)
     : null;
-  const theme = getTheme(place?.themeId);
+  const theme = getTheme(place?.themeId, place?.planId ?? "free");
   // A imagem de fundo escolhida (galeria partilhada, base64, ~8.3MB no
   // total) só é carregada via import() dinâmico quando este perfil em
   // concreto tem uma escolhida — ver getGalleryImageUrl em
@@ -179,7 +179,12 @@ function PlaceDetail() {
   // os carregamentos, mesmo quem nunca abre um perfil com fundo.
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
   useEffect(() => {
-    if (!place?.backgroundId) {
+    // Defesa em profundidade (2026-09-02): toda a galeria é paga — se
+    // uma conta que tinha um fundo pago gravado descer para o Free,
+    // a página pública deixa de carregar/mostrar essa imagem, mesmo
+    // que backgroundId continue gravado na base de dados. Mesmo padrão
+    // já usado por getStructure()/getTheme() acima para o mesmo cenário.
+    if (!place?.backgroundId || (place?.planId ?? "free") === "free") {
       setBackgroundUrl(null);
       return;
     }
@@ -273,6 +278,7 @@ function PlaceDetail() {
       trackEvent(place.id, "click");
       window.open(whatsappHref, "_blank", "noopener,noreferrer");
     },
+    onChat: () => startChat(""),
     onProductClick: () => trackEvent(place.id, "click"),
   };
 
@@ -331,7 +337,7 @@ function PlaceDetail() {
                 style={{ color: theme.accent }}
               >
                 <Icon name="delivery" size={16} />
-                <span>Negócio digital · disponível online</span>
+                <span>{tr("digitalBusinessAvailable")}</span>
               </div>
             )}
             {place.website && (

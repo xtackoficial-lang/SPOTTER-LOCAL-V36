@@ -9,6 +9,7 @@ import { useState, useEffect } from "react";
 import { Icon } from "@/components/Icon";
 import { useT } from "@/lib/i18n";
 import { getChatAttachmentUrl } from "@/lib/storage-upload";
+import { useModalBackButton } from "@/lib/use-modal-back";
 
 interface AttachmentLike {
   attachment_type: "image" | "document" | "audio";
@@ -25,6 +26,7 @@ interface AttachmentLike {
 export function MessageAttachment({ attachment }: { attachment: AttachmentLike }) {
   const tr = useT();
   const [expanded, setExpanded] = useState(false);
+  useModalBackButton(expanded, () => setExpanded(false));
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -88,7 +90,7 @@ export function MessageAttachment({ attachment }: { attachment: AttachmentLike }
   if (attachment.attachment_type === "audio") {
     return (
       <audio controls src={url} className="h-10 w-56 max-w-full">
-        O seu navegador não suporta reprodução de áudio.
+        {tr("audioNotSupported")}
       </audio>
     );
   }

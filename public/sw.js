@@ -87,7 +87,7 @@ self.addEventListener("notificationclick", (event) => {
   );
 });
 
-const CACHE_NAME = "spotter-local-v19";
+const CACHE_NAME = "spotter-local-v34";
 const OFFLINE_URL = "/";
 
 self.addEventListener("install", (event) => {

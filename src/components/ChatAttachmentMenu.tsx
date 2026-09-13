@@ -10,6 +10,7 @@ import { useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { ACCEPTED_DOCUMENT_TYPES } from "@/lib/chat-attachments";
 import { useT } from "@/lib/i18n";
+import { useModalBackButton } from "@/lib/use-modal-back";
 
 interface Props {
   onFile: (file: File) => void;
@@ -27,6 +28,11 @@ const OPTIONS = [
 export function ChatAttachmentMenu({ onFile, onStartRecording, disabled }: Props) {
   const tr = useT();
   const [open, setOpen] = useState(false);
+  // Pendente desde 2026-08-21: era um dos 3 modais ainda sem esta
+  // correcção (ver use-modal-back.ts para a explicação completa do
+  // botão físico "Voltar" do Android a navegar a app toda para trás em
+  // vez de só fechar o popover).
+  useModalBackButton(open, () => setOpen(false));
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const documentRef = useRef<HTMLInputElement>(null);

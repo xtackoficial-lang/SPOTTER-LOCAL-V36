@@ -717,6 +717,7 @@ function PaymentsTab() {
           setReviewError(
             `Comprovativo de "${proof.businessName}" não tem ID de negócio associado — não foi possível activar automaticamente. Active manualmente na aba Comerciantes.`,
           );
+          return;
         } else if (proof.plan === "boost") {
           await activateBoost(proof.businessId, proof.boostPackageId ?? "1d", proof.id);
         } else {
@@ -730,6 +731,16 @@ function PaymentsTab() {
       }
       const updated = await reviewPaymentProof(proof.id, status);
       setProofs(updated);
+    } catch (err) {
+      // BUG ENCONTRADO (2026-09-07): esta função não tinha nenhum catch —
+      // um erro lançado por updateMerchant() (RLS a bloquear a escrita por
+      // falta de autorização de admin no Supabase) desaparecia em silêncio
+      // como unhandled rejection. O botão "parecia" não fazer nada: o
+      // comprovativo nunca mudava para confirmado e o plano nunca era
+      // activado, sem nenhuma mensagem — mesmo já existindo reviewError no
+      // ecrã para mostrar exactamente isto. Agora o erro é apanhado e
+      // mostrado ao admin em vez de desaparecer.
+      setReviewError(err instanceof Error ? err.message : String(err));
     } finally {
       setReviewingId(null);
     }
@@ -2289,7 +2300,7 @@ function AdminDashboard() {
                         {m.status === "blocked" || m.status === "overdue" ? (
                           <button
                             onClick={() => quickAction(m.id, "activate")}
-                            className="press flex h-9 items-center justify-center gap-1 px-3 rounded-xl text-[11px] font-semibold text-primary-foreground"
+                            className="press ripple flex h-9 items-center justify-center gap-1 px-3 rounded-xl text-[11px] font-semibold text-primary-foreground"
                             style={{ background: "var(--gradient-primary)" }}
                           >
                             <Icon name="check" size={12} /> {tr("adminActivateAction")}

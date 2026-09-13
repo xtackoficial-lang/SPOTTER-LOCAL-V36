@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useChats } from "@/lib/chat-storage";
-import { fetchBusinessById, businessToPlace, type BusinessDB } from "@/lib/businesses-db";
+import { fetchBusinessPublicById, businessToPlace, type BusinessDB } from "@/lib/businesses-db";
 import { useRealtimeChat, markAsRead } from "@/lib/messages-db";
 import { useAuth } from "@/lib/auth-context";
 import { type Place } from "@/lib/places-data";
@@ -54,7 +54,7 @@ function ChatThread() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchBusinessById(id)
+    fetchBusinessPublicById(id)
       .then((b) => {
         if (!cancelled) setBusiness(b);
       })

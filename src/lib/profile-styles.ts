@@ -310,6 +310,13 @@ export interface ProfileTheme {
   sub: string;
   border: string;
   glow: boolean;
+  // "free" = disponível para aplicar em qualquer plano, incluindo Free.
+  // "pago" = qualquer comerciante pode VER e pré-visualizar (é só cor,
+  // não expõe dado nenhum), mas aplicar/gravar exige um plano pago —
+  // ver checagem em saveVisual() (merchant.tsx). Decisão do Abrão
+  // (2026-09-02): antes todos os 10 temas estavam livres para
+  // qualquer plano, o que tirava o incentivo de upgrade.
+  plan: "free" | "pago";
 }
 
 export const THEMES: Record<string, ProfileTheme> = {
@@ -324,6 +331,7 @@ export const THEMES: Record<string, ProfileTheme> = {
     sub: "#A89A86",
     border: "rgba(212,162,76,0.18)",
     glow: false,
+    plan: "free",
   },
   oceano: {
     id: "oceano",
@@ -336,6 +344,7 @@ export const THEMES: Record<string, ProfileTheme> = {
     sub: "#7FA3A8",
     border: "rgba(63,182,201,0.2)",
     glow: false,
+    plan: "free",
   },
   terracota: {
     id: "terracota",
@@ -348,6 +357,7 @@ export const THEMES: Record<string, ProfileTheme> = {
     sub: "#B79A87",
     border: "rgba(224,122,76,0.2)",
     glow: false,
+    plan: "free",
   },
   led: {
     id: "led",
@@ -360,11 +370,103 @@ export const THEMES: Record<string, ProfileTheme> = {
     sub: "#7FA98F",
     border: "rgba(57,255,142,0.35)",
     glow: true,
+    plan: "pago",
+  },
+  // BUG DO ABRÃO (2026-08-30): "as cores para editar a conta comerciante
+  // são limitadas" — só havia 4 temas. Adicionados mais 6, cobrindo
+  // uma gama de cores mais ampla (azul, rosa/roxo, verde-floresta,
+  // pôr-do-sol, monocromático, vinho), sem abrir um selector de cor
+  // livre (isso arrisca combinações de baixo contraste/ilegíveis —
+  // estes já vêm testados para leitura confortável).
+  celeste: {
+    id: "celeste",
+    label: "Céu Azul",
+    accent: "#4C8DE0",
+    accentSoft: "rgba(76,141,224,0.14)",
+    bg: "#0A1220",
+    card: "#111B2E",
+    text: "#EAF1FB",
+    sub: "#8AA0C4",
+    border: "rgba(76,141,224,0.2)",
+    glow: false,
+    plan: "pago",
+  },
+  orquidea: {
+    id: "orquidea",
+    label: "Orquídea",
+    accent: "#C15FE0",
+    accentSoft: "rgba(193,95,224,0.14)",
+    bg: "#150B1C",
+    card: "#1F1128",
+    text: "#F5EBF8",
+    sub: "#B295BE",
+    border: "rgba(193,95,224,0.2)",
+    glow: false,
+    plan: "pago",
+  },
+  floresta: {
+    id: "floresta",
+    label: "Floresta",
+    accent: "#4FA35C",
+    accentSoft: "rgba(79,163,92,0.14)",
+    bg: "#0A130C",
+    card: "#101D12",
+    text: "#EBF5EC",
+    sub: "#8AA98F",
+    border: "rgba(79,163,92,0.2)",
+    glow: false,
+    plan: "pago",
+  },
+  ocaso: {
+    id: "ocaso",
+    label: "Pôr-do-sol",
+    accent: "#F0834E",
+    accentSoft: "rgba(240,131,78,0.15)",
+    bg: "#1A0E09",
+    card: "#26140C",
+    text: "#FBEDE3",
+    sub: "#C4A08D",
+    border: "rgba(240,131,78,0.22)",
+    glow: false,
+    plan: "pago",
+  },
+  monocromo: {
+    id: "monocromo",
+    label: "Monocromático",
+    accent: "#D8D8D8",
+    accentSoft: "rgba(216,216,216,0.12)",
+    bg: "#0C0C0C",
+    card: "#161616",
+    text: "#F2F2F2",
+    sub: "#9A9A9A",
+    border: "rgba(255,255,255,0.14)",
+    glow: false,
+    plan: "pago",
+  },
+  vinho: {
+    id: "vinho",
+    label: "Vinho",
+    accent: "#C8496A",
+    accentSoft: "rgba(200,73,106,0.15)",
+    bg: "#170A0D",
+    card: "#221016",
+    text: "#F8E9ED",
+    sub: "#BB93A0",
+    border: "rgba(200,73,106,0.22)",
+    glow: false,
+    plan: "pago",
   },
 };
 
-export function getTheme(themeId?: string): ProfileTheme {
-  return THEMES[themeId ?? "classico"] ?? THEMES.classico;
+// planId opcional: quando passado, reforça o mesmo limite já aplicado na
+// escrita (painel do comerciante) — defesa em profundidade, o mesmo
+// padrão já usado por getStructure() acima. Sem isto, um theme_id "pago"
+// gravado antes de um downgrade para Free (ou por qualquer via fora da
+// UI normal) continuaria a aparecer normalmente na página pública.
+export function getTheme(themeId?: string, planId?: "free" | "starter" | "pro" | "premium"): ProfileTheme {
+  const theme = THEMES[themeId ?? "classico"] ?? THEMES.classico;
+  if (planId === "free" && theme.plan === "pago") return THEMES.classico;
+  return theme;
 }
 
 // ── Galeria de fundos (partilhada, sem restrição por categoria) ──
@@ -462,7 +564,17 @@ export function themeBackgroundStyle(
     backgroundImage: `linear-gradient(180deg, ${theme.bg}CC 0%, ${theme.bg}E6 55%, ${theme.bg} 100%), url(${backgroundUrl})`,
     backgroundSize: "cover",
     backgroundPosition: "center top",
-    backgroundAttachment: "fixed",
+    // BUG DO ABRÃO (2026-08-30): "as imagens seleccionadas não
+    // funcionam". Causa: "background-attachment: fixed" é conhecido por
+    // não funcionar de forma fiável em muitos navegadores/WebViews
+    // Android — sobretudo em telemóveis mais simples/antigos, muito
+    // comuns no mercado moçambicano. O comerciante escolhia e gravava a
+    // imagem correctamente, mas ela simplesmente não aparecia no ecrã
+    // dele, parecendo que a selecção "não funciona". "scroll" (o
+    // comportamento por omissão) funciona em qualquer aparelho — só
+    // perde o efeito de a imagem ficar "presa" enquanto a página rola,
+    // que era só um efeito decorativo, não essencial.
+    backgroundAttachment: "scroll",
     backgroundRepeat: "no-repeat",
   };
 }

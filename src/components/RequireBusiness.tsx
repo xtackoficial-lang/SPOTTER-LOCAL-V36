@@ -17,10 +17,12 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAccountRecovery } from "@/lib/account-recovery";
 import { Icon } from "@/components/Icon";
+import { useT } from "@/lib/i18n";
 
 export function RequireBusiness({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const { draft, ready } = useAccountRecovery();
+  const tr = useT();
 
   // "personal" = conta pessoal tentando entrar numa área comercial → bloquear.
   // null/undefined = ainda não escolheu tipo de conta → manda para o onboarding.
@@ -46,9 +48,7 @@ export function RequireBusiness({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-6 text-center">
         <Icon name="lock" size={28} className="text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">
-          Esta área é exclusiva para contas comerciais. A redireccionar…
-        </p>
+        <p className="text-sm text-muted-foreground">{tr("requireBusinessRedirecting")}</p>
       </div>
     );
   }

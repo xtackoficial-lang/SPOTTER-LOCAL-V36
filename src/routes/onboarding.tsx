@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,12 +12,13 @@ import {
   COUNTRIES,
   INTERESTS,
   BUSINESS_CATEGORIES,
+  TAXI_TYPES,
   type BusinessProfile,
 } from "@/lib/onboarding-storage";
 import { useAuth } from "@/lib/auth-context";
 import { useT, setLocale as setAppLocale, type Locale as AppLocale } from "@/lib/i18n";
 import { syncProfileToSupabase } from "@/lib/auth";
-import { upsertBusiness } from "@/lib/businesses-db";
+import { upsertBusiness, upsertBusinessAccount } from "@/lib/businesses-db";
 import { ShimmerButton } from "@/components/ShimmerButton";
 import { SUPABASE_CONFIGURED } from "@/lib/supabase";
 import { extractCoordinatesFromGoogleMaps, resolveLocationInput, getUserLocation } from "@/lib/geo-utils";
@@ -29,6 +30,7 @@ export const Route = createFileRoute("/onboarding")({
 });
 
 type Step =
+  | "terms"
   | "profileType"
   | "p-language"
   | "p-location"
@@ -46,8 +48,8 @@ function Onboarding() {
   const tr = useT();
   const navigate = useNavigate();
   const { draft, hydrated, update, updatePersonal, updateBusiness, reset, ensureOwner } = useOnboarding();
-  const { user, loading: authLoading, setProfileType } = useAuth();
-  const [step, setStepRaw] = useState<Step>("profileType");
+  const { user, loading: authLoading, setProfileType, logout } = useAuth();
+  const [step, setStepRaw] = useState<Step>("terms");
   const [syncError, setSyncError] = useState<string | null>(null);
   const [syncingBusiness, setSyncingBusiness] = useState(false);
   const [restoredOnce, setRestoredOnce] = useState(false);
@@ -72,7 +74,16 @@ function Onboarding() {
     const wasReset = user ? ensureOwner(user.id) : false;
     setRestoredOnce(true);
     if (wasReset) return; // rascunho era de outra conta e foi limpo agora — nada para restaurar
+    // Ninguém avança no onboarding sem ter aceitado os Termos/Privacidade
+    // primeiro — mesmo que o rascunho já tivesse um "lastStep" mais à
+    // frente (ex: rascunho antigo, de antes desta obrigatoriedade
+    // existir), volta sempre a "terms" até isso ficar registado.
+    if (!draft.completed && !draft.termsAcceptedAt) {
+      setStepRaw("terms");
+      return;
+    }
     const VALID_STEPS: Step[] = [
+      "terms",
       "profileType",
       "p-language",
       "p-location",
@@ -128,19 +139,44 @@ function Onboarding() {
         step={step}
         currentStepNum={currentStepNum}
         totalSteps={totalSteps}
-        onBack={() => goBack(step, setStep, navigate)}
+        onBack={() => goBack(step, setStep, navigate, logout, user)}
         onReset={() => {
           // BUG DO ABRÃO (2026-08-21): "Recomeçar" limpava os dados do
           // rascunho mas deixava o ecrã no MESMO passo onde a pessoa
           // estava (ex: "b-details", passo 5 de 6) — agora vazio, mas
           // sem voltar ao início. Parecia que o botão tinha travado ou
           // feito outra coisa em vez de "recomeçar". Agora volta mesmo
-          // ao primeiro passo (escolher tipo de perfil).
+          // ao primeiro passo — que desde a obrigatoriedade de aceitar
+          // os Termos/Privacidade é "terms", não "profileType" (reset()
+          // também limpa termsAcceptedAt).
           reset();
-          setStepRaw("profileType");
+          setStepRaw("terms");
         }}
       />
       <div key={step} className="flex-1 px-6 pb-8 animate-slide-up">
+        {step === "terms" && (
+          <TermsStep
+            accepted={!!draft.termsAcceptedAt}
+            onAccept={() => {
+              update({ termsAcceptedAt: new Date().toISOString() });
+              // Pedido do Abrão (2026-09-09): quem entra "sem conta" só
+              // pode navegar como cliente — nunca deve conseguir chegar
+              // ao fluxo de comerciante (idioma/categoria/verificação de
+              // negócio) sem ter criado conta primeiro. Por isso, sem
+              // sessão, salta logo o ecrã de escolha e vai directo para
+              // o fluxo pessoal — quem quiser ser comerciante tem de
+              // voltar e criar conta primeiro (ver banner em profile.tsx).
+              if (!user) {
+                update({ profileType: "personal" });
+                setProfileType("personal");
+                setStep("p-language");
+                return;
+              }
+              setStep("profileType");
+            }}
+          />
+        )}
+
         {step === "profileType" && (
           <ProfileTypeStep
             onPick={(t) => {
@@ -235,9 +271,11 @@ function Onboarding() {
             name={draft.business.businessName ?? ""}
             category={draft.business.category ?? ""}
             custom={draft.business.customCategory ?? ""}
+            taxiType={draft.business.taxiType ?? "taxi_moto"}
             onChange={(name, cat, custom) =>
               updateBusiness({ businessName: name, category: cat, customCategory: custom })
             }
+            onTaxiTypeChange={(taxiType) => updateBusiness({ taxiType })}
             onNext={() => setStep("b-hours")}
           />
         )}
@@ -269,8 +307,8 @@ function Onboarding() {
                     id: draft.business.businessId,
                     owner_id: user.id,
                     business_name: draft.business.businessName || tr("businessNameless"),
-                    owner_name: draft.business.ownerName || undefined,
                     category: draft.business.category || "other",
+                    taxi_type: draft.business.taxiType || undefined,
                     city: draft.business.city || "",
                     province: draft.business.province || undefined,
                     neighborhood: draft.business.neighborhood || undefined,
@@ -293,6 +331,16 @@ function Onboarding() {
                     reviews_count: 0,
                     created_at: new Date().toISOString(),
                   });
+                  // CONSERTO (auditoria de segurança, bloco v37):
+                  // owner_name deixou de ser coluna de "businesses" —
+                  // grava-se à parte em "business_accounts" (RLS só
+                  // dono/admin), nunca visível a quem visita o perfil
+                  // público deste negócio.
+                  if (result?.id) {
+                    await upsertBusinessAccount(result.id, {
+                      owner_name: draft.business.ownerName || undefined,
+                    });
+                  }
                   // upsertBusiness nunca lança — devolve null tanto se o
                   // Supabase não estiver configurado (modo demo, esperado)
                   // como se a sincronização falhar de verdade. Só avisamos
@@ -328,8 +376,15 @@ function Onboarding() {
   );
 }
 
-function goBack(step: Step, setStep: (s: Step) => void, navigate: (opts: { to: string }) => void) {
+function goBack(
+  step: Step,
+  setStep: (s: Step) => void,
+  navigate: (opts: { to: string }) => void,
+  logout: () => Promise<void>,
+  user: unknown,
+) {
   const order: Step[] = [
+    "terms",
     "profileType",
     "p-language",
     "p-location",
@@ -347,15 +402,25 @@ function goBack(step: Step, setStep: (s: Step) => void, navigate: (opts: { to: s
   // contas" — no primeiro passo (escolher tipo de perfil), o botão
   // "Voltar" ficava visível mas não fazia NADA ao clicar (idx <= 0
   // apenas terminava a função em silêncio). Parecia que a app tinha
-  // travado. Agora, no primeiro passo, volta mesmo para o ecrã de
-  // login/boas-vindas, como o botão promete.
+  // travado. Corrigido para navegar para "/" — mas isso sozinho não
+  // chegava: se a conta JÁ tinha sido criada (sessão activa) e o
+  // perfil ainda não estava completo, "/" mandava logo para "/home"
+  // (por ter sessão) e home.tsx mandava de volta para "/onboarding"
+  // (por o perfil não estar completo) — ciclo sem saída, a pessoa
+  // NUNCA conseguia mesmo "desistir" e voltar ao ecrã de login
+  // (2026-09-09, novo relato do Abrão). Agora termina a sessão
+  // primeiro — só depois disso "/" mostra mesmo o ecrã de login.
   if (idx <= 0) {
-    navigate({ to: "/" });
+    logout().finally(() => navigate({ to: "/" }));
     return;
   }
   const prev = order[idx - 1];
   if (step === "p-language" || step === "b-language") {
-    setStep("profileType");
+    // Convidado sem conta nunca viu o ecrã "profileType" (foi saltado
+    // de propósito — ver onAccept do TermsStep acima), por isso voltar
+    // aqui tem de ir direto para "terms", não para um ecrã que ele
+    // nunca chegou a ver.
+    setStep(user ? "profileType" : "terms");
     return;
   }
   setStep(prev);
@@ -387,9 +452,11 @@ function Header({
           <Icon name="arrowLeft" size={16} />
         </button>
         <div className="text-xs font-medium tracking-wide text-muted-foreground">
-          {step === "profileType"
-            ? tr("chooseProfileTypeLabel")
-            : `Passo ${currentStepNum} de ${totalSteps}`}
+          {step === "terms"
+            ? "Termos e Privacidade"
+            : step === "profileType"
+              ? tr("chooseProfileTypeLabel")
+              : `Passo ${currentStepNum} de ${totalSteps}`}
         </div>
         <button
           onClick={onReset}
@@ -435,13 +502,77 @@ function PrimaryButton({
 }) {
   return (
     <ShimmerButton
-      className="press mt-6 h-12 w-full rounded-2xl text-base font-semibold text-primary-foreground shadow-[var(--shadow-soft)] disabled:opacity-40"
+      className="press ripple mt-6 h-12 w-full rounded-2xl text-base font-semibold text-primary-foreground shadow-[var(--shadow-soft)] disabled:opacity-40"
       style={{ background: disabled ? undefined : "var(--gradient-primary)" }}
       disabled={disabled}
       onClick={onClick}
     >
       {children}
     </ShimmerButton>
+  );
+}
+
+function TermsStep({ accepted, onAccept }: { accepted: boolean; onAccept: () => void }) {
+  const [checked, setChecked] = useState(accepted);
+  const tr = useT();
+  return (
+    <>
+      <StepTitle
+        title={tr("beforeContinueTitle")}
+        subtitle="Para usares o Spotter Local — mesmo sem conta — precisas de ler e aceitar isto primeiro."
+      />
+      <div className="space-y-4 stagger">
+        <div className="rounded-3xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
+          <div className="flex items-start gap-3">
+            <div
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-primary-foreground"
+              style={{ background: "var(--gradient-primary)" }}
+            >
+              <Icon name="check" size={20} />
+            </div>
+            <div className="flex-1 space-y-2 text-sm leading-relaxed text-muted-foreground">
+              <p>
+                {tr("dataCollectionParagraph1")}
+              </p>
+              <p>
+                {tr("dataCollectionParagraph2")}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <Link
+          to="/privacy"
+          className="press flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3.5 text-left hover:bg-accent/40"
+        >
+          <span className="inline-flex items-center gap-3 text-sm font-medium text-foreground">
+            <Icon name="help" size={16} className="text-primary" /> {tr("readTermsAndPrivacyAction")}
+          </span>
+          <Icon name="chevronRight" size={14} className="text-muted-foreground" />
+        </Link>
+
+        <button
+          type="button"
+          onClick={() => setChecked((v) => !v)}
+          className="press flex w-full items-start gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 text-left"
+        >
+          <span
+            className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border-2 transition ${checked ? "border-primary bg-primary" : "border-input"}`}
+            aria-checked={checked}
+            role="checkbox"
+          >
+            {checked && <Icon name="check" size={12} className="text-primary-foreground" />}
+          </span>
+          <span className="text-sm leading-relaxed text-foreground">
+            {tr("acceptTermsPrefix")} <strong>{tr("termsOfUseShortLabel")}</strong> {tr("eALabel")}{" "}
+            <strong>{tr("privacyPolicyLabel")}</strong> {tr("ofSpotterLocalSuffix")}
+          </span>
+        </button>
+      </div>
+      <PrimaryButton disabled={!checked} onClick={onAccept}>
+        {tr("acceptAndContinueAction")}
+      </PrimaryButton>
+    </>
   );
 }
 
@@ -464,10 +595,10 @@ function ProfileTypeStep({ onPick }: { onPick: (t: "personal" | "business") => v
             </div>
             <div className="flex-1">
               <div className="text-base font-semibold tracking-tight text-foreground">
-                Perfil Pessoal
+                {tr("personalProfileTitle")}
               </div>
               <div className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                Explorar restaurantes, farmácias, hotéis e serviços perto de si.
+                {tr("personalProfileDescription")}
               </div>
             </div>
             <Icon
@@ -488,10 +619,10 @@ function ProfileTypeStep({ onPick }: { onPick: (t: "personal" | "business") => v
             </div>
             <div className="flex-1">
               <div className="text-base font-semibold tracking-tight text-foreground">
-                Perfil Comercial
+                {tr("businessProfileTitle")}
               </div>
               <div className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                Cadastre o seu negócio e seja encontrado por clientes da sua zona.
+                {tr("businessProfileDescription")}
               </div>
             </div>
             <Icon
@@ -771,8 +902,7 @@ function LocationStep({
 
           <Label className="mt-5 block text-xs">{tr("exactLocationLabel")}</Label>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Coloque a localização exacta do seu negócio — é o que leva os clientes até à porta
-            certa.
+            {tr("setExactLocationHint")}
           </p>
 
           <button
@@ -782,21 +912,20 @@ function LocationStep({
             className="press mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 text-sm font-semibold text-primary disabled:opacity-60"
           >
             <Icon name="pin" size={16} className={locatingGPS ? "animate-spin" : ""} />
-            {locatingGPS ? "A obter localização…" : "Usar a minha localização actual"}
+            {locatingGPS ? tr("obtainingLocationEllipsis") : tr("useMyCurrentLocationAction")}
           </button>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Toque aqui estando no local do negócio — mais rápido, um só toque.
+            {tr("tapHereAtLocationHint")}
           </p>
           {gpsError && (
             <p className="mt-1.5 text-[11px] text-amber-600">
-              Não conseguimos aceder à sua localização. Verifique se permitiu o acesso ao GPS, ou
-              cole o link do Google Maps abaixo.
+              {tr("gpsAccessErrorHintMaps")}
             </p>
           )}
 
           <div className="mt-3 flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
             <div className="h-px flex-1 bg-border" />
-            ou cole manualmente
+            {tr("pasteManuallyHint")}
             <div className="h-px flex-1 bg-border" />
           </div>
           <Input
@@ -806,12 +935,11 @@ function LocationStep({
             className="mt-2 h-11 rounded-xl"
           />
           <p className="mt-1.5 text-[11px] text-muted-foreground">
-            Cole o link do Google Maps (curto ou longo) ou o código de mais/plus code (ex:
-            3C72+J2J) do local do negócio.
+            {tr("googleMapsLinkHintWithExample")}
           </p>
           {resolvingLink && (
             <div className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <Icon name="pin" size={12} className="animate-spin" /> A verificar localização…
+              <Icon name="pin" size={12} className="animate-spin" /> {tr("verifyingLocationEllipsis")}
             </div>
           )}
           {!resolvingLink && googleMapsLink && (
@@ -820,8 +948,8 @@ function LocationStep({
             >
               <Icon name={hasCoords ? "check" : "alert"} size={12} />
               {hasCoords
-                ? `Localização encontrada (${lat!.toFixed(4)}, ${lng!.toFixed(4)})`
-                : "Não foi possível reconhecer esta localização. Experimente o botão \"Usar a minha localização actual\" acima, ou cole só os números (ex: -25.9655, 32.5832)."}
+                ? `${tr("locationFoundPrefix")} (${lat!.toFixed(4)}, ${lng!.toFixed(4)})`
+                : tr("couldNotRecognizeLocationHint")}
             </div>
           )}
         </>
@@ -848,7 +976,7 @@ function VisitorStep({
     <>
       <StepTitle
         title={tr("touristOrResident")}
-        subtitle="Vamos personalizar o que aparece primeiro."
+        subtitle={tr("visitorStepSubtitle")}
       />
       <div className="space-y-3 stagger">
         <button
@@ -863,9 +991,9 @@ function VisitorStep({
             <Icon name="plane" size={22} />
           </div>
           <div className="flex-1">
-            <div className="font-semibold tracking-tight text-foreground">Sou turista</div>
+            <div className="font-semibold tracking-tight text-foreground">{tr("imTourist")}</div>
             <div className="text-xs leading-relaxed text-muted-foreground">
-              Hotéis, pontos turísticos, praias, rent-a-car, restaurantes gourmet.
+              {tr("touristDescription")}
             </div>
           </div>
         </button>
@@ -884,9 +1012,9 @@ function VisitorStep({
             <Icon name="rental" size={22} />
           </div>
           <div className="flex-1">
-            <div className="font-semibold tracking-tight text-foreground">Resido aqui</div>
+            <div className="font-semibold tracking-tight text-foreground">{tr("iLiveHere")}</div>
             <div className="text-xs leading-relaxed text-muted-foreground">
-              Farmácias de serviço, supermercados, clínicas, promoções do dia.
+              {tr("residentDescription")}
             </div>
           </div>
         </button>
@@ -946,13 +1074,17 @@ function CategoryStep({
   name,
   category,
   custom,
+  taxiType,
   onChange,
+  onTaxiTypeChange,
   onNext,
 }: {
   name: string;
   category: string;
   custom: string;
+  taxiType: string;
   onChange: (name: string, category: string, custom: string) => void;
+  onTaxiTypeChange: (taxiType: string) => void;
   onNext: () => void;
 }) {
   const tr = useT();
@@ -985,6 +1117,29 @@ function CategoryStep({
           );
         })}
       </div>
+      {category === "taxi" && (
+        <>
+          <Label className="mt-5 block text-xs">{tr("taxiTypeLabel")}</Label>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {TAXI_TYPES.map((t) => {
+              const on = taxiType === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => onTaxiTypeChange(t.id)}
+                  className={`press inline-flex items-center gap-2 rounded-2xl border px-3 py-2.5 text-sm transition ${
+                    on
+                      ? "border-primary bg-accent text-accent-foreground shadow-[var(--shadow-soft)]"
+                      : "border-border bg-card text-foreground hover:border-primary/40"
+                  }`}
+                >
+                  <Icon name={t.icon} size={14} /> {t.label}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
       {category === "other" && (
         <Input
           placeholder={tr("describeBusinessTypePlaceholder")}
@@ -994,7 +1149,9 @@ function CategoryStep({
         />
       )}
       <PrimaryButton
-        disabled={!name || !category || (category === "other" && !custom)}
+        disabled={
+          !name || !category || (category === "other" && !custom) || (category === "taxi" && !taxiType)
+        }
         onClick={onNext}
       >
         Continuar
@@ -1025,8 +1182,8 @@ function HoursStep({
             <Icon name="clock" size={18} />
           </div>
           <div>
-            <div className="font-medium text-foreground">Aberto 24h</div>
-            <div className="text-xs text-muted-foreground">Sempre disponível</div>
+            <div className="font-medium text-foreground">{tr("open24h")}</div>
+            <div className="text-xs text-muted-foreground">{tr("alwaysAvailable")}</div>
           </div>
         </div>
         <Switch
@@ -1038,7 +1195,7 @@ function HoursStep({
       {!hours.alwaysOpen && (
         <div className="mt-4 grid grid-cols-2 gap-3 animate-slide-up">
           <div>
-            <Label className="text-xs">Abre às</Label>
+            <Label className="text-xs">{tr("opensAt")}</Label>
             <Input
               type="time"
               value={hours.open}
@@ -1047,7 +1204,7 @@ function HoursStep({
             />
           </div>
           <div>
-            <Label className="text-xs">Fecha às</Label>
+            <Label className="text-xs">{tr("closesAt")}</Label>
             <Input
               type="time"
               value={hours.close}
@@ -1126,8 +1283,7 @@ function DetailsStep({
             className="mt-1 h-11 rounded-xl"
           />
           <p className="mt-1 text-[11px] text-muted-foreground">
-            A capa é o que o cliente clica para ir ao seu site oficial. Pode adicionar fotos da
-            galeria depois.
+            {tr("coverClickHint")} galeria depois.
           </p>
         </div>
       </div>
@@ -1136,7 +1292,7 @@ function DetailsStep({
         <Icon name="lock" size={16} className="mt-0.5 shrink-0" />
         <div>
           {tr("privacyNotice")}
-          visíveis apenas para a auditoria XTACK. Nunca são expostos ao público.
+          {tr("auditOnlyVisibleHint")}
         </div>
       </div>
 
@@ -1148,7 +1304,7 @@ function DetailsStep({
       )}
 
       <PrimaryButton disabled={!ok || syncing} onClick={onSubmit}>
-        {syncing ? "A enviar..." : "Enviar para verificação"}
+        {syncing ? tr("sendingEllipsis") : tr("sendForVerificationAction")}
       </PrimaryButton>
     </>
   );
@@ -1209,14 +1365,13 @@ function VerifyingStep({ onContinue }: { onContinue: () => void }) {
         className="mt-7 text-2xl font-bold tracking-tight text-foreground animate-slide-up"
         style={{ animationDelay: "0.2s" }}
       >
-        Negócio submetido!
+        {tr("businessSubmittedTitle")}
       </h1>
       <p
         className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground animate-slide-up"
         style={{ animationDelay: "0.3s" }}
       >
-        A verificação corre em segundo plano. Pode fechar a app ou continuar a explorar — nada
-        congela.
+        {tr("verificationRunsBackgroundHint")}
       </p>
 
       {/* Barra de progresso */}
@@ -1228,8 +1383,8 @@ function VerifyingStep({ onContinue }: { onContinue: () => void }) {
       <div className="mt-6 w-full space-y-3 text-left">
         {[
           { label: tr("dataSubmittedLabel"), done: true, delay: "0.4s" },
-          { label: "Verificação de segurança", active: phase >= 1, delay: "0.5s" },
-          { label: "Código de validação por email", active: phase >= 2, delay: "0.6s" },
+          { label: tr("securityCheckLabel"), active: phase >= 1, delay: "0.5s" },
+          { label: tr("emailValidationCodeLabel"), active: phase >= 2, delay: "0.6s" },
           { label: tr("businessGoesLiveLabel"), delay: "0.7s" },
         ].map((item, i) => (
           <div

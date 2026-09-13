@@ -1,14 +1,18 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useOnboarding } from "@/lib/onboarding-storage";
-import { CATEGORY_FILTERS } from "@/lib/places-data";
+import { CATEGORY_FILTERS, matchesCategoryFilter } from "@/lib/places-data";
+import {
+  LocationScopeButton,
+  type LocationScope,
+} from "@/components/LocationScopePicker";
 import { useDiscoverPlaces } from "@/lib/businesses-db";
 import { useAccountRecovery } from "@/lib/account-recovery";
 import { PlaceCard } from "@/components/PlaceCard";
 import { BottomNav } from "@/components/BottomNav";
 import { Icon } from "@/components/Icon";
 import {
-  getUserLocation,
+  useLocationPermission,
   distanceKm as calculateDistanceKm,
   formatDistance,
   type Coordinates,
@@ -56,14 +60,34 @@ function Home() {
   // Abrão: mostrar por omissão a cidade/província de casa, mas nunca
   // impedir de ver mais negócios fora dela (o mesmo toggle já existe na
   // Busca — ver src/routes/search.tsx).
-  const [nationwide, setNationwide] = useState(false);
+  const [locationScope, setLocationScope] = useState<LocationScope>({ mode: "mine" });
   const { places: allPlaces, loading: placesLoading } = useDiscoverPlaces(
-    nationwide ? undefined : { province: profileProvince, city: profileCity },
+    locationScope.mode === "country"
+      ? undefined
+      : locationScope.mode === "provinces"
+        ? { provinces: locationScope.provinces }
+        : { province: profileProvince, city: profileCity },
   );
   const [cat, setCat] = useState<string>("all");
+  // BUG DO ABRÃO (2026-08-30, confirmado com comerciante real): "diz
+  // que o negócio é online mas não aparece na aba online". Causa: a
+  // lista principal (allPlaces, acima) já vem filtrada pela cidade ou
+  // província do CLIENTE antes de chegar sequer à aba Online — mas um
+  // negócio digital/online não está preso a nenhuma cidade em
+  // particular, o cliente pode encomendar de lá esteja onde estiver.
+  // Um comerciante registado numa província diferente da do cliente
+  // simplesmente nunca aparecia, mesmo tendo activado "É um negócio
+  // digital" correctamente. Esta busca separada ignora sempre a
+  // localização (nationwide sempre true), independentemente do botão
+  // "Todo o país"/"Minha cidade" — só é usada quando a aba Online está
+  // seleccionada.
+  const { places: onlinePlaces, loading: onlinePlacesLoading } = useDiscoverPlaces(undefined);
   const [mounted, setMounted] = useState(false);
-  const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
-  const [locationDenied, setLocationDenied] = useState(false);
+  // BUG CORRIGIDO (2026-09-02): `userLocation`/`locationDenied` eram
+  // geridos manualmente aqui, mas `locationDenied` nunca era lido em
+  // lado nenhum da interface — o utilizador nunca sabia que a
+  // localização tinha sido bloqueada. useLocationPermission() (geoutils.ts) substitui isto e o resultado é agora mostrado abaixo.
+  const { location: userLocation, denied: locationDenied } = useLocationPermission();
   const [boostedIds, setBoostedIds] = useState<string[]>([]);
 
   useEffect(() => {
@@ -80,19 +104,12 @@ function Home() {
     return () => clearTimeout(t);
   }, []);
 
-  // Pede a localização do utilizador uma vez, ao abrir a Home. Se recusar
-  // ou falhar (sem GPS, sem permissão), getUserLocation nunca rejeita —
-  // devolve null e os negócios mostram a distância de referência em vez
-  // da real, sem travar nem mostrar erro.
-  useEffect(() => {
-    getUserLocation().then((loc) => {
-      if (loc) setUserLocation(loc);
-      else setLocationDenied(true);
-    });
-  }, []);
-
   const places = useMemo(() => {
-    let list = allPlaces.map((p) => {
+    // Aba Online usa a lista sem filtro de localização (ver comentário
+    // acima, junto a onlinePlaces) — todas as outras abas continuam a
+    // usar allPlaces (já filtrada pela cidade/província escolhida).
+    const source = cat === "online" ? onlinePlaces : allPlaces;
+    let list = source.map((p) => {
       // Quando o negócio tem coordenadas reais (lat/lng do Google Maps) e
       // sabemos onde o utilizador está, calculamos a distância real em km.
       // Negócios sem GPS ficam com Infinity → vão automaticamente para o fim.
@@ -111,7 +128,7 @@ function Home() {
     } else {
       // Exclui sempre negócios digitais da pesquisa geral
       list = list.filter((p) => !p.isDigital);
-      if (cat !== "all") list = list.filter((p) => p.category === cat);
+      if (cat !== "all") list = list.filter((p) => matchesCategoryFilter(p.category, cat));
       list = list.sort((a, b) => {
         // Infinity vai para o fim, finitos ordenados por distância
         if (!isFinite(a.distanceKm) && !isFinite(b.distanceKm)) return 0;
@@ -124,12 +141,12 @@ function Home() {
     const boostedSet = new Set(boostedIds);
     list = list.map((p) => (boostedSet.has(p.id) ? { ...p, boosted: true } : p));
     return applyBoostOrder(list, boostedIds);
-  }, [cat, userLocation, allPlaces, boostedIds]);
+  }, [cat, userLocation, allPlaces, onlinePlaces, boostedIds]);
 
   const featured = allPlaces.filter((p) => p.promo).slice(0, 5);
   const openNow = allPlaces.filter((p) => p.openNow);
 
-  if (!hydrated || placesLoading || !ready) {
+  if (!hydrated || placesLoading || (cat === "online" && onlinePlacesLoading) || !ready) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
         {/* Hero com BreathingLoader */}
@@ -178,20 +195,15 @@ function Home() {
           className={`relative flex items-center justify-between transition-all duration-600 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}
         >
           <div className="min-w-0">
-            <button
-              onClick={() => setNationwide((v) => !v)}
-              className="press inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[10px] font-medium backdrop-blur-sm"
-            >
-              <Icon name={nationwide ? "tourism" : userLocation ? "navigation" : "pin"} size={10} />
-              {nationwide
-                ? tr("searchScopeCountry")
-                : profileProvince || profile.city || tr("cityFallback")}
-              {!nationwide && profile.country ? `, ${profile.country}` : ""}
-              {!nationwide && !userLocation && !locationDenied && (
-                <span className="opacity-70">· {tr("locating")}</span>
-              )}
-              <Icon name="chevronDown" size={10} className="opacity-70" />
-            </button>
+            <LocationScopeButton
+              scope={locationScope}
+              onChange={setLocationScope}
+              fallbackCityLabel={
+                (profileProvince || profile.city || tr("cityFallback")) +
+                (profile.country ? `, ${profile.country}` : "")
+              }
+              icon={userLocation ? "navigation" : "pin"}
+            />
             <h1 className="mt-2 truncate text-2xl font-bold tracking-tight">
               {appearance.enabled && appearance.heading
                 ? appearance.heading
@@ -237,10 +249,31 @@ function Home() {
           <span className="flex items-center gap-1 rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-medium text-white backdrop-blur-sm">
             <Icon name="check" size={12} /> {openNow.length} {tr("openNowCount")}
           </span>
+          {/* Atalho directo para a categoria Táxi (pedido do Abrão,
+              2026-09-07): fica fora do carrossel de Categorias abaixo —
+              "taxi" não está em CATEGORY_FILTERS de propósito — e leva
+              logo aos motoristas (moto/carro/txopela), sem precisar de
+              percorrer a lista toda. */}
+          <button
+            onClick={() => setCat("taxi")}
+            className="press flex items-center gap-1 rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-medium text-white backdrop-blur-sm"
+          >
+            <Icon name="taxi" size={12} /> {tr("taxiShortcutLabel")}
+          </button>
         </div>
       </header>
 
       <main className="flex-1 pb-8">
+        {/* BUG CORRIGIDO (2026-09-02): locationDenied existia mas nunca
+            era mostrado — o utilizador nunca sabia porque as distâncias
+            não eram reais. Banner dispensável (não bloqueia o uso da
+            app), com instrução accionável em vez de silêncio. */}
+        {locationDenied && (
+          <div className="mx-5 mt-4 flex items-start gap-2 rounded-2xl bg-primary/5 px-4 py-3 text-xs text-primary">
+            <Icon name="lock" size={13} className="mt-0.5 shrink-0" />
+            <span>{tr("locationBlockedApproxHint")}</span>
+          </div>
+        )}
         {/* Categories */}
         <section className="mt-6 px-5">
           <h2
@@ -337,16 +370,18 @@ function Home() {
         <section className="mt-6 px-5">
           <h2 className="mb-3.5 flex items-center gap-1.5 text-sm font-bold tracking-tight text-foreground animate-slide-up">
             {cat === "online" && <Icon name="delivery" size={15} className="text-violet-500" />}
+            {cat === "taxi" && <Icon name="taxi" size={15} className="text-primary" />}
             {cat === "all"
               ? `${tr("openNowWithCount")} · ${openNow.length}`
               : cat === "online"
-                ? "Negócios Online"
-                : CATEGORY_FILTERS.find((c) => c.id === cat)?.label}
+                ? tr("onlineBusinessesTitle")
+                : cat === "taxi"
+                  ? tr("taxiShortcutLabel")
+                  : CATEGORY_FILTERS.find((c) => c.id === cat)?.label}
           </h2>
           {cat === "online" && (
             <p className="mb-4 text-xs text-muted-foreground">
-              Serviços digitais disponíveis em todo o país — designers, freelancers, lojas online e
-              mais.
+              {tr("onlineServicesDescription")}
             </p>
           )}
           <div className="space-y-4 stagger">
@@ -359,10 +394,10 @@ function Home() {
                   <>
                     <Icon name="delivery" size={28} className="text-violet-400" />
                     <div className="text-sm font-medium text-foreground">
-                      Sem negócios online ainda
+                      {tr("noDigitalBusinessesYet")}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      Regista o teu negócio digital e aparece aqui.
+                      {tr("registerDigitalBusinessHint")}
                     </div>
                   </>
                 ) : (

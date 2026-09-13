@@ -42,6 +42,10 @@ export interface BusinessProfile {
   businessName: string;
   category: string;
   customCategory?: string;
+  // Sub-tipo do veículo quando category === "taxi": "taxi_moto" | "taxi_carro"
+  // | "txopela" (ver TAXI_TYPES acima). Não usado para nenhuma outra
+  // categoria.
+  taxiType?: string;
   hours: BusinessHours;
   description: string;
   tags?: string[];
@@ -81,6 +85,12 @@ export interface OnboardingDraft {
   business: Partial<BusinessProfile>;
   completed: boolean;
   verificationSubmittedAt?: string;
+  // Data/hora em que o utilizador aceitou explicitamente os Termos de
+  // Uso e a Política de Privacidade (ver passo "terms" em
+  // onboarding.tsx). Sem isto, o consentimento era só implícito (um
+  // texto pequeno "ao continuar, aceitas...") — agora é uma acção
+  // explícita, obrigatória antes de escolher o tipo de perfil.
+  termsAcceptedAt?: string;
 }
 
 const KEY = "xlocal.onboarding.v1";
@@ -243,9 +253,20 @@ export const BUSINESS_CATEGORIES = [
   { id: "bar", label: "Bar", icon: "bar" },
   { id: "tourism_site", label: "Sítios turísticos", icon: "tourism" },
   { id: "transporter", label: "Transportadora / Viagens", icon: "transporter" },
+  { id: "taxi", label: "Táxi", icon: "taxi" },
   { id: "delivery", label: "Entregas / Compras online", icon: "delivery" },
   { id: "online_clothes", label: "Roupas (online)", icon: "online_clothes" },
   { id: "online_mobile", label: "Aparelhos móveis", icon: "online_mobile" },
   { id: "online_appliances", label: "Eletrodomésticos", icon: "online_appliances" },
   { id: "other", label: "Outro", icon: "other" },
 ];
+
+// Sub-tipos da categoria "taxi" (pedido do Abrão, 2026-09-07): o motorista
+// escolhe um destes três — todos têm exactamente as mesmas funcionalidades,
+// só muda o ícone/rótulo mostrado ao cliente. Guardado em taxiType no
+// MerchantRecord/Place, só relevante quando category === "taxi".
+export const TAXI_TYPES = [
+  { id: "taxi_moto", label: "Táxi Moto", icon: "taxi_moto" },
+  { id: "taxi_carro", label: "Táxi Carro", icon: "taxi_carro" },
+  { id: "txopela", label: "Txopela", icon: "txopela" },
+] as const;

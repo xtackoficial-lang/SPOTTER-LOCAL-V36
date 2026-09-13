@@ -216,6 +216,7 @@ function Welcome() {
         {/* Logo */}
         <div
           className={`flex items-center gap-3 text-primary-foreground transition-all duration-700 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+          style={appearance.enabled ? { textShadow: "0 2px 12px rgba(0,0,0,0.4)" } : undefined}
         >
           <div className="relative grid h-12 w-12 place-items-center rounded-2xl bg-primary-foreground/20 backdrop-blur-xl ring-1 ring-white/20">
             <Icon name="pin" size={22} />
@@ -235,6 +236,15 @@ function Welcome() {
         {/* Hero text */}
         <div
           className={`mt-10 text-primary-foreground transition-all duration-700 delay-100 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+          // BUG DO ABRÃO (2026-08-30, print confirmado): "na página de
+          // login desaparecem as escrituras por causa do clima
+          // natalício". O texto do hero usa sempre a mesma cor fixa
+          // (--primary-foreground), pensada para o gradiente por
+          // omissão — mas um tema sazonal escolhido no admin pode ter
+          // qualquer cor/gradiente, incluindo zonas onde essa cor fixa
+          // quase não se distingue do fundo. Esta sombra garante
+          // contraste em qualquer combinação de cores do tema.
+          style={appearance.enabled ? { textShadow: "0 2px 16px rgba(0,0,0,0.45)" } : undefined}
         >
           <h1 className="text-[2.8rem] font-bold leading-[1.03] tracking-tight">
             {appearance.enabled && appearance.heading ? (
@@ -440,8 +450,7 @@ function Welcome() {
                     // pessoa ficava a tentar adivinhar uma senha que
                     // nunca existiu.
                     <p className="mt-1.5 text-[11px] text-muted-foreground">
-                      Criaste a conta com Google? Usa o botão "Continuar com
-                      Google" acima em vez da senha.
+                      {tr("createdAccountWithGoogleHint").replace("{google}", tr("continueWithGoogle"))}
                     </p>
                   )}
                 </div>
@@ -451,7 +460,7 @@ function Welcome() {
                   </div>
                 )}
                 <ShimmerButton
-                  className="press h-12 w-full rounded-2xl text-sm font-bold text-primary-foreground disabled:opacity-40 transition hover:opacity-90"
+                  className="press ripple h-12 w-full rounded-2xl text-sm font-bold text-primary-foreground disabled:opacity-40 transition hover:opacity-90"
                   style={{ background: "var(--gradient-primary)" }}
                   disabled={!email || !password}
                   onClick={handleContinue}

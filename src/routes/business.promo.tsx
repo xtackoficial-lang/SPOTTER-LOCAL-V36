@@ -110,13 +110,13 @@ function PromoPage() {
           <Icon name="arrowLeft" size={16} />
         </button>
         <div>
-          <h1 className="text-base font-bold text-foreground">Promoção para favoritos</h1>
+          <h1 className="text-base font-bold text-foreground">{tr("promoForFavoritesTitle")}</h1>
           <p className="text-xs text-muted-foreground">
             {favCount === null
-              ? "A calcular quantas pessoas te favoritaram…"
+              ? tr("calculatingFavoritesHint")
               : favCount === 0
-                ? "Ainda ninguém te adicionou aos favoritos."
-                : `${favCount} ${favCount === 1 ? "pessoa favoritou" : "pessoas favoritaram"} o teu negócio.`}
+                ? tr("noOneFavoritedYet")
+                : `${favCount} ${favCount === 1 ? tr("favoritedYouSingular") : tr("favoritedYouPlural")}`}
           </p>
         </div>
       </header>
@@ -126,7 +126,7 @@ function PromoPage() {
           <div className="flex items-start gap-3 rounded-2xl border border-amber-400/40 bg-amber-500/10 p-4">
             <Icon name="clock" size={18} className="mt-0.5 shrink-0 text-amber-600" />
             <p className="text-xs text-amber-700">
-              Já enviaste uma promoção nas últimas 24h. Podes enviar a próxima a partir das{" "}
+              {tr("alreadySentPromoHint")}{" "}
               {blockedUntil.toLocaleString(INTL_TAG[locale], {
                 day: "numeric",
                 month: "short",
@@ -139,11 +139,11 @@ function PromoPage() {
         ) : (
           <div className="space-y-4 rounded-2xl border border-border bg-card p-4">
             <div>
-              <label className="text-xs font-semibold text-foreground">Título</label>
+              <label className="text-xs font-semibold text-foreground">{tr("titleFieldLabel")}</label>
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value.slice(0, MAX_TITLE))}
-                placeholder="Ex: 20% de desconto hoje!"
+                placeholder={tr("promoTitlePlaceholder")}
                 className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3.5 text-sm outline-none focus:border-primary"
               />
               <div className="mt-1 text-right text-[10px] text-muted-foreground">
@@ -152,11 +152,11 @@ function PromoPage() {
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-foreground">Mensagem</label>
+              <label className="text-xs font-semibold text-foreground">{tr("messageFieldLabel")}</label>
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value.slice(0, MAX_BODY))}
-                placeholder="Descreve a promoção em poucas palavras…"
+                placeholder={tr("promoMessagePlaceholder")}
                 rows={3}
                 className="mt-1.5 w-full resize-none rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm outline-none focus:border-primary"
               />
@@ -167,7 +167,7 @@ function PromoPage() {
 
             <div>
               <label className="text-xs font-semibold text-foreground">
-                Promoção válida até
+                {tr("promoValidUntil")}
               </label>
               <input
                 type="date"
@@ -185,8 +185,8 @@ function PromoPage() {
             )}
             {sentOk && (
               <p className="rounded-xl bg-emerald-500/10 px-3 py-2 text-[11px] text-emerald-700">
-                Promoção enviada a {sentOk.recipients}{" "}
-                {sentOk.recipients === 1 ? "pessoa" : "pessoas"} ({sentOk.success} entregues).
+                {tr("promoSentToPrefix")} {sentOk.recipients}{" "}
+                {sentOk.recipients === 1 ? tr("personLabel") : tr("peopleLabel")} ({sentOk.success} {tr("deliveredSuffix")}).
               </p>
             )}
 
@@ -200,27 +200,26 @@ function PromoPage() {
                 <BreathingLoader size={16} />
               ) : (
                 <>
-                  <Icon name="bell" size={16} /> Enviar aos favoritos
+                  <Icon name="bell" size={16} /> {tr("sendToFavoritesAction")}
                 </>
               )}
             </ShimmerButton>
             {!favCount && favCount !== null && (
               <p className="text-center text-[11px] text-muted-foreground">
-                Ainda não tens ninguém para notificar — só aparece aqui quando alguém favoritar o
-                teu negócio.
+                {tr("noOneToNotifyHint")}
               </p>
             )}
           </div>
         )}
 
         <div>
-          <h2 className="mb-2 text-sm font-bold text-foreground">Promoções enviadas</h2>
+          <h2 className="mb-2 text-sm font-bold text-foreground">{tr("promosSentTitle")}</h2>
           {loadingHistory ? (
             <div className="flex justify-center pt-6">
               <BreathingLoader size={28} />
             </div>
           ) : history.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Ainda não enviaste nenhuma promoção.</p>
+            <p className="text-xs text-muted-foreground">{tr("noPromosSentYet")}</p>
           ) : (
             <div className="space-y-2.5">
               {history.map((p) => (
@@ -237,7 +236,7 @@ function PromoPage() {
                   <p className="mt-0.5 text-xs text-muted-foreground">{p.body}</p>
                   <div className="mt-2 flex items-center gap-3 text-[10px] text-muted-foreground">
                     <span>
-                      Válida até{" "}
+                      {tr("validUntilPrefix")}{" "}
                       {new Date(p.valid_until).toLocaleDateString(INTL_TAG[locale], {
                         day: "numeric",
                         month: "short",
@@ -245,7 +244,7 @@ function PromoPage() {
                     </span>
                     <span>·</span>
                     <span>
-                      {p.success_count}/{p.recipients_count} entregues
+                      {p.success_count}/{p.recipients_count} {tr("deliveredSuffix")}
                     </span>
                   </div>
                 </div>

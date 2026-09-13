@@ -4,6 +4,7 @@
 // distância real entre dois pontos (fórmula de Haversine).
 // ============================================================
 import { OpenLocationCode } from "open-location-code";
+import { useEffect, useState } from "react";
 
 const olc = new OpenLocationCode();
 
@@ -211,6 +212,63 @@ export function getUserLocation(timeoutMs = 8000): Promise<Coordinates | null> {
       { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 5 * 60 * 1000 },
     );
   });
+}
+
+/**
+ * Hook partilhado para pedir localização e SABER se foi recusada, em vez
+ * de só cair em "null" em silêncio como getUserLocation() sozinho faz.
+ * BUG CORRIGIDO (2026-09-02): getUserLocation() já devolvia null tanto
+ * para "recusado" como para "sem GPS"/"timeout" — nenhum ecrã distinguia
+ * os casos nem avisava o utilizador. home.tsx já tinha uma variável
+ * `locationDenied` só para este fim, mas nunca era lida em lado nenhum
+ * da interface — ficava sempre sem efeito na prática. Este hook usa a
+ * Permissions API (quando o navegador suporta) para saber com certeza
+ * se está "denied", e devolve isso separado do resultado da localização,
+ * para os ecrãs poderem mostrar um aviso accionável.
+ */
+export function useLocationPermission(): {
+  location: Coordinates | null;
+  denied: boolean;
+} {
+  const [location, setLocation] = useState<Coordinates | null>(null);
+  const [denied, setDenied] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function run() {
+      if (
+        typeof navigator !== "undefined" &&
+        "permissions" in navigator &&
+        typeof navigator.permissions?.query === "function"
+      ) {
+        try {
+          const status = await navigator.permissions.query({
+            name: "geolocation" as PermissionName,
+          });
+          if (!cancelled && status.state === "denied") {
+            setDenied(true);
+            return;
+          }
+        } catch {
+          // Permissions API indisponível para "geolocation" nalguns
+          // navegadores (ex: Safari/iOS) — segue para getUserLocation
+          // normalmente, que ainda funciona mesmo sem esta checagem.
+        }
+      }
+      const loc = await getUserLocation();
+      if (cancelled) return;
+      if (loc) setLocation(loc);
+      else setDenied(true);
+    }
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return { location, denied };
 }
 
 /**

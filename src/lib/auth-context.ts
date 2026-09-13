@@ -10,6 +10,7 @@ import {
   signUp,
   signInWithOAuth,
   signOut as authSignOut,
+  deleteOwnAccount as authDeleteOwnAccount,
   setProfileType as authSetProfileType,
   syncProfileToSupabase,
   isSelfSuspended,
@@ -128,6 +129,12 @@ export function useAuth() {
     notifyAll(null);
   };
 
+  const deleteAccount = async () => {
+    const result = await authDeleteOwnAccount();
+    if (!result.error) notifyAll(null);
+    return result;
+  };
+
   // Liga a escolha pessoal/comercial do onboarding à conta autenticada,
   // para que o tipo de conta sobreviva a troca de dispositivo / limpeza de cache,
   // e não viva só no draft de onboarding em localStorage.
@@ -146,6 +153,7 @@ export function useAuth() {
     loginWithOAuth,
     register,
     logout,
+    deleteAccount,
     setProfileType,
     isLoggedIn: !!user,
     suspended,

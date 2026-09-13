@@ -5,6 +5,60 @@
 
 import { supabase, SUPABASE_CONFIGURED } from "./supabase";
 
+// BUG CORRIGIDO (pedido do Abrão, 2026-09-09): markHelpful() incrementava
+// "helpful" sem qualquer limite — a mesma pessoa (com ou sem conta) podia
+// clicar "Útil" repetidamente e inflacionar o número (foi assim que um
+// review chegou a "Útil (122)"). Nem o cliente nem a função no Supabase
+// (increment_helpful) verificavam se aquele visitante já tinha votado
+// naquele review. Como a app permite comentar sem conta, a proteção não
+// pode depender só de auth.uid() — usa-se também um ID anónimo por
+// aparelho (guardado no localStorage, nunca muda) para quem não tem
+// sessão. Ver getDeviceVoterId() abaixo, tabela review_helpful_votes e a
+// função increment_helpful actualizada em SUPABASE_SETUP.sql.
+const DEVICE_ID_KEY = "xlocal.device-id.v1";
+const VOTED_LOCAL_KEY = "xlocal.helpful-votes.v1";
+
+function getDeviceVoterId(): string {
+  try {
+    let id = localStorage.getItem(DEVICE_ID_KEY);
+    if (!id) {
+      id = `dev-${crypto.randomUUID()}`;
+      localStorage.setItem(DEVICE_ID_KEY, id);
+    }
+    return id;
+  } catch {
+    // localStorage indisponível (modo privado, quota, etc.) — usa um ID
+    // só desta sessão; não é perfeito, mas nunca deixa a função rebentar.
+    return `dev-${crypto.randomUUID()}`;
+  }
+}
+
+function readVotedLocally(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(VOTED_LOCAL_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+// Usado pela UI (reviews.$id.tsx) para desactivar/assinalar o botão
+// "Útil" em reviews que este aparelho já votou, sem precisar de esperar
+// pela rede.
+export function hasVotedHelpfulLocally(reviewId: string): boolean {
+  return readVotedLocally().includes(reviewId);
+}
+
+function markVotedLocally(reviewId: string) {
+  try {
+    const voted = readVotedLocally();
+    if (!voted.includes(reviewId)) {
+      localStorage.setItem(VOTED_LOCAL_KEY, JSON.stringify([...voted, reviewId]));
+    }
+  } catch {
+    /* ignorado: falha de quota/acesso ao localStorage */
+  }
+}
+
 export interface Review {
   id: string;
   businessId: string;
@@ -195,16 +249,29 @@ export async function submitReview(
 }
 
 // ── Marcar review como útil ──────────────────────────────────
-export async function markHelpful(reviewId: string): Promise<void> {
+// Devolve true se este voto contou (primeira vez deste aparelho/conta
+// neste review) ou false se já tinha votado antes — a UI usa isto para
+// não voltar a incrementar o contador no ecrã.
+export async function markHelpful(reviewId: string, userId?: string): Promise<boolean> {
+  if (hasVotedHelpfulLocally(reviewId)) return false;
+  markVotedLocally(reviewId);
   const all = readAll().map((r) => (r.id === reviewId ? { ...r, helpful: r.helpful + 1 } : r));
   writeAll(all);
   if (SUPABASE_CONFIGURED && supabase) {
     try {
-      await supabase.rpc("increment_helpful", { p_review_id: reviewId });
+      // voter_key: conta real quando há sessão, senão o ID anónimo deste
+      // aparelho — a função no Supabase usa isto para nunca contar o
+      // mesmo voto duas vezes, mesmo que o cliente tente contornar o
+      // bloqueio local (ver review_helpful_votes em SUPABASE_SETUP.sql).
+      await supabase.rpc("increment_helpful", {
+        p_review_id: reviewId,
+        p_voter_key: userId ?? getDeviceVoterId(),
+      });
     } catch (err) {
       console.warn("markHelpful: falha ao sincronizar com Supabase.", err);
     }
   }
+  return true;
 }
 
 // ── Reportar review ──────────────────────────────────────────

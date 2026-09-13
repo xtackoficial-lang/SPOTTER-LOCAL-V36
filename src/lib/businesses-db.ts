@@ -20,13 +20,10 @@ export interface BusinessDB {
   id: string;
   owner_id?: string;
   business_name: string;
-  // BUG CORRIGIDO (auditoria 2026-07-08): faltava aqui, mesmo já sendo
-  // lido pelo painel de admin (admin-storage.ts) — o Nome do Dono
-  // preenchido pelo comerciante nunca chegava ao Supabase, ficando
-  // sempre em branco no painel de admin (inclui o link de WhatsApp de
-  // suporte, que usa este nome para saudar o comerciante).
-  owner_name?: string;
   category: string;
+  // Sub-tipo do veículo quando category === "taxi" (ver TAXI_TYPES em
+  // onboarding-storage.ts). undefined para qualquer outra categoria.
+  taxi_type?: string;
   city: string;
   // Província (só Moçambique — ver mozambique-locations.ts). Nível
   // PRINCIPAL de correspondência com clientes na Home/Busca — ver
@@ -126,6 +123,7 @@ export function businessToPlace(b: BusinessDB): Place {
     id: b.id,
     name: b.business_name,
     category: b.category,
+    taxiType: b.taxi_type,
     categoryLabel: catInfo?.label ?? "Negócio",
     icon: catInfo?.icon ?? "store",
     city: b.city,
@@ -185,6 +183,13 @@ function isWithinHours(open: string, close: string, openDays?: number[]): boolea
 export interface LocationFilter {
   province?: string;
   city?: string;
+  // BUG DO ABRÃO (2026-08-30): "deveria aparecer a opção de todo país,
+  // outras províncias — selecionar vários tipos de província, não só
+  // duas opções". Novo campo opcional: quando presente, filtra por
+  // QUALQUER UMA destas províncias (OR), ignorando `province`/`city`
+  // acima. Mantido como campo à parte (em vez de substituir `province`)
+  // para não quebrar nenhuma chamada existente a fetchBusinesses().
+  provinces?: string[];
 }
 
 // BUG CORRIGIDO (2026-07-07): antes filtrava só por texto de cidade
@@ -197,8 +202,16 @@ export interface LocationFilter {
 // último caso volta ao antigo texto de cidade — assim nenhum negócio
 // já publicado fica invisível por causa desta mudança.
 function matchesLocation(b: BusinessDB, location?: LocationFilter): boolean {
-  if (!location || (!location.province && !location.city)) return true;
-  const { province, city } = location;
+  if (!location || (!location.province && !location.city && !location.provinces?.length)) {
+    return true;
+  }
+  const { province, city, provinces } = location;
+  if (provinces && provinces.length > 0) {
+    const bizProvince = b.province || provinceForCity(b.city);
+    // Negócio sem província reconhecida: mantém-se visível em vez de
+    // desaparecer só porque o dado antigo não tem essa coluna gravada.
+    return bizProvince ? provinces.includes(bizProvince) : true;
+  }
   if (province) {
     if (b.province) return b.province === province;
     const inferred = provinceForCity(b.city);
@@ -221,8 +234,15 @@ export async function fetchBusinesses(location?: string | LocationFilter): Promi
     try {
       // Filtragem por localização já não é feita aqui em SQL — ver
       // matchesLocation() e o comentário acima.
+      // CONSERTO (auditoria de segurança, bloco v36/v37): lê de
+      // "businesses_public" em vez de "businesses" — desde o bloco v37,
+      // owner_name/email nem sequer estão mais na tabela "businesses"
+      // (vivem em "business_accounts", RLS só dono/admin), mas a view
+      // continua a existir como camada extra de segurança para o
+      // caminho público, caso a tabela volte a ganhar colunas
+      // sensíveis no futuro.
       const { data, error } = await supabase
-        .from("businesses")
+        .from("businesses_public")
         .select("*")
         .in("plan_status", ["active", "trial"])
         .order("rating", { ascending: false });
@@ -235,7 +255,16 @@ export async function fetchBusinesses(location?: string | LocationFilter): Promi
   return [...real, ...demo].filter((b) => matchesLocation(b, loc));
 }
 
-// ---------- Buscar negócio por ID ----------
+// ---------- Buscar negócio por ID (uso interno/dono — tabela completa) ----------
+// NOTA: usada em merchant.tsx no padrão "lê o registo actual antes de
+// escrever" (para não apagar colunas omitidas do payload do upsert).
+// Mantém-se a ler da tabela "businesses" de propósito: quando quem chama
+// é o próprio dono, o RLS ("Dono gere o seu negócio") já só devolve a
+// linha dele mesmo. owner_name/email vivem à parte em
+// "business_accounts" (ver fetchBusinessAccount/upsertBusinessAccount)
+// — não fazem parte desta tabela desde o bloco v37.
+// Para qualquer ecrã que mostra o negócio de OUTRA pessoa (visitante,
+// cliente, chat), usa fetchBusinessPublicById em vez desta.
 export async function fetchBusinessById(id: string): Promise<BusinessDB | null> {
   if (SUPABASE_CONFIGURED && supabase) {
     try {
@@ -243,6 +272,29 @@ export async function fetchBusinessById(id: string): Promise<BusinessDB | null> 
       if (!error && data) return data as BusinessDB;
     } catch (err) {
       console.warn("fetchBusinessById: Supabase indisponível, a usar dados locais.", err);
+    }
+  }
+  const place = PLACES.find((p) => p.id === id);
+  return place ? placeToBusinessDB(place) : null;
+}
+
+// ---------- Buscar negócio por ID (visão pública — sem dados da conta) ----------
+// CONSERTO (auditoria de segurança, bloco v36): usar SEMPRE esta função
+// (nunca fetchBusinessById) em ecrãs que mostram o negócio de OUTRA
+// pessoa — perfil público, chat, favoritos. Lê de "businesses_public",
+// a view sem owner_name/email, para essas colunas nunca chegarem a um
+// visitante ou cliente que não é o dono.
+export async function fetchBusinessPublicById(id: string): Promise<BusinessDB | null> {
+  if (SUPABASE_CONFIGURED && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("businesses_public")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (!error && data) return data as BusinessDB;
+    } catch (err) {
+      console.warn("fetchBusinessPublicById: Supabase indisponível, a usar dados locais.", err);
     }
   }
   const place = PLACES.find((p) => p.id === id);
@@ -270,6 +322,48 @@ export async function fetchBusinessByOwner(ownerId: string): Promise<BusinessDB 
     console.warn("fetchBusinessByOwner: Supabase indisponível.", err);
   }
   return null;
+}
+
+// ---------- Conta do dono (owner_name/email) — bloco v37 ----------
+// CONSERTO (auditoria de segurança): owner_name/email deixaram de ser
+// colunas de "businesses" (onde qualquer visitante do negócio conseguia
+// lê-las) e passaram para "business_accounts", com RLS restrita ao
+// próprio dono ou a um admin. Usa estas duas funções em vez de ler/
+// escrever esses campos directamente na tabela "businesses".
+export interface BusinessAccount {
+  business_id: string;
+  owner_name?: string;
+  email?: string;
+}
+
+export async function fetchBusinessAccount(businessId: string): Promise<BusinessAccount | null> {
+  if (!SUPABASE_CONFIGURED || !supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from("business_accounts")
+      .select("*")
+      .eq("business_id", businessId)
+      .maybeSingle();
+    if (!error && data) return data as BusinessAccount;
+  } catch (err) {
+    console.warn("fetchBusinessAccount: Supabase indisponível.", err);
+  }
+  return null;
+}
+
+export async function upsertBusinessAccount(
+  businessId: string,
+  patch: { owner_name?: string; email?: string },
+): Promise<void> {
+  if (!SUPABASE_CONFIGURED || !supabase) return;
+  try {
+    const { error } = await supabase
+      .from("business_accounts")
+      .upsert({ business_id: businessId, ...patch, updated_at: new Date().toISOString() });
+    if (error) throw new Error(error.message);
+  } catch (err) {
+    console.warn("upsertBusinessAccount: Supabase indisponível.", err);
+  }
 }
 
 // ---------- Criar/actualizar negócio ----------

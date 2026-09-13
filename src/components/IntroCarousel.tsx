@@ -15,6 +15,7 @@
 // preciso mexer neste componente.
 // ============================================================
 import { useEffect, useRef, useState } from "react";
+import { useT } from "@/lib/i18n";
 
 const SEEN_KEY = "xlocal.intro.seen.v1";
 
@@ -37,24 +38,25 @@ function markIntroSeen() {
 const SLIDES = [
   {
     image: "/onboarding-intro/s1.png",
-    title: "Descubra negócios perto de si",
-    subtitle: "Restaurantes, barbearias, hotéis e muito mais — na tua cidade.",
+    titleKey: "introTitle1",
+    subtitleKey: "introSubtitle1",
   },
   {
     image: "/onboarding-intro/s2.png",
-    title: "Tudo num só lugar",
-    subtitle: "Encontra, compara e contacta negócios locais em segundos.",
+    titleKey: "introTitle2",
+    subtitleKey: "introSubtitle2",
   },
   {
     image: "/onboarding-intro/s3.png",
-    title: "O teu negócio merece ser visto",
-    subtitle: "Cadastra grátis e chega a mais clientes hoje mesmo.",
+    titleKey: "introTitle3",
+    subtitleKey: "introSubtitle3",
   },
-];
+] as const;
 
 export function IntroCarousel({ onFinish }: { onFinish: () => void }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
+  const tr = useT();
 
   useEffect(() => {
     const track = trackRef.current;
@@ -95,7 +97,7 @@ export function IntroCarousel({ onFinish }: { onFinish: () => void }) {
         onClick={finish}
         className="press absolute right-4 top-12 z-10 rounded-full bg-white/15 px-4 py-2 text-xs font-semibold text-white backdrop-blur-sm"
       >
-        Saltar
+        {tr("skipAction")}
       </button>
 
       {/* Pista deslizável — scroll-snap nativo dá o arrasto suave e o
@@ -120,10 +122,10 @@ export function IntroCarousel({ onFinish }: { onFinish: () => void }) {
               draggable={false}
             />
             <h2 className="mt-8 text-center text-2xl font-extrabold text-white">
-              {slide.title}
+              {tr(slide.titleKey)}
             </h2>
             <p className="mt-2 max-w-xs text-center text-sm text-white/70">
-              {slide.subtitle}
+              {tr(slide.subtitleKey)}
             </p>
           </div>
         ))}
@@ -135,7 +137,7 @@ export function IntroCarousel({ onFinish }: { onFinish: () => void }) {
             <button
               key={i}
               onClick={() => goTo(i)}
-              aria-label={`Ir para o ecrã ${i + 1}`}
+              aria-label={`${tr("goToScreenLabel")} ${i + 1}`}
               className={`h-2 rounded-full transition-all ${
                 i === active ? "w-6 bg-white" : "w-2 bg-white/30"
               }`}
@@ -149,14 +151,14 @@ export function IntroCarousel({ onFinish }: { onFinish: () => void }) {
             className="press h-13 w-full max-w-sm rounded-2xl py-3.5 text-sm font-bold text-white shadow-lg"
             style={{ background: "var(--gradient-primary)" }}
           >
-            Começar
+            {tr("startAction")}
           </button>
         ) : (
           <button
             onClick={() => goTo(active + 1)}
             className="press h-13 w-full max-w-sm rounded-2xl border border-white/25 py-3.5 text-sm font-bold text-white"
           >
-            Seguinte
+            {tr("nextAction")}
           </button>
         )}
       </div>

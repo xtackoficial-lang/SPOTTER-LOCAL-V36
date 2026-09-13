@@ -1,12 +1,13 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useOnboarding, BUSINESS_CATEGORIES } from "@/lib/onboarding-storage";
+import { useOnboarding, BUSINESS_CATEGORIES, TAXI_TYPES } from "@/lib/onboarding-storage";
 import { useProducts } from "@/lib/products-storage";
 import { useSubscription } from "@/lib/subscription-storage";
 import { useAuth } from "@/lib/auth-context";
-import { upsertBusiness, fetchBusinessById } from "@/lib/businesses-db";
+import { upsertBusiness, fetchBusinessById, upsertBusinessAccount } from "@/lib/businesses-db";
 import { extractCoordinatesFromGoogleMaps, resolveLocationInput, getUserLocation, type Coordinates } from "@/lib/geo-utils";
 import { BusinessBottomNav } from "@/components/BusinessBottomNav";
 import { Icon } from "@/components/Icon";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { RequireBusiness } from "@/components/RequireBusiness";
 import { useState, useRef, useEffect } from "react";
 import { useScreenAppearance } from "@/lib/theme-storage";
@@ -99,6 +100,7 @@ function MerchantPanel() {
   const [website, setWebsite] = useState(draft.business.website || "");
   const [ownerName, setOwnerName] = useState(draft.business.ownerName || "");
   const [category, setCategory] = useState(draft.business.category || "");
+  const [taxiType, setTaxiType] = useState(draft.business.taxiType || "taxi_moto");
   // Província/Cidade/Bairro — ver mozambique-locations.ts. A Província
   // é o que decide quem vê o negócio na Home/Busca; Cidade e Bairro são
   // só detalhe de endereço mostrado no perfil público.
@@ -206,6 +208,60 @@ function MerchantPanel() {
   const [swapsUsed, setSwapsUsed] = useState<number | null>(null); // null = a carregar
   const [visualSaved, setVisualSaved] = useState(false);
   const [visualError, setVisualError] = useState<string | null>(null);
+
+  // BUG DO ABRÃO (2026-08-30, confirmado por print): "as informações de
+  // cada conta não ficam guardadas... o perfil fica todo vazio". Causa:
+  // TODOS os campos acima usam useState(draft.business.X) — isto só lê
+  // o valor no instante em que o componente nasce. Mas draft vem de
+  // useOnboarding(), que hidrata a partir do localStorage de forma
+  // ASSÍNCRONA (useEffect, não durante o primeiro render) — e para
+  // contas recuperadas de outro dispositivo, draft.business só fica
+  // completo depois de uma busca ao Supabase (useAccountRecovery), que
+  // é ainda mais lenta. Na prática, isto significa: sempre que este
+  // painel nascia ANTES desses dados chegarem — o que acontecia com
+  // frequência, não era caso raro — os campos ficavam presos vazios
+  // PARA SEMPRE, mesmo depois dos dados reais chegarem, porque
+  // useState só lê o valor inicial uma única vez, nunca mais depois
+  // disso. Este efeito corrige isso: assim que hydrated passa a true
+  // (dados prontos), preenche todos os campos de uma vez — mas só uma
+  // vez (syncedRef), para nunca apagar por cima do que o comerciante já
+  // esteja a escrever.
+  const syncedRef = useRef(false);
+  useEffect(() => {
+    if (!hydrated || syncedRef.current) return;
+    syncedRef.current = true;
+    const b = draft.business;
+    setName(b.businessName || "");
+    setDesc(b.description || "");
+    setTagsText((b.tags ?? []).join(", "));
+    setPhone(b.phone || "");
+    setWebsite(b.website || "");
+    setOwnerName(b.ownerName || "");
+    setCategory(b.category || "");
+    setTaxiType(b.taxiType || "taxi_moto");
+    setProvince(b.province || "");
+    setCity(b.city || "");
+    setNeighborhood(b.neighborhood || "");
+    setMapsLink(b.googleMapsLink || "");
+    setMapsCoords(b.lat != null && b.lng != null ? { lat: b.lat, lng: b.lng } : null);
+    setOpenTime(b.hours?.open || "08:00");
+    setCloseTime(b.hours?.close || "18:00");
+    setAlwaysOpen(b.hours?.alwaysOpen || false);
+    setIsDigital(b.isDigital || false);
+    setOpenDays(b.hours?.openDays ?? [0, 1, 2, 3, 4, 5, 6]);
+    setGallery(b.gallery || []);
+    setCover(b.coverImage);
+    setStructureId(b.structureId ?? DEFAULT_STRUCTURE_ID);
+    setThemeId(b.themeId ?? DEFAULT_THEME_ID);
+    setBackgroundId(b.backgroundId);
+    const fam = familyForCategory(b.category || "");
+    const struct = getStructure(fam, b.structureId ?? DEFAULT_STRUCTURE_ID);
+    setBlockOrder(
+      (b.blockOrder as BlockId[] | undefined)?.filter((bl) => struct.blocks.includes(bl)) ??
+        struct.blocks,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
 
   useEffect(() => {
     if (!draft.business.businessId) return;
@@ -337,6 +393,7 @@ function MerchantPanel() {
       website,
       ownerName,
       category,
+      taxiType: category === "taxi" ? taxiType : undefined,
       province,
       city,
       neighborhood,
@@ -364,8 +421,8 @@ function MerchantPanel() {
           id: draft.business.businessId,
           owner_id: user.id,
           business_name: name,
-          owner_name: ownerName || undefined,
           category,
+          taxi_type: category === "taxi" ? taxiType : undefined,
           city,
           province: province || undefined,
           neighborhood: neighborhood || undefined,
@@ -390,6 +447,13 @@ function MerchantPanel() {
           // função update_business_rating() a partir das reviews reais.
           // Reenviá-los como 0 sempre que o perfil é guardado zerava a
           // média de avaliações de qualquer negócio que editasse o perfil.
+        });
+        // CONSERTO (auditoria de segurança, bloco v37): owner_name
+        // deixou de ser coluna de "businesses" — grava-se à parte em
+        // "business_accounts" (RLS só dono/admin), nunca visível a
+        // quem visita o perfil público deste negócio.
+        await upsertBusinessAccount(draft.business.businessId, {
+          owner_name: ownerName || undefined,
         });
       } catch (err) {
         // BUG DO ABRÃO (2026-08-19): antes isto só fazia console.warn e
@@ -425,6 +489,32 @@ function MerchantPanel() {
       themeId !== (draft.business.themeId ?? DEFAULT_THEME_ID) ||
       backgroundId !== draft.business.backgroundId;
 
+    // BLOQUEIO DE PLANO (2026-09-02, pedido do Abrão): antes, a lista de
+    // botões já cortava as opções pagas para o Free — mas nada impedia
+    // gravar um structure_id/theme_id de plano pago escrito de outra
+    // forma (ex: se a lista mudasse, ou uma conta fizesse downgrade
+    // depois de já ter escolhido uma opção paga). Agora a lista mostra
+    // TODAS as opções (trancadas com cadeado para quem não tem o plano),
+    // permitindo pré-visualizar — mas a gravação real é sempre validada
+    // aqui contra o plano actual, nunca só contra o que a UI deixou
+    // clicar.
+    const structIdx = STRUCTURES_BY_FAMILY[family].findIndex((s) => s.id === structureId);
+    const structureLocked = structIdx >= 0 && structIdx >= plan.maxStructures;
+    const selectedTheme = THEMES[themeId];
+    const themeLocked = selectedTheme?.plan === "pago" && plan.id === "free";
+    // Toda a galeria de fundos é paga (2026-09-02) — só "Sem imagem"
+    // (backgroundId undefined) fica disponível no Free.
+    const backgroundLocked = plan.id === "free" && !!backgroundId;
+    if (structureLocked || themeLocked || backgroundLocked) {
+      setVisualError(
+        tr("exclusiveToPaidPlansError").replace(
+          "{item}",
+          structureLocked ? tr("thisStructureLabel") : themeLocked ? tr("thisColorLabel") : tr("thisBackgroundLabel"),
+        ),
+      );
+      return;
+    }
+
     // Só consome o limite mensal quando Estrutura ou Tema mudaram de
     // facto — reordenar os blocos dentro da mesma Estrutura/Tema é
     // edição livre, não uma "troca".
@@ -439,7 +529,9 @@ function MerchantPanel() {
       }
       if (swapsUsed >= plan.themeSwapsPerMonth) {
         setVisualError(
-          `Já usou as ${plan.themeSwapsPerMonth} trocas de Estrutura/Tema incluídas no plano ${plan.name} este mês. Volta a poder trocar no próximo mês, ou faz upgrade de plano para mais trocas.`,
+          tr("swapLimitReachedError")
+            .replace("{count}", String(plan.themeSwapsPerMonth))
+            .replace("{plan}", plan.name),
         );
         return;
       }
@@ -846,6 +938,27 @@ function MerchantPanel() {
                   ))}
                 </select>
               </Field>
+              {category === "taxi" && (
+                <Field label={tr("taxiTypeLabel")}>
+                  <div className="grid grid-cols-3 gap-2">
+                    {TAXI_TYPES.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setTaxiType(t.id)}
+                        className={`press flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-xs font-medium transition ${
+                          taxiType === t.id
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border bg-card text-muted-foreground"
+                        }`}
+                      >
+                        <Icon name={t.icon} size={20} />
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+              )}
               <Field label={tr("descriptionLabel2")}>
                 <textarea
                   value={desc}
@@ -870,7 +983,7 @@ function MerchantPanel() {
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-foreground">
-                      É um negócio digital
+                      {tr("isDigitalBusinessLabel")}
                     </div>
                     <div className="mt-0.5 text-xs text-muted-foreground">
                       {tr("noPhysicalStore")}
@@ -888,8 +1001,7 @@ function MerchantPanel() {
                 </div>
                 {isDigital && (
                   <div className="mt-3 flex items-center gap-1.5 rounded-xl bg-violet-50 px-3 py-2 text-[11px] text-violet-700">
-                    <Icon name="delivery" size={12} />O teu negócio aparecerá na categoria "Online"
-                    — sem distância nem mapa.
+                    <Icon name="delivery" size={12} />{tr("willAppearInOnlineCategory")}
                   </div>
                 )}
               </div>
@@ -968,8 +1080,7 @@ function MerchantPanel() {
 
                   <Field label={tr("exactLocationLabel")}>
                     <p className="mb-2 -mt-1 text-[11px] text-muted-foreground">
-                      Mantenha a localização exacta actualizada — é o que leva os clientes até à
-                      porta certa.
+                      {tr("keepLocationUpdatedHint")}
                     </p>
                     <button
                       type="button"
@@ -978,17 +1089,16 @@ function MerchantPanel() {
                       className="press flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 text-sm font-semibold text-primary disabled:opacity-60"
                     >
                       <Icon name="pin" size={15} className={locatingGPS ? "animate-spin" : ""} />
-                      {locatingGPS ? "A obter localização…" : "Usar a minha localização actual"}
+                      {locatingGPS ? tr("obtainingLocationEllipsis") : tr("useMyCurrentLocationAction")}
                     </button>
                     {gpsError && (
                       <p className="mt-1.5 text-[11px] text-amber-600">
-                        Não conseguimos aceder à sua localização. Verifique se permitiu o acesso
-                        ao GPS, ou cole o link abaixo.
+                        {tr("gpsAccessErrorHint")}
                       </p>
                     )}
                     <div className="mt-2.5 flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
                       <div className="h-px flex-1 bg-border" />
-                      ou cole manualmente
+                      {tr("pasteManuallyHint")}
                       <div className="h-px flex-1 bg-border" />
                     </div>
                     <input
@@ -998,12 +1108,11 @@ function MerchantPanel() {
                       className="input-base mt-2"
                     />
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      Link do Google Maps (curto ou longo) ou código de mais/plus code.
+                      {tr("googleMapsLinkHint")}
                     </p>
                     {resolvingLink && (
                       <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                        <Icon name="pin" size={11} className="animate-spin" /> A verificar
-                        localização…
+                        <Icon name="pin" size={11} className="animate-spin" /> {tr("verifyingLocationEllipsis")}
                       </div>
                     )}
                     {!resolvingLink && mapsLink && (
@@ -1012,7 +1121,7 @@ function MerchantPanel() {
                       >
                         <Icon name={mapsCoords ? "check" : "alert"} size={12} />
                         {mapsCoords
-                          ? `Localização encontrada (${mapsCoords.lat.toFixed(4)}, ${mapsCoords.lng.toFixed(4)})`
+                          ? `${tr("locationFoundPrefix")} (${mapsCoords.lat.toFixed(4)}, ${mapsCoords.lng.toFixed(4)})`
                           : tr("coordsReadError")}
                       </div>
                     )}
@@ -1057,35 +1166,35 @@ function MerchantPanel() {
 
             <Section title={tr("planBenefitsSectionTitle")}>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-foreground">Selo de verificação</span>
+                <span className="text-sm text-foreground">{tr("verificationBadgeLabel")}</span>
                 {plan.hasVerifiedBadge ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-                    <Icon name="verified" size={12} /> Activo
+                    <VerifiedBadge size={12} /> {tr("activeLabel")}
                   </span>
                 ) : (
                   <button
                     onClick={() => navigate({ to: "/subscribe" })}
                     className="text-[11px] font-semibold text-primary underline"
                   >
-                    Upgrade p/ Premium
+                    {tr("upgradeToPremiumAction")}
                   </button>
                 )}
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-foreground">Suporte da empresa</span>
+                <span className="text-sm text-foreground">{tr("companySupportLabel")}</span>
                 {plan.hasCompanySupport ? (
                   <Link
                     to="/profile"
                     className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary"
                   >
-                    <Icon name="help" size={12} /> Contactar
+                    <Icon name="help" size={12} /> {tr("contactAction")}
                   </Link>
                 ) : (
                   <button
                     onClick={() => navigate({ to: "/subscribe" })}
                     className="text-[11px] font-semibold text-primary underline"
                   >
-                    Upgrade p/ Premium
+                    {tr("upgradeToPremiumAction")}
                   </button>
                 )}
               </div>
@@ -1104,11 +1213,11 @@ function MerchantPanel() {
             >
               {saved ? (
                 <>
-                  <Icon name="check" size={16} /> Guardado!
+                  <Icon name="check" size={16} /> {tr("savedExclamation")}
                 </>
               ) : (
                 <>
-                  <Icon name="send" size={16} /> Guardar alterações
+                  <Icon name="send" size={16} /> {tr("saveChangesAction")}
                 </>
               )}
             </ShimmerButton>
@@ -1136,29 +1245,37 @@ function MerchantPanel() {
                   .replace("{plan}", plan.name)}
                 .
               </p>
+              {/* Pedido do Abrão (2026-09-02): antes, estruturas fora do
+                  limite do plano nem apareciam na lista — um comerciante
+                  Free não tinha forma de saber que existiam, nem de ver
+                  como ficaria o perfil dele com elas. Agora TODAS as
+                  estruturas da família aparecem sempre; as que excedem
+                  plan.maxStructures ficam com um cadeado — continuam
+                  clicáveis (o comerciante pode seleccionar e ver a
+                  pré-visualização), mas saveVisual() bloqueia a GRAVAÇÃO
+                  real de uma estrutura trancada, empurrando para upgrade. */}
               <div className="flex flex-wrap gap-2">
-                {getAvailableStructures(family, plan.maxStructures).map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => selectStructure(s.id)}
-                    className={`press flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition-colors ${
-                      structureId === s.id
-                        ? "text-primary-foreground"
-                        : "border border-border text-foreground"
-                    }`}
-                    style={structureId === s.id ? { background: "var(--gradient-primary)" } : {}}
-                  >
-                    {s.label}
-                  </button>
-                ))}
+                {STRUCTURES_BY_FAMILY[family].map((s, idx) => {
+                  const locked = idx >= plan.maxStructures;
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => selectStructure(s.id)}
+                      className={`press flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition-colors ${
+                        structureId === s.id
+                          ? "text-primary-foreground"
+                          : locked
+                            ? "border border-dashed border-border text-muted-foreground"
+                            : "border border-border text-foreground"
+                      }`}
+                      style={structureId === s.id ? { background: "var(--gradient-primary)" } : {}}
+                    >
+                      {locked && <Icon name="lock" size={11} />}
+                      {s.label}
+                    </button>
+                  );
+                })}
               </div>
-              {/* BUG CORRIGIDO: comparava sempre com 6 (máximo global),
-                  mas famílias como "loja" (4), "saude_servicos" (4) e
-                  "outros" (3) têm menos estruturas no total — mostrava
-                  este botão de upgrade prometendo mais estruturas que
-                  na verdade não existem para essas categorias. Agora
-                  compara com o total real de estruturas da família do
-                  negócio. */}
               {plan.maxStructures < STRUCTURES_BY_FAMILY[family].length && (
                 <button
                   onClick={() => navigate({ to: "/subscribe" })}
@@ -1167,6 +1284,14 @@ function MerchantPanel() {
                   <Icon name="lock" size={12} /> {tr("seeMoreStructuresUpgrade")}
                 </button>
               )}
+              {(() => {
+                const structIdx = STRUCTURES_BY_FAMILY[family].findIndex((s) => s.id === structureId);
+                return structIdx >= plan.maxStructures ? (
+                  <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-[11px] text-primary">
+                    {tr("structureExclusiveHint")}
+                  </p>
+                ) : null;
+              })()}
 
               {/* Simplificação (2026-07-07): "Ordem dos blocos" era uma
                   secção separada, à parte, e confundia-se com a escolha
@@ -1236,29 +1361,56 @@ function MerchantPanel() {
                 {tr("colorSubLabel")}
               </p>
               <div className="flex flex-wrap gap-2">
-                {Object.values(THEMES).map((th) => (
-                  <button
-                    key={th.id}
-                    onClick={() => setThemeId(th.id)}
-                    className={`press flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold transition-colors ${
-                      themeId === th.id ? "ring-2" : "border border-border"
-                    }`}
-                    style={{
-                      background: themeId === th.id ? th.accentSoft : undefined,
-                      color: themeId === th.id ? th.accent : undefined,
-                      ...(themeId === th.id ? { boxShadow: `0 0 0 1px ${th.accent}` } : {}),
-                    }}
-                  >
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: th.accent }} />
-                    {th.label}
-                    {th.glow && <Icon name="sparkles" size={11} />}
-                  </button>
-                ))}
+                {Object.values(THEMES).map((th) => {
+                  // Pedido do Abrão (2026-09-02): antes os 10 temas estavam
+                  // livres em qualquer plano — Free não tinha nenhum motivo
+                  // para pagar. Agora só 3 (Clássico XTACK, Oceano,
+                  // Terracota) são graváveis no Free; os restantes aparecem
+                  // trancados — dá para seleccionar e ver a pré-visualização,
+                  // mas saveVisual() bloqueia a gravação sem upgrade.
+                  const locked = th.plan === "pago" && plan.id === "free";
+                  return (
+                    <button
+                      key={th.id}
+                      onClick={() => setThemeId(th.id)}
+                      className={`press flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold transition-colors ${
+                        themeId === th.id
+                          ? "ring-2"
+                          : locked
+                            ? "border border-dashed border-border text-muted-foreground"
+                            : "border border-border"
+                      }`}
+                      style={{
+                        background: themeId === th.id ? th.accentSoft : undefined,
+                        color: themeId === th.id ? th.accent : undefined,
+                        ...(themeId === th.id ? { boxShadow: `0 0 0 1px ${th.accent}` } : {}),
+                      }}
+                    >
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: th.accent }} />
+                      {th.label}
+                      {th.glow && <Icon name="sparkles" size={11} />}
+                      {locked && <Icon name="lock" size={11} />}
+                    </button>
+                  );
+                })}
               </div>
+              {(() => {
+                const selectedTheme = THEMES[themeId];
+                const themeLocked = selectedTheme?.plan === "pago" && plan.id === "free";
+                return themeLocked ? (
+                  <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-[11px] text-primary">
+                    {tr("colorExclusiveHint")}
+                  </p>
+                ) : null;
+              })()}
 
               <p className="mb-1.5 mt-4 text-[11px] font-semibold text-foreground">
                 {tr("backgroundSubLabel")}
               </p>
+              {/* Pedido do Abrão (2026-09-02): toda a galeria de 28 imagens
+                  passa a ser exclusiva de planos pagos — Free só pode usar
+                  "Sem imagem (só cor)". Mesmo padrão de pré-visualizar +
+                  bloquear na gravação usado em Estruturas e Cores acima. */}
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setBackgroundId(undefined)}
@@ -1275,20 +1427,34 @@ function MerchantPanel() {
                   <button
                     key={bg.id}
                     onClick={() => setBackgroundId(bg.id)}
-                    className={`press overflow-hidden rounded-full border-2 ${
-                      backgroundId === bg.id ? "border-primary" : "border-transparent"
+                    className={`press relative overflow-hidden rounded-full border-2 ${
+                      backgroundId === bg.id
+                        ? "border-primary"
+                        : plan.id === "free"
+                          ? "border-dashed border-border opacity-70"
+                          : "border-transparent"
                     }`}
                   >
                     <BackgroundThumb backgroundId={bg.id} label={bg.label} />
+                    {plan.id === "free" && (
+                      <span className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5">
+                        <Icon name="lock" size={10} className="text-white" />
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
+              {plan.id === "free" && backgroundId && (
+                <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-[11px] text-primary">
+                  {tr("backgroundExclusiveHint")}
+                </p>
+              )}
             </div>
 
             {swapsUsed !== null && (
               <p className="text-[11px] text-muted-foreground">
-                Trocas de Estrutura/Tema usadas este mês: {swapsUsed} de {plan.themeSwapsPerMonth}{" "}
-                (incluídas no plano {plan.name}). Reordenar os blocos não conta como troca.
+                {tr("themeSwapsUsedThisMonth")}: {swapsUsed} de {plan.themeSwapsPerMonth}{" "}
+                ({tr("includedInPlanSuffix")} {plan.name}). {tr("reorderingNotCountedHint")}
               </p>
             )}
             {visualError && (
@@ -1309,7 +1475,7 @@ function MerchantPanel() {
                 </>
               ) : (
                 <>
-                  <Icon name="send" size={16} /> Guardar aparência
+                  <Icon name="send" size={16} /> {tr("saveAppearanceAction")}
                 </>
               )}
             </button>
@@ -1343,23 +1509,23 @@ function MerchantPanel() {
               >
                 {cover ? (
                   <>
-                    <img src={cover} alt="capa" className="h-full w-full object-cover" />
+                    <img src={cover} alt={tr("coverAltLabel")} className="h-full w-full object-cover" />
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Icon name="camera" size={24} className="text-white" />
-                      <span className="text-xs text-white font-medium">Alterar foto</span>
+                      <span className="text-xs text-white font-medium">{tr("changePhoto")}</span>
                     </div>
                   </>
                 ) : (
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <Icon name="image" size={32} />
-                    <span className="text-sm font-medium">Toque para adicionar capa</span>
-                    <span className="text-xs">JPG, PNG — recomendado 1200×400</span>
+                    <span className="text-sm font-medium">{tr("tapToAddCover")}</span>
+                    <span className="text-xs">{tr("coverImageHint")}</span>
                   </div>
                 )}
                 {uploadingCover && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/50">
                     <Icon name="pin" size={22} className="animate-spin text-white" />
-                    <span className="text-xs text-white font-medium">A enviar…</span>
+                    <span className="text-xs text-white font-medium">{tr("uploadingEllipsis")}</span>
                   </div>
                 )}
               </div>
@@ -1374,14 +1540,14 @@ function MerchantPanel() {
 
             {/* galeria */}
             <Section
-              title={`Galeria (${gallery.length}/${GALLERY_LIMIT})`}
+              title={`${tr("galleryLabel")} (${gallery.length}/${GALLERY_LIMIT})`}
               action={
                 gallery.length < GALLERY_LIMIT ? (
                   <button
                     onClick={() => galleryRef.current?.click()}
                     className="flex items-center gap-1.5 text-xs font-semibold text-primary"
                   >
-                    <Icon name="plus" size={13} /> Adicionar
+                    <Icon name="plus" size={13} /> {tr("add")}
                   </button>
                 ) : undefined
               }
@@ -1396,7 +1562,7 @@ function MerchantPanel() {
               />
               {uploadingGallery && (
                 <div className="mb-2 flex items-center gap-1.5 text-[11px] text-primary">
-                  <Icon name="pin" size={11} className="animate-spin" /> A enviar fotos…
+                  <Icon name="pin" size={11} className="animate-spin" /> {tr("uploadingPhotosEllipsis")}
                 </div>
               )}
               {gallery.length === 0 ? (
@@ -1405,20 +1571,19 @@ function MerchantPanel() {
                   className="flex h-32 w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border text-muted-foreground"
                 >
                   <Icon name="camera" size={28} />
-                  <span className="text-sm">Adicionar fotos do negócio</span>
+                  <span className="text-sm">{tr("addBusinessPhotos")}</span>
                 </button>
               ) : (
                 <>
                   <p className="mb-2 text-[11px] text-muted-foreground">
-                    Arraste as fotos para reordenar, ou use as setas. A primeira foto é a que
-                    aparece em destaque na lista de pesquisa.
+                    {tr("dragToReorderHint")}
                   </p>
                   {gallery.length > GALLERY_LIMIT && (
                     <p className="mb-2 rounded-xl bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700">
-                      As últimas {gallery.length - GALLERY_LIMIT} foto(s) estão guardadas mas
-                      ocultas no seu perfil público — o plano {plan.name} mostra até {GALLERY_LIMIT}
-                      . Fazer upgrade torna-as visíveis de novo, sem precisar de as carregar outra
-                      vez.
+                      {tr("hiddenPhotosWarning")
+                        .replace("{count}", String(gallery.length - GALLERY_LIMIT))
+                        .replace("{plan}", plan.name)
+                        .replace("{limit}", String(GALLERY_LIMIT))}
                     </p>
                   )}
                   <div className="grid grid-cols-3 gap-2">
@@ -1548,7 +1713,7 @@ function MerchantPanel() {
           <div className="space-y-4 animate-slide-up">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-foreground">Produtos e serviços</p>
+                <p className="text-sm font-semibold text-foreground">{tr("productsAndServices")}</p>
                 <p className="text-xs text-muted-foreground">
                   {products.length}/{plan.maxProducts} do seu plano
                 </p>
@@ -1559,7 +1724,7 @@ function MerchantPanel() {
                   className="press flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold text-white"
                   style={{ background: "var(--gradient-primary)" }}
                 >
-                  <Icon name="plus" size={13} /> Adicionar
+                  <Icon name="plus" size={13} /> {tr("add")}
                 </button>
               )}
             </div>
@@ -1567,9 +1732,9 @@ function MerchantPanel() {
             {products.length === 0 ? (
               <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-border py-10 text-center">
                 <Icon name="tag" size={32} className="text-muted-foreground" />
-                <p className="text-sm font-medium text-foreground">Nenhum produto ainda</p>
+                <p className="text-sm font-medium text-foreground">{tr("noProductsYetOwn")}</p>
                 <p className="text-xs text-muted-foreground px-8">
-                  Adicione produtos ou serviços para os clientes verem no seu perfil.
+                  {tr("noProductsHint")}
                 </p>
                 <button
                   onClick={openAddProduct}
@@ -1603,7 +1768,7 @@ function MerchantPanel() {
                         <p className="truncate text-sm font-semibold text-foreground">{p.name}</p>
                         {!p.available && (
                           <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
-                            Indisponível
+                            {tr("unavailableLabel")}
                           </span>
                         )}
                       </div>
@@ -1655,7 +1820,7 @@ function MerchantPanel() {
               <label className="flex items-center justify-between cursor-pointer">
                 <div>
                   <p className="text-sm font-medium text-foreground">Aberto 24 horas</p>
-                  <p className="text-xs text-muted-foreground">Ignora os horários abaixo</p>
+                  <p className="text-xs text-muted-foreground">{tr("ignoresHoursBelow")}</p>
                 </div>
                 <div
                   onClick={() => setAlwaysOpen(!alwaysOpen)}
@@ -1715,7 +1880,7 @@ function MerchantPanel() {
                 {/* preview visual */}
                 <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-soft)]">
                   <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Pré-visualização
+                    {tr("previewLabel")}
                   </p>
                   <div className="space-y-1.5">
                     {DAYS.map((d, i) => {
@@ -1755,7 +1920,7 @@ function MerchantPanel() {
                 </>
               ) : (
                 <>
-                  <Icon name="send" size={16} /> Guardar horário
+                  <Icon name="send" size={16} /> {tr("saveScheduleAction")}
                 </>
               )}
             </ShimmerButton>
@@ -1855,7 +2020,7 @@ function MerchantPanel() {
                 </Field>
               </div>
               <label className="flex items-center justify-between">
-                <span className="text-sm text-foreground">Disponível agora</span>
+                <span className="text-sm text-foreground">{tr("availableNow")}</span>
                 <div
                   onClick={() => setPAvail(!pAvail)}
                   className={`relative h-6 w-11 rounded-full transition-colors cursor-pointer ${pAvail ? "bg-primary" : "bg-muted"}`}

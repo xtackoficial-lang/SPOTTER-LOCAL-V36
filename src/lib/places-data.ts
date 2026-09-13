@@ -3,6 +3,10 @@ export interface Place {
   name: string;
   category: string;
   categoryLabel: string;
+  // Sub-tipo do veículo quando category === "taxi" (ver TAXI_TYPES em
+  // onboarding-storage.ts). Usado para trocar ícone/rótulo no cartão e
+  // no perfil público.
+  taxiType?: string;
   icon: string;
   city: string;
   // Província (só Moçambique) e Bairro — ver mozambique-locations.ts.
@@ -332,6 +336,26 @@ export const CATEGORY_FILTERS = [
   { id: "transporter", label: "Transportadoras", icon: "transporter" },
   { id: "delivery", label: "Entregas", icon: "delivery" },
 ];
+
+// BUG DO ABRÃO (2026-08-30): "se um cliente entrar na aba de comida não
+// aparecem os comerciantes que escolheram restaurante, bar ou hotel-
+// restaurante". Causa: o filtro comparava a categoria do negócio à
+// aba escolhida com IGUALDADE EXACTA (p.category === "restaurant") — um
+// negócio cadastrado como "bar" ou "hotel_restaurant" nunca aparecia em
+// NENHUMA aba de comida, e "hotel_restaurant" nem sequer tinha aba
+// própria, ficando sem lugar nenhum na lista de categorias. Este mapa
+// agrupa categorias que na prática são o mesmo tipo de negócio aos
+// olhos do cliente — usado por matchesCategoryFilter() em vez da
+// comparação exacta, tanto na Home como na Busca.
+const CATEGORY_FILTER_GROUPS: Record<string, string[]> = {
+  restaurant: ["restaurant", "hotel_restaurant", "bar"],
+};
+
+export function matchesCategoryFilter(placeCategory: string, filterId: string): boolean {
+  if (filterId === "all") return true;
+  const group = CATEGORY_FILTER_GROUPS[filterId];
+  return group ? group.includes(placeCategory) : placeCategory === filterId;
+}
 
 export function priceText(n: number) {
   return "$".repeat(n);

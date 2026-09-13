@@ -8,7 +8,7 @@ import { PLANS, type PlanId } from "./subscription-storage";
 import { type BoostPackageId } from "./boost-storage";
 import { t } from "./i18n";
 
-export type PaymentMethod = "mpesa" | "emola" | "manual";
+export type PaymentMethod = "mpesa" | "emola" | "manual" | "zumbopay";
 export type PaymentStatus = "pending" | "confirmed" | "failed" | "expired";
 // "boost" é um pseudo-plano: pagamento único de destaque (1/7/30 dias),
 // não uma subscrição mensal — mas reaproveita a mesma tabela/fluxo.
@@ -30,6 +30,7 @@ export interface PaymentRequest {
   failReason?: string;
   createdAt: string;
   expiresAt: string; // expira em 10 minutos
+  paymentUrl?: string; // só para method === "zumbopay" — link para onde redirecionar
 }
 
 // ── Preços dos planos mensais (MZN) — derivados da fonte única em subscription-storage.ts ──
@@ -134,6 +135,48 @@ export async function createPaymentRequest(
 
   localAdd(req);
   return req;
+}
+
+// ── Criar pagamento via ZumboPay (só assinaturas starter/pro/premium) ──
+// Ao contrário de createPaymentRequest (mpesa/emola/manual), aqui não é
+// dado nenhum código USSD — o comerciante é redirecionado para o link
+// de pagamento hospedado pela própria ZumboPay. A confirmação acontece
+// sozinha via webhook (ver supabase/functions/zumbopay-webhook), sem
+// precisar do admin confirmar manualmente.
+export async function createZumboPayPayment(
+  businessId: string,
+  planId: PlanId,
+): Promise<{ payment: PaymentRequest; paymentUrl: string }> {
+  if (!SUPABASE_CONFIGURED || !supabase) {
+    throw new Error("Pagamento via ZumboPay requer ligação ao Supabase.");
+  }
+
+  const { data, error } = await supabase.functions.invoke("create-zumbopay-payment", {
+    body: { businessId, planId },
+  });
+
+  if (error || !data?.paymentUrl) {
+    throw new Error(
+      (data && data.error) || error?.message || "Falha ao criar o pagamento na ZumboPay.",
+    );
+  }
+
+  const payment: PaymentRequest = {
+    id: data.paymentId,
+    businessId,
+    merchantRef: data.merchantRef,
+    planId,
+    amount: data.amount,
+    currency: "MZN",
+    method: "zumbopay",
+    status: "pending",
+    createdAt: data.createdAt,
+    expiresAt: data.expiresAt,
+    paymentUrl: data.paymentUrl,
+  };
+
+  localAdd(payment);
+  return { payment, paymentUrl: data.paymentUrl };
 }
 
 // ── Confirmar pagamento (via webhook ou admin) ───────────────
