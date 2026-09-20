@@ -26,7 +26,6 @@ export interface MerchantRecord {
   productCount: number;
 }
 
-
 // BUG CORRIGIDO (auditoria 2026-07-08): existia aqui uma funcao
 // seedMerchants() com negocios inventados. Removida.
 
@@ -173,7 +172,7 @@ export async function updateMerchant(
     if (error) throw new Error(error.message);
     if (!data || data.length === 0) {
       throw new Error(
-        "A gravação não alterou nenhum registo — provavelmente falta autorização de administrador no Supabase (RLS). Confirma que a tua conta está na tabela \"admins\" e que tens sessão iniciada na app neste navegador.",
+        'A gravação não alterou nenhum registo — provavelmente falta autorização de administrador no Supabase (RLS). Confirma que a tua conta está na tabela "admins" e que tens sessão iniciada na app neste navegador.',
       );
     }
   }
@@ -240,7 +239,6 @@ export async function deleteMerchant(id: string): Promise<MerchantRecord[]> {
   return getMerchants();
 }
 
-
 // ── CONSTANTES ────────────────────────────────────────────────────────
 export const PLAN_LABELS: Record<string, string> = {
   free: "Free",
@@ -271,7 +269,6 @@ export const CATEGORY_LABELS: Record<string, string> = {
   entertainment: "Entretenimento",
 };
 
-
 // ── CONFIGURAÇÃO DE PAGAMENTOS — Supabase ────────────────────────────
 export interface PaymentConfig {
   mpesa: string;
@@ -292,15 +289,22 @@ const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
 export async function getPaymentConfig(): Promise<PaymentConfig> {
   if (SUPABASE_CONFIGURED && supabase) {
     try {
+      // CONSERTO (2026-09-15): mesmo padrão já corrigido noutros
+      // ficheiros — .single() numa linha que pode legitimamente não
+      // existir ainda (antes de qualquer admin gravar isto uma vez)
+      // conta como "erro", e esse erro nunca era registado.
       const { data, error } = await supabase
         .from("admin_settings")
         .select("value")
         .eq("key", "payment_config")
-        .single();
-      if (!error && data?.value)
+        .maybeSingle();
+      if (error) {
+        console.error("getPaymentConfig: erro do Supabase.", error);
+      } else if (data?.value) {
         return { ...DEFAULT_PAYMENT_CONFIG, ...(data.value as Partial<PaymentConfig>) };
-    } catch {
-      /* fallback */
+      }
+    } catch (err) {
+      console.error("getPaymentConfig: Supabase indisponível.", err);
     }
   }
   try {
@@ -332,7 +336,6 @@ export async function savePaymentConfig(config: Partial<PaymentConfig>): Promise
   }
   return updated;
 }
-
 
 // ── COMPROVATIVOS DE PAGAMENTO — Supabase ────────────────────────────
 export interface PaymentProof {
@@ -473,4 +476,3 @@ export async function reviewPaymentProof(
   }
   return getPaymentProofs();
 }
-

@@ -209,8 +209,12 @@ function translateAuthError(raw: string): string {
   ) {
     return "Sem ligação à internet neste momento. Verifica a tua ligação e tenta novamente.";
   }
-  if (msg.includes("already registered") || msg.includes("already exists") || msg.includes("user_repeated_signup")) {
-    return "Já existe uma conta com este email. Toca em \"Já tem conta? Entrar\" — se criaste a conta com Google, usa o botão \"Continuar com Google\".";
+  if (
+    msg.includes("already registered") ||
+    msg.includes("already exists") ||
+    msg.includes("user_repeated_signup")
+  ) {
+    return 'Já existe uma conta com este email. Toca em "Já tem conta? Entrar" — se criaste a conta com Google, usa o botão "Continuar com Google".';
   }
   if (msg.includes("email not confirmed")) {
     return "Confirma o teu email antes de entrar — verifica a caixa de entrada (e o spam).";

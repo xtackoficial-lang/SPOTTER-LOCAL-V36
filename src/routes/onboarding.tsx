@@ -21,7 +21,11 @@ import { syncProfileToSupabase } from "@/lib/auth";
 import { upsertBusiness, upsertBusinessAccount } from "@/lib/businesses-db";
 import { ShimmerButton } from "@/components/ShimmerButton";
 import { SUPABASE_CONFIGURED } from "@/lib/supabase";
-import { extractCoordinatesFromGoogleMaps, resolveLocationInput, getUserLocation } from "@/lib/geo-utils";
+import {
+  extractCoordinatesFromGoogleMaps,
+  resolveLocationInput,
+  getUserLocation,
+} from "@/lib/geo-utils";
 import { PROVINCES_MZ, citiesForProvince, PROVINCE_CENTER_MZ } from "@/lib/mozambique-locations";
 
 export const Route = createFileRoute("/onboarding")({
@@ -47,7 +51,8 @@ type Step =
 function Onboarding() {
   const tr = useT();
   const navigate = useNavigate();
-  const { draft, hydrated, update, updatePersonal, updateBusiness, reset, ensureOwner } = useOnboarding();
+  const { draft, hydrated, update, updatePersonal, updateBusiness, reset, ensureOwner } =
+    useOnboarding();
   const { user, loading: authLoading, setProfileType, logout } = useAuth();
   const [step, setStepRaw] = useState<Step>("terms");
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -531,12 +536,8 @@ function TermsStep({ accepted, onAccept }: { accepted: boolean; onAccept: () => 
               <Icon name="check" size={20} />
             </div>
             <div className="flex-1 space-y-2 text-sm leading-relaxed text-muted-foreground">
-              <p>
-                {tr("dataCollectionParagraph1")}
-              </p>
-              <p>
-                {tr("dataCollectionParagraph2")}
-              </p>
+              <p>{tr("dataCollectionParagraph1")}</p>
+              <p>{tr("dataCollectionParagraph2")}</p>
             </div>
           </div>
         </div>
@@ -546,7 +547,8 @@ function TermsStep({ accepted, onAccept }: { accepted: boolean; onAccept: () => 
           className="press flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3.5 text-left hover:bg-accent/40"
         >
           <span className="inline-flex items-center gap-3 text-sm font-medium text-foreground">
-            <Icon name="help" size={16} className="text-primary" /> {tr("readTermsAndPrivacyAction")}
+            <Icon name="help" size={16} className="text-primary" />{" "}
+            {tr("readTermsAndPrivacyAction")}
           </span>
           <Icon name="chevronRight" size={14} className="text-muted-foreground" />
         </Link>
@@ -748,7 +750,9 @@ function LocationStep({
 
     setResolvingLink(true);
     const reference =
-      isMZ && province ? PROVINCE_CENTER_MZ[province as keyof typeof PROVINCE_CENTER_MZ] : undefined;
+      isMZ && province
+        ? PROVINCE_CENTER_MZ[province as keyof typeof PROVINCE_CENTER_MZ]
+        : undefined;
     const resolved = await resolveLocationInput(value, reference);
     setResolvingLink(false);
     onMapsLinkChange(value, resolved);
@@ -901,9 +905,7 @@ function LocationStep({
           <p className="mt-1.5 text-[11px] text-muted-foreground">{tr("neighborhoodHint")}</p>
 
           <Label className="mt-5 block text-xs">{tr("exactLocationLabel")}</Label>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            {tr("setExactLocationHint")}
-          </p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">{tr("setExactLocationHint")}</p>
 
           <button
             type="button"
@@ -914,13 +916,9 @@ function LocationStep({
             <Icon name="pin" size={16} className={locatingGPS ? "animate-spin" : ""} />
             {locatingGPS ? tr("obtainingLocationEllipsis") : tr("useMyCurrentLocationAction")}
           </button>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            {tr("tapHereAtLocationHint")}
-          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground">{tr("tapHereAtLocationHint")}</p>
           {gpsError && (
-            <p className="mt-1.5 text-[11px] text-amber-600">
-              {tr("gpsAccessErrorHintMaps")}
-            </p>
+            <p className="mt-1.5 text-[11px] text-amber-600">{tr("gpsAccessErrorHintMaps")}</p>
           )}
 
           <div className="mt-3 flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -939,7 +937,8 @@ function LocationStep({
           </p>
           {resolvingLink && (
             <div className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <Icon name="pin" size={12} className="animate-spin" /> {tr("verifyingLocationEllipsis")}
+              <Icon name="pin" size={12} className="animate-spin" />{" "}
+              {tr("verifyingLocationEllipsis")}
             </div>
           )}
           {!resolvingLink && googleMapsLink && (
@@ -974,10 +973,7 @@ function VisitorStep({
   const tr = useT();
   return (
     <>
-      <StepTitle
-        title={tr("touristOrResident")}
-        subtitle={tr("visitorStepSubtitle")}
-      />
+      <StepTitle title={tr("touristOrResident")} subtitle={tr("visitorStepSubtitle")} />
       <div className="space-y-3 stagger">
         <button
           onClick={() => onChange("tourist")}
@@ -1150,7 +1146,10 @@ function CategoryStep({
       )}
       <PrimaryButton
         disabled={
-          !name || !category || (category === "other" && !custom) || (category === "taxi" && !taxiType)
+          !name ||
+          !category ||
+          (category === "other" && !custom) ||
+          (category === "taxi" && !taxiType)
         }
         onClick={onNext}
       >

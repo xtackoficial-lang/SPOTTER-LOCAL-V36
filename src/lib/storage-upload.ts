@@ -98,7 +98,7 @@ function toBase64Fallback(file: File | Blob): Promise<string> {
   });
 }
 
-export type UploadKind = "cover" | "gallery" | "product" | "chat";
+export type UploadKind = "cover" | "gallery" | "product" | "chat" | "post" | "event" | "room";
 
 /**
  * Comprime (se for imagem) e envia um ficheiro ao Supabase Storage.
@@ -115,11 +115,7 @@ export type UploadKind = "cover" | "gallery" | "product" | "chat";
  * (fallback de desenvolvimento apenas — nunca usar em produção sem
  * Supabase ligado).
  */
-export async function uploadMedia(
-  file: File,
-  kind: UploadKind,
-  ownerId: string,
-): Promise<string> {
+export async function uploadMedia(file: File, kind: UploadKind, ownerId: string): Promise<string> {
   const isImage = file.type.startsWith("image/");
   const maxDim = kind === "chat" ? MAX_DIMENSION_CHAT : MAX_DIMENSION_PHOTO;
   const quality = kind === "chat" ? JPEG_QUALITY_CHAT : JPEG_QUALITY_PHOTO;

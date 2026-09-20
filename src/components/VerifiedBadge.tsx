@@ -32,8 +32,24 @@ export function VerifiedBadge({
     >
       <g transform="translate(20,20)">
         <rect x="-14" y="-14" width="28" height="28" rx="7" fill="currentColor" />
-        <rect x="-14" y="-14" width="28" height="28" rx="7" fill="currentColor" transform="rotate(25)" />
-        <rect x="-14" y="-14" width="28" height="28" rx="7" fill="currentColor" transform="rotate(50)" />
+        <rect
+          x="-14"
+          y="-14"
+          width="28"
+          height="28"
+          rx="7"
+          fill="currentColor"
+          transform="rotate(25)"
+        />
+        <rect
+          x="-14"
+          y="-14"
+          width="28"
+          height="28"
+          rx="7"
+          fill="currentColor"
+          transform="rotate(50)"
+        />
       </g>
       <path
         d="M13 20.5l4.5 4.5 9-9.5"

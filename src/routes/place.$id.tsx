@@ -46,6 +46,7 @@ import {
 } from "@/lib/geo-utils";
 import { useT, useLocale, INTL_TAG, t } from "@/lib/i18n";
 import { useOnboarding } from "@/lib/onboarding-storage";
+import { fetchReservationSettings, type BusinessReservationSettings } from "@/lib/reservations-db";
 
 // Cada bloco da Estrutura corresponde a um destes componentes. "cover"
 // fica sempre fixo no topo e "reserve" sempre tem props extra (texto da
@@ -101,6 +102,12 @@ function PlaceDetail() {
   const [msg, setMsg] = useState("");
   const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
   const [products, setProducts] = useState<ProductDB[]>([]);
+  const [reservationSettings, setReservationSettings] =
+    useState<BusinessReservationSettings | null>(null);
+
+  useEffect(() => {
+    fetchReservationSettings(id).then(setReservationSettings);
+  }, [id]);
 
   useEffect(() => {
     getUserLocation().then(setUserLocation);
@@ -259,11 +266,16 @@ function PlaceDetail() {
     tr("whatsappGreeting"),
   )}`;
 
+  const reservationsEnabled = !!(
+    reservationSettings?.acceptsRoomReservation || reservationSettings?.acceptsTableReservation
+  );
+
   const ctx: BlockContext = {
     place,
     theme,
     products,
     fav,
+    reservationsEnabled,
     onBack: () => navigate({ to: "/home" }),
     onToggleFavorite: () => toggle(place.id),
     onRoute: () => {
@@ -305,6 +317,72 @@ function PlaceDetail() {
       <div className="-mt-6 rounded-t-[28px] pt-3 animate-slide-up">
         {blocksToRender.map((blockId, idx) => {
           if (blockId === "reserve") {
+            // Com reservas online ativas, este widget (perguntas rápidas +
+            // WhatsApp genérico) some por completo — o cliente reserva a
+            // sério (quarto/mesa) em vez de mandar mensagem a perguntar
+            // disponibilidade (pedido do Abrão, 2026-09-18).
+            if (reservationsEnabled) {
+              return (
+                <div key={`${blockId}-${idx}`} className="space-y-2 px-4 pb-3">
+                  {reservationSettings?.acceptsRoomReservation && (
+                    <button
+                      onClick={() =>
+                        navigate({ to: "/rooms/$businessId", params: { businessId: id } })
+                      }
+                      className="press flex w-full items-center gap-3 rounded-2xl p-3.5"
+                      style={{
+                        border: `1px solid ${theme.border}`,
+                        background: theme.accentSoft,
+                        color: theme.text,
+                        boxShadow: glowShadow(theme),
+                      }}
+                    >
+                      <div
+                        className="grid h-9 w-9 shrink-0 place-items-center rounded-full"
+                        style={{ background: theme.accent, color: theme.bg }}
+                      >
+                        <Icon name="bed" size={16} />
+                      </div>
+                      <span className="text-sm font-bold">Ver quartos e reservar</span>
+                      <Icon
+                        name="chevronRight"
+                        size={16}
+                        className="ml-auto shrink-0"
+                        style={{ color: theme.sub }}
+                      />
+                    </button>
+                  )}
+                  {reservationSettings?.acceptsTableReservation && (
+                    <button
+                      onClick={() =>
+                        navigate({ to: "/reserve-table/$businessId", params: { businessId: id } })
+                      }
+                      className="press flex w-full items-center gap-3 rounded-2xl p-3.5"
+                      style={{
+                        border: `1px solid ${theme.border}`,
+                        background: theme.accentSoft,
+                        color: theme.text,
+                        boxShadow: glowShadow(theme),
+                      }}
+                    >
+                      <div
+                        className="grid h-9 w-9 shrink-0 place-items-center rounded-full"
+                        style={{ background: theme.accent, color: theme.bg }}
+                      >
+                        <Icon name="calendar-check" size={16} />
+                      </div>
+                      <span className="text-sm font-bold">Reservar mesa</span>
+                      <Icon
+                        name="chevronRight"
+                        size={16}
+                        className="ml-auto shrink-0"
+                        style={{ color: theme.sub }}
+                      />
+                    </button>
+                  )}
+                </div>
+              );
+            }
             return (
               <BlockReserve
                 key={`${blockId}-${idx}`}
@@ -365,14 +443,17 @@ function PlaceDetail() {
                   <Icon name="globe" size={16} />
                 </div>
                 <div className="min-w-0 text-left">
-                  <div className="truncate text-sm font-bold">
-                    Site oficial de {place.name}
-                  </div>
+                  <div className="truncate text-sm font-bold">Site oficial de {place.name}</div>
                   <div className="truncate text-[11px]" style={{ color: theme.sub }}>
                     {place.website}
                   </div>
                 </div>
-                <Icon name="chevronRight" size={16} className="ml-auto shrink-0" style={{ color: theme.sub }} />
+                <Icon
+                  name="chevronRight"
+                  size={16}
+                  className="ml-auto shrink-0"
+                  style={{ color: theme.sub }}
+                />
               </a>
             )}
           </div>

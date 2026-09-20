@@ -113,18 +113,16 @@ function AnalyticsPage() {
           >
             <Icon name="arrowLeft" size={16} />
           </button>
-          <h1 className="text-lg font-bold tracking-tight text-foreground">{tr("analyticsTitle")}</h1>
+          <h1 className="text-lg font-bold tracking-tight text-foreground">
+            {tr("analyticsTitle")}
+          </h1>
         </header>
         <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
           <div className="grid h-16 w-16 place-items-center rounded-full bg-primary/10">
             <Icon name="trendingUp" size={28} className="text-primary" />
           </div>
-          <h2 className="mt-4 text-lg font-bold text-foreground">
-            {tr("analyticsProOnly")}
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {tr("analyticsProDescription")}
-          </p>
+          <h2 className="mt-4 text-lg font-bold text-foreground">{tr("analyticsProOnly")}</h2>
+          <p className="mt-2 text-sm text-muted-foreground">{tr("analyticsProDescription")}</p>
           <button
             onClick={() => navigate({ to: "/subscribe" })}
             className="press mt-6 h-12 w-full rounded-2xl text-sm font-semibold text-primary-foreground"
@@ -170,7 +168,9 @@ function AnalyticsPage() {
           <Icon name="arrowLeft" size={16} />
         </button>
         <div className="flex-1">
-          <h1 className="text-lg font-bold tracking-tight text-foreground">{tr("analyticsTitle")}</h1>
+          <h1 className="text-lg font-bold tracking-tight text-foreground">
+            {tr("analyticsTitle")}
+          </h1>
           <p className="text-xs text-muted-foreground">{tr("last30Days")}</p>
         </div>
         <div
@@ -254,7 +254,9 @@ function AnalyticsPage() {
 
             {/* Taxa de conversão */}
             <div className="rounded-2xl border border-border bg-card p-4">
-              <div className="mb-2 text-sm font-semibold text-foreground">{tr("conversionRate")}</div>
+              <div className="mb-2 text-sm font-semibold text-foreground">
+                {tr("conversionRate")}
+              </div>
               <div className="flex items-center gap-3">
                 <div className="flex-1 space-y-1.5">
                   {[

@@ -995,7 +995,8 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     pageNotFoundTitle: "A página que procura não existe ou foi movida.",
     backToHomeAction: "Voltar ao início",
     pageLoadErrorTitle: "Esta página não carregou",
-    somethingWentWrongSubtitle: "Algo correu mal do nosso lado. Pode tentar recarregar ou voltar ao início.",
+    somethingWentWrongSubtitle:
+      "Algo correu mal do nosso lado. Pode tentar recarregar ou voltar ao início.",
     analyticsProOnly: "Analytics é exclusivo dos planos Pro e Premium",
     visits14DaysTitle: "Visitas — últimos 14 dias",
     top5DaysTitle: "Top 5 dias com mais visitas",
@@ -1020,7 +1021,8 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     personalProfileTitle: "Perfil Pessoal",
     personalProfileDescription: "Explorar restaurantes, farmácias, hotéis e serviços perto de si.",
     businessProfileTitle: "Perfil Comercial",
-    businessProfileDescription: "Cadastre o seu negócio e seja encontrado por clientes da sua zona.",
+    businessProfileDescription:
+      "Cadastre o seu negócio e seja encontrado por clientes da sua zona.",
     tapHereAtLocationHint: "Toque aqui estando no local do negócio — mais rápido, um só toque.",
     touristDescription: "Hotéis, pontos turísticos, praias, rent-a-car, restaurantes gourmet.",
     residentDescription: "Farmácias de serviço, supermercados, clínicas, promoções do dia.",
@@ -1028,7 +1030,8 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     privacyAndTermsTitle: "Privacidade & Termos",
     privacyTabLabel: "Privacidade",
     termsTabLabel: "Termos de Uso",
-    complaintsResponseHint: "Para reclamações, dúvidas ou remoção de conteúdo, responderemos em até 72 horas.",
+    complaintsResponseHint:
+      "Para reclamações, dúvidas ou remoção de conteúdo, responderemos em até 72 horas.",
     myOrdersChatsStats: "Pedidos, chats, estatísticas",
     yourInterestsTitle: "Seus interesses",
     tapHeartToSaveHint: "Toque no coração de um lugar para guardar aqui.",
@@ -1042,30 +1045,39 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     introSubtitle3: "Cadastra grátis e chega a mais clientes hoje mesmo.",
     goToScreenLabel: "Ir para o ecrã",
     notFoundHeading: "Página não encontrada",
-    analyticsProDescription: "Veja visitas, cliques no telefone e mensagens recebidas, com comparação mês a mês. Disponível a partir do plano Pro.",
+    analyticsProDescription:
+      "Veja visitas, cliques no telefone e mensagens recebidas, com comparação mês a mês. Disponível a partir do plano Pro.",
     clicksLabel: "cliques",
     messagesLabel: "mensagens",
     calculatingFavoritesHint: "A calcular quantas pessoas te favoritaram…",
     noOneFavoritedYet: "Ainda ninguém te adicionou aos favoritos.",
     favoritedYouSingular: "pessoa favoritou o teu negócio.",
     favoritedYouPlural: "pessoas favoritaram o teu negócio.",
-    alreadySentPromoHint: "Já enviaste uma promoção nas últimas 24h. Podes enviar a próxima a partir das",
+    alreadySentPromoHint:
+      "Já enviaste uma promoção nas últimas 24h. Podes enviar a próxima a partir das",
     promoSentToPrefix: "Promoção enviada a",
     personLabel: "pessoa",
     peopleLabel: "pessoas",
     deliveredSuffix: "entregues",
     sendToFavoritesAction: "Enviar aos favoritos",
-    noOneToNotifyHint: "Ainda não tens ninguém para notificar — só aparece aqui quando alguém favoritar o teu negócio.",
+    noOneToNotifyHint:
+      "Ainda não tens ninguém para notificar — só aparece aqui quando alguém favoritar o teu negócio.",
     validUntilPrefix: "Válida até",
-    locationBlockedApproxHint: "A localização está bloqueada — as distâncias mostradas são aproximadas. Para ver distâncias reais, activa a localização para este site nas definições do navegador (ícone de cadeado/informação junto ao endereço → Permissões → Localização → Permitir).",
-    locationBlockedNoSortHint: "A localização está bloqueada — não é possível ordenar por distância real. Activa a localização para este site nas definições do navegador (ícone de cadeado/informação junto ao endereço → Permissões → Localização → Permitir).",
+    locationBlockedApproxHint:
+      "A localização está bloqueada — as distâncias mostradas são aproximadas. Para ver distâncias reais, activa a localização para este site nas definições do navegador (ícone de cadeado/informação junto ao endereço → Permissões → Localização → Permitir).",
+    locationBlockedNoSortHint:
+      "A localização está bloqueada — não é possível ordenar por distância real. Activa a localização para este site nas definições do navegador (ícone de cadeado/informação junto ao endereço → Permissões → Localização → Permitir).",
     onlineBusinessesTitle: "Negócios Online",
-    onlineServicesDescription: "Serviços digitais disponíveis em todo o país — designers, freelancers, lojas online e mais.",
-    willAppearInOnlineCategory: "O teu negócio aparecerá na categoria \"Online\" — sem distância nem mapa.",
-    keepLocationUpdatedHint: "Mantenha a localização exacta actualizada — é o que leva os clientes até à porta certa.",
+    onlineServicesDescription:
+      "Serviços digitais disponíveis em todo o país — designers, freelancers, lojas online e mais.",
+    willAppearInOnlineCategory:
+      'O teu negócio aparecerá na categoria "Online" — sem distância nem mapa.',
+    keepLocationUpdatedHint:
+      "Mantenha a localização exacta actualizada — é o que leva os clientes até à porta certa.",
     obtainingLocationEllipsis: "A obter localização…",
     useMyCurrentLocationAction: "Usar a minha localização actual",
-    gpsAccessErrorHint: "Não conseguimos aceder à sua localização. Verifique se permitiu o acesso ao GPS, ou cole o link abaixo.",
+    gpsAccessErrorHint:
+      "Não conseguimos aceder à sua localização. Verifique se permitiu o acesso ao GPS, ou cole o link abaixo.",
     verifyingLocationEllipsis: "A verificar localização…",
     locationFoundPrefix: "Localização encontrada",
     activeLabel: "Activo",
@@ -1073,60 +1085,84 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     savedExclamation: "Guardado!",
     saveAppearanceAction: "Guardar aparência",
     saveScheduleAction: "Guardar horário",
-    structureExclusiveHint: "Esta estrutura é exclusiva de planos pagos — podes pré-visualizar, mas para gravá-la e ficar visível ao público precisas de fazer upgrade.",
-    colorExclusiveHint: "Esta cor é exclusiva de planos pagos — podes pré-visualizar, mas para gravá-la e ficar visível ao público precisas de fazer upgrade.",
-    backgroundExclusiveHint: "Esta imagem de fundo é exclusiva de planos pagos — podes pré-visualizar, mas para gravá-la e ficar visível ao público precisas de fazer upgrade.",
+    structureExclusiveHint:
+      "Esta estrutura é exclusiva de planos pagos — podes pré-visualizar, mas para gravá-la e ficar visível ao público precisas de fazer upgrade.",
+    colorExclusiveHint:
+      "Esta cor é exclusiva de planos pagos — podes pré-visualizar, mas para gravá-la e ficar visível ao público precisas de fazer upgrade.",
+    backgroundExclusiveHint:
+      "Esta imagem de fundo é exclusiva de planos pagos — podes pré-visualizar, mas para gravá-la e ficar visível ao público precisas de fazer upgrade.",
     themeSwapsUsedThisMonth: "Trocas de Estrutura/Tema usadas este mês",
     includedInPlanSuffix: "incluídas no plano",
     reorderingNotCountedHint: "Reordenar os blocos não conta como troca.",
     galleryLabel: "Galeria",
     uploadingPhotosEllipsis: "A enviar fotos…",
-    dragToReorderHint: "Arraste as fotos para reordenar, ou use as setas. A primeira foto é a que aparece em destaque na lista de pesquisa.",
-    hiddenPhotosWarning: "As últimas {count} foto(s) estão guardadas mas ocultas no seu perfil público — o plano {plan} mostra até {limit}. Fazer upgrade torna-as visíveis de novo, sem precisar de as carregar outra vez.",
+    dragToReorderHint:
+      "Arraste as fotos para reordenar, ou use as setas. A primeira foto é a que aparece em destaque na lista de pesquisa.",
+    hiddenPhotosWarning:
+      "As últimas {count} foto(s) estão guardadas mas ocultas no seu perfil público — o plano {plan} mostra até {limit}. Fazer upgrade torna-as visíveis de novo, sem precisar de as carregar outra vez.",
     thisStructureLabel: "Essa estrutura",
     thisColorLabel: "Essa cor",
     thisBackgroundLabel: "Essa imagem de fundo",
-    exclusiveToPaidPlansError: "{item} é exclusiva de planos pagos. Faz upgrade em /subscribe para poder aplicá-la ao teu perfil.",
-    swapLimitReachedError: "Já usou as {count} trocas de Estrutura/Tema incluídas no plano {plan} este mês. Volta a poder trocar no próximo mês, ou faz upgrade de plano para mais trocas.",
-    setExactLocationHint: "Coloque a localização exacta do seu negócio — é o que leva os clientes até à porta certa.",
-    gpsAccessErrorHintMaps: "Não conseguimos aceder à sua localização. Verifique se permitiu o acesso ao GPS, ou cole o link do Google Maps abaixo.",
-    googleMapsLinkHintWithExample: "Cole o link do Google Maps (curto ou longo) ou o código de mais/plus code (ex: 3C72+J2J) do local do negócio.",
-    couldNotRecognizeLocationHint: "Não foi possível reconhecer esta localização. Experimente o botão \"Usar a minha localização actual\" acima, ou cole só os números (ex: -25.9655, 32.5832).",
-    dataCollectionParagraph1: "Recolhemos apenas os dados necessários para a app funcionar (conta, localização opcional, dados do teu negócio se fores comerciante). Nunca vendemos os teus dados.",
-    dataCollectionParagraph2: "Podes ler tudo em detalhe — o que recolhemos, porquê, e os teus direitos — na página de Termos e Privacidade.",
+    exclusiveToPaidPlansError:
+      "{item} é exclusiva de planos pagos. Faz upgrade em /subscribe para poder aplicá-la ao teu perfil.",
+    swapLimitReachedError:
+      "Já usou as {count} trocas de Estrutura/Tema incluídas no plano {plan} este mês. Volta a poder trocar no próximo mês, ou faz upgrade de plano para mais trocas.",
+    setExactLocationHint:
+      "Coloque a localização exacta do seu negócio — é o que leva os clientes até à porta certa.",
+    gpsAccessErrorHintMaps:
+      "Não conseguimos aceder à sua localização. Verifique se permitiu o acesso ao GPS, ou cole o link do Google Maps abaixo.",
+    googleMapsLinkHintWithExample:
+      "Cole o link do Google Maps (curto ou longo) ou o código de mais/plus code (ex: 3C72+J2J) do local do negócio.",
+    couldNotRecognizeLocationHint:
+      'Não foi possível reconhecer esta localização. Experimente o botão "Usar a minha localização actual" acima, ou cole só os números (ex: -25.9655, 32.5832).',
+    dataCollectionParagraph1:
+      "Recolhemos apenas os dados necessários para a app funcionar (conta, localização opcional, dados do teu negócio se fores comerciante). Nunca vendemos os teus dados.",
+    dataCollectionParagraph2:
+      "Podes ler tudo em detalhe — o que recolhemos, porquê, e os teus direitos — na página de Termos e Privacidade.",
     readTermsAndPrivacyAction: "Ler Termos de Uso e Política de Privacidade",
     acceptTermsPrefix: "Li e aceito os",
     termsOfUseShortLabel: "Termos de Uso",
     eALabel: "e a",
     privacyPolicyLabel: "Política de Privacidade",
     ofSpotterLocalSuffix: "do Spotter Local.",
-    coverClickHint: "A capa é o que o cliente clica para ir ao seu site oficial. Pode adicionar fotos da",
+    coverClickHint:
+      "A capa é o que o cliente clica para ir ao seu site oficial. Pode adicionar fotos da",
     auditOnlyVisibleHint: "visíveis apenas para a auditoria XTACK. Nunca são expostos ao público.",
     sendingEllipsis: "A enviar...",
     sendForVerificationAction: "Enviar para verificação",
-    verificationRunsBackgroundHint: "A verificação corre em segundo plano. Pode fechar a app ou continuar a explorar — nada congela.",
+    verificationRunsBackgroundHint:
+      "A verificação corre em segundo plano. Pode fechar a app ou continuar a explorar — nada congela.",
     securityCheckLabel: "Verificação de segurança",
     emailValidationCodeLabel: "Código de validação por email",
     orderHistoryAction: "Histórico de pedidos",
     activateAction: "Ativar",
-    notificationsBlockedHint: "As notificações estão bloqueadas para este site nas definições do teu navegador — a app não pode voltar a pedir sozinha. Toca no ícone de cadeado/informação ao lado do endereço no Chrome → Permissões → Notificações → Permitir, depois volta aqui.",
+    notificationsBlockedHint:
+      "As notificações estão bloqueadas para este site nas definições do teu navegador — a app não pode voltar a pedir sozinha. Toca no ícone de cadeado/informação ao lado do endereço no Chrome → Permissões → Notificações → Permitir, depois volta aqui.",
     whatsappHelpMessage: "Olá, preciso de ajuda com o Spotter Local",
     helpAndSupportLabel: "Ajuda & suporte",
-    whoWeAreBody: "O Spotter Local é uma aplicação desenvolvida pela XTACK OFICIAL (doravante \"nós\"), com sede em Inhambane e Maputo, Moçambique. Contacto: xtackoficial@gmail.com",
+    whoWeAreBody:
+      'O Spotter Local é uma aplicação desenvolvida pela XTACK OFICIAL (doravante "nós"), com sede em Inhambane e Maputo, Moçambique. Contacto: xtackoficial@gmail.com',
     dataLocationLabel: "Dados de localização:",
-    dataLocationBody: "Apenas usados para ordenar resultados por proximidade. Nunca guardados nos nossos servidores sem o teu consentimento explícito.",
+    dataLocationBody:
+      "Apenas usados para ordenar resultados por proximidade. Nunca guardados nos nossos servidores sem o teu consentimento explícito.",
     dataAccountLabel: "Dados de conta:",
-    dataAccountBody: "Nome, email e password (com hash SHA-256) guardados de forma segura no Supabase (infra-estrutura na UE).",
+    dataAccountBody:
+      "Nome, email e password (com hash SHA-256) guardados de forma segura no Supabase (infra-estrutura na UE).",
     emailUsageLabel: "Para que usamos o teu email:",
-    emailUsageBody: "só para (1) entrares na tua conta e a recuperares se perderes a password, (2) confirmarmos que a conta é mesmo tua antes de qualquer alteração importante, e (3) te contactarmos sobre a tua própria conta (ex: um pagamento, um aviso de segurança). Nunca é mostrado no teu perfil público nem visível a outros utilizadores — no caso dos comerciantes, fica numa tabela separada da informação pública do negócio, com acesso restrito ao próprio dono e à nossa equipa. Não usamos o teu email para publicidade nem o partilhamos com ninguém fora da XTACK OFICIAL.",
+    emailUsageBody:
+      "só para (1) entrares na tua conta e a recuperares se perderes a password, (2) confirmarmos que a conta é mesmo tua antes de qualquer alteração importante, e (3) te contactarmos sobre a tua própria conta (ex: um pagamento, um aviso de segurança). Nunca é mostrado no teu perfil público nem visível a outros utilizadores — no caso dos comerciantes, fica numa tabela separada da informação pública do negócio, com acesso restrito ao próprio dono e à nossa equipa. Não usamos o teu email para publicidade nem o partilhamos com ninguém fora da XTACK OFICIAL.",
     dataBusinessLabel: "Dados de negócio:",
-    dataBusinessBody: "Nome, categoria, localização, fotos, horários e contactos fornecidos voluntariamente pelos comerciantes.",
+    dataBusinessBody:
+      "Nome, categoria, localização, fotos, horários e contactos fornecidos voluntariamente pelos comerciantes.",
     dataUsageLabel: "Dados de uso:",
-    dataUsageBody: "Pesquisas e visualizações de perfis, usados para melhorar recomendações (apenas se \"{ads}\" estiver activo).",
+    dataUsageBody:
+      'Pesquisas e visualizações de perfis, usados para melhorar recomendações (apenas se "{ads}" estiver activo).',
     gpsPermLabel: "Localização (GPS):",
-    gpsPermBody: "Opcional. Usada para ordenar negócios por distância. Podes recusar e a app funciona na mesma.",
+    gpsPermBody:
+      "Opcional. Usada para ordenar negócios por distância. Podes recusar e a app funciona na mesma.",
     cameraPermLabel: "Câmara:",
-    cameraPermBody: "Usada apenas pelo scanner QR. Nunca acedemos à câmara sem acção explícita tua.",
+    cameraPermBody:
+      "Usada apenas pelo scanner QR. Nunca acedemos à câmara sem acção explícita tua.",
     pushPermLabel: "Notificações Push:",
     pushPermBody: "Opcionais. Usadas para alertar sobre promoções e mensagens de negócios.",
     internetPermLabel: "Internet:",
@@ -1138,17 +1174,23 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     firebaseBody: "(Google) — apenas para notificações push, se activadas.",
     unsplashLabel: "Unsplash",
     unsplashBody: "— imagens de capa genéricas para negócios sem foto própria.",
-    yourRightsBody: "Tens direito a: aceder aos teus dados, rectificá-los, exportá-los (botão abaixo) e eliminá-los a qualquer momento. Para exerceres esses direitos envia um email para xtackoficial@gmail.com.",
-    minorsBody: "O Spotter Local não é dirigido a menores de 13 anos. Se souberes que um menor forneceu dados pessoais, contacta-nos para os eliminar.",
-    securityBody: "Passwords são armazenadas com hash (nunca em texto claro). A comunicação com o servidor usa HTTPS/TLS. Os tokens de sessão expiram automaticamente.",
-    policyChangesBody: "Qualquer alteração significativa será comunicada via notificação na app. A data de última actualização é: Junho 2026.",
+    yourRightsBody:
+      "Tens direito a: aceder aos teus dados, rectificá-los, exportá-los (botão abaixo) e eliminá-los a qualquer momento. Para exerceres esses direitos envia um email para xtackoficial@gmail.com.",
+    minorsBody:
+      "O Spotter Local não é dirigido a menores de 13 anos. Se souberes que um menor forneceu dados pessoais, contacta-nos para os eliminar.",
+    securityBody:
+      "Passwords são armazenadas com hash (nunca em texto claro). A comunicação com o servidor usa HTTPS/TLS. Os tokens de sessão expiram automaticamente.",
+    policyChangesBody:
+      "Qualquer alteração significativa será comunicada via notificação na app. A data de última actualização é: Junho 2026.",
     contactAboutPrivacyLabel: "Contactar sobre privacidade",
     lastUpdatedLabel: "Última actualização",
     developedBySuffix: "Desenvolvido por",
     termsSection1Title: "1. Aceitação dos Termos",
-    termsSection1Body: "Ao utilizar o Spotter Local, aceitas estes Termos de Uso. Se não concordares, não deverás utilizar a aplicação.",
+    termsSection1Body:
+      "Ao utilizar o Spotter Local, aceitas estes Termos de Uso. Se não concordares, não deverás utilizar a aplicação.",
     termsSection2Title: "2. Descrição do serviço",
-    termsSection2Body: "O Spotter Local é uma plataforma de descoberta de negócios locais em Moçambique. Permite aos utilizadores encontrar restaurantes, hotéis, farmácias e outros serviços perto de si, e aos comerciantes listarem e promoverem os seus negócios.",
+    termsSection2Body:
+      "O Spotter Local é uma plataforma de descoberta de negócios locais em Moçambique. Permite aos utilizadores encontrar restaurantes, hotéis, farmácias e outros serviços perto de si, e aos comerciantes listarem e promoverem os seus negócios.",
     termsSection3Title: "3. Conta de utilizador",
     termsAccountBullet1: "Podes usar o Spotter Local sem conta para explorar negócios.",
     termsAccountBullet2: "Para criar avaliações ou enviar mensagens é necessária conta.",
@@ -1163,33 +1205,42 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     termsUsageBullet4: "Tentar aceder a contas de outros utilizadores.",
     termsUsageBullet5: "Fazer scraping ou uso automatizado sem autorização.",
     termsSection5Title: "5. Conteúdo dos comerciantes",
-    termsSection5Body: "Os comerciantes são responsáveis pelo conteúdo que publicam (fotos, descrições, horários, preços). A XTACK OFICIAL reserva-se o direito de remover conteúdo que viole estes termos ou que seja enganoso.",
+    termsSection5Body:
+      "Os comerciantes são responsáveis pelo conteúdo que publicam (fotos, descrições, horários, preços). A XTACK OFICIAL reserva-se o direito de remover conteúdo que viole estes termos ou que seja enganoso.",
     termsSection6Title: "6. Planos e pagamentos",
     termsPlansBullet1: "O plano Free é gratuito e permanece sempre disponível.",
-    termsPlansBullet2: "Planos pagos (Starter 300 MZN, Pro 500 MZN, Premium 900 MZN) são cobrados mensalmente via M-Pesa ou e-Mola.",
+    termsPlansBullet2:
+      "Planos pagos (Starter 300 MZN, Pro 500 MZN, Premium 900 MZN) são cobrados mensalmente via M-Pesa ou e-Mola.",
     termsPlansBullet3: "Cancelamentos entram em vigor no fim do período pago.",
     termsPlansBullet4: "Não há reembolsos por períodos parciais.",
     termsPlansBullet5: "Os preços podem ser actualizados com aviso prévio de 30 dias.",
     termsSection7Title: "7. Propriedade intelectual",
-    termsSection7Body: "O Spotter Local, logótipo, marca e código são propriedade da XTACK OFICIAL. Ao publicar fotos ou texto na plataforma, concedes à XTACK OFICIAL uma licença não-exclusiva para exibir esse conteúdo na app.",
+    termsSection7Body:
+      "O Spotter Local, logótipo, marca e código são propriedade da XTACK OFICIAL. Ao publicar fotos ou texto na plataforma, concedes à XTACK OFICIAL uma licença não-exclusiva para exibir esse conteúdo na app.",
     termsSection8Title: "8. Limitação de responsabilidade",
-    termsSection8Body: "A XTACK OFICIAL não garante a exactidão de horários, preços ou disponibilidade dos negócios listados. Essas informações são fornecidas pelos próprios comerciantes. Não somos responsáveis por experiências negativas em negócios descobertos através da app.",
+    termsSection8Body:
+      "A XTACK OFICIAL não garante a exactidão de horários, preços ou disponibilidade dos negócios listados. Essas informações são fornecidas pelos próprios comerciantes. Não somos responsáveis por experiências negativas em negócios descobertos através da app.",
     termsSection9Title: "9. Disponibilidade do serviço",
-    termsSection9Body: "Fazemos o possível para manter o Spotter Local disponível 24/7, mas não garantimos disponibilidade ininterrupta. Manutenções ou falhas técnicas podem ocorrer.",
+    termsSection9Body:
+      "Fazemos o possível para manter o Spotter Local disponível 24/7, mas não garantimos disponibilidade ininterrupta. Manutenções ou falhas técnicas podem ocorrer.",
     termsSection10Title: "10. Lei aplicável",
-    termsSection10Body: "Estes termos são regidos pela lei moçambicana. Para questões legais, o foro competente é o de Inhambane, Moçambique.",
+    termsSection10Body:
+      "Estes termos são regidos pela lei moçambicana. Para questões legais, o foro competente é o de Inhambane, Moçambique.",
     termsSection11Title: "11. Contacto",
     termsQuestionsLabel: "Dúvidas sobre os termos",
     promotionLabel: "Promoção",
-    createdAccountWithGoogleHint: "Criaste a conta com Google? Usa o botão \"{google}\" acima em vez da senha.",
+    createdAccountWithGoogleHint:
+      'Criaste a conta com Google? Usa o botão "{google}" acima em vez da senha.',
     taxiTypeLabel: "Tipo de táxi",
     chatAction: "Chat",
     taxiShortcutLabel: "Táxi",
-    guestProfileNotice: "Estás a navegar sem conta. Cria uma para guardar favoritos, avaliações e conversas.",
+    guestProfileNotice:
+      "Estás a navegar sem conta. Cria uma para guardar favoritos, avaliações e conversas.",
     createAccountAction: "Criar conta",
     createAccountOrLoginAction: "Criar conta / Entrar",
     guestVisitorLabel: "Visitante",
-    deleteAccountConfirmMessage: "Isto apaga a tua conta, o teu negócio (se tiveres) e todos os dados associados. Não há como desfazer. Tens a certeza?",
+    deleteAccountConfirmMessage:
+      "Isto apaga a tua conta, o teu negócio (se tiveres) e todos os dados associados. Não há como desfazer. Tens a certeza?",
     deleteAccountConfirmAction: "Sim, apagar tudo",
     deletingEllipsis: "A apagar…",
   },
@@ -2154,7 +2205,8 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     pageNotFoundTitle: "The page you're looking for doesn't exist or was moved.",
     backToHomeAction: "Back to home",
     pageLoadErrorTitle: "This page failed to load",
-    somethingWentWrongSubtitle: "Something went wrong on our end. You can try reloading or go back home.",
+    somethingWentWrongSubtitle:
+      "Something went wrong on our end. You can try reloading or go back home.",
     analyticsProOnly: "Analytics is exclusive to Pro and Premium plans",
     visits14DaysTitle: "Visits — last 14 days",
     top5DaysTitle: "Top 5 days with most visits",
@@ -2187,7 +2239,8 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     privacyAndTermsTitle: "Privacy & Terms",
     privacyTabLabel: "Privacy",
     termsTabLabel: "Terms of Use",
-    complaintsResponseHint: "For complaints, questions, or content removal, we'll respond within 72 hours.",
+    complaintsResponseHint:
+      "For complaints, questions, or content removal, we'll respond within 72 hours.",
     myOrdersChatsStats: "Orders, chats, statistics",
     yourInterestsTitle: "Your interests",
     tapHeartToSaveHint: "Tap the heart on a place to save it here.",
@@ -2201,30 +2254,39 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     introSubtitle3: "Sign up for free and reach more customers today.",
     goToScreenLabel: "Go to screen",
     notFoundHeading: "Page not found",
-    analyticsProDescription: "See visits, phone clicks and messages received, with month-over-month comparison. Available from the Pro plan.",
+    analyticsProDescription:
+      "See visits, phone clicks and messages received, with month-over-month comparison. Available from the Pro plan.",
     clicksLabel: "clicks",
     messagesLabel: "messages",
     calculatingFavoritesHint: "Calculating how many people favorited you…",
     noOneFavoritedYet: "No one has added you to favorites yet.",
     favoritedYouSingular: "person favorited your business.",
     favoritedYouPlural: "people favorited your business.",
-    alreadySentPromoHint: "You already sent a promotion in the last 24h. You can send the next one from",
+    alreadySentPromoHint:
+      "You already sent a promotion in the last 24h. You can send the next one from",
     promoSentToPrefix: "Promotion sent to",
     personLabel: "person",
     peopleLabel: "people",
     deliveredSuffix: "delivered",
     sendToFavoritesAction: "Send to favorites",
-    noOneToNotifyHint: "You don't have anyone to notify yet — this appears once someone favorites your business.",
+    noOneToNotifyHint:
+      "You don't have anyone to notify yet — this appears once someone favorites your business.",
     validUntilPrefix: "Valid until",
-    locationBlockedApproxHint: "Location is blocked — distances shown are approximate. To see real distances, enable location for this site in your browser settings (lock/info icon next to the address bar → Permissions → Location → Allow).",
-    locationBlockedNoSortHint: "Location is blocked — sorting by real distance isn't possible. Enable location for this site in your browser settings (lock/info icon next to the address bar → Permissions → Location → Allow).",
+    locationBlockedApproxHint:
+      "Location is blocked — distances shown are approximate. To see real distances, enable location for this site in your browser settings (lock/info icon next to the address bar → Permissions → Location → Allow).",
+    locationBlockedNoSortHint:
+      "Location is blocked — sorting by real distance isn't possible. Enable location for this site in your browser settings (lock/info icon next to the address bar → Permissions → Location → Allow).",
     onlineBusinessesTitle: "Online Businesses",
-    onlineServicesDescription: "Digital services available nationwide — designers, freelancers, online stores and more.",
-    willAppearInOnlineCategory: "Your business will appear in the \"Online\" category — no distance or map.",
-    keepLocationUpdatedHint: "Keep the exact location up to date — it's what gets customers to the right door.",
+    onlineServicesDescription:
+      "Digital services available nationwide — designers, freelancers, online stores and more.",
+    willAppearInOnlineCategory:
+      'Your business will appear in the "Online" category — no distance or map.',
+    keepLocationUpdatedHint:
+      "Keep the exact location up to date — it's what gets customers to the right door.",
     obtainingLocationEllipsis: "Getting location…",
     useMyCurrentLocationAction: "Use my current location",
-    gpsAccessErrorHint: "We couldn't access your location. Check that you allowed GPS access, or paste the link below.",
+    gpsAccessErrorHint:
+      "We couldn't access your location. Check that you allowed GPS access, or paste the link below.",
     verifyingLocationEllipsis: "Verifying location…",
     locationFoundPrefix: "Location found",
     activeLabel: "Active",
@@ -2232,60 +2294,84 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     savedExclamation: "Saved!",
     saveAppearanceAction: "Save appearance",
     saveScheduleAction: "Save schedule",
-    structureExclusiveHint: "This structure is exclusive to paid plans — you can preview it, but to save it and make it visible to the public you need to upgrade.",
-    colorExclusiveHint: "This color is exclusive to paid plans — you can preview it, but to save it and make it visible to the public you need to upgrade.",
-    backgroundExclusiveHint: "This background image is exclusive to paid plans — you can preview it, but to save it and make it visible to the public you need to upgrade.",
+    structureExclusiveHint:
+      "This structure is exclusive to paid plans — you can preview it, but to save it and make it visible to the public you need to upgrade.",
+    colorExclusiveHint:
+      "This color is exclusive to paid plans — you can preview it, but to save it and make it visible to the public you need to upgrade.",
+    backgroundExclusiveHint:
+      "This background image is exclusive to paid plans — you can preview it, but to save it and make it visible to the public you need to upgrade.",
     themeSwapsUsedThisMonth: "Structure/Theme swaps used this month",
     includedInPlanSuffix: "included in the",
     reorderingNotCountedHint: "Reordering blocks doesn't count as a swap.",
     galleryLabel: "Gallery",
     uploadingPhotosEllipsis: "Uploading photos…",
-    dragToReorderHint: "Drag the photos to reorder, or use the arrows. The first photo is the one featured in search results.",
-    hiddenPhotosWarning: "The last {count} photo(s) are saved but hidden on your public profile — the {plan} plan shows up to {limit}. Upgrading makes them visible again, no need to re-upload.",
+    dragToReorderHint:
+      "Drag the photos to reorder, or use the arrows. The first photo is the one featured in search results.",
+    hiddenPhotosWarning:
+      "The last {count} photo(s) are saved but hidden on your public profile — the {plan} plan shows up to {limit}. Upgrading makes them visible again, no need to re-upload.",
     thisStructureLabel: "This structure",
     thisColorLabel: "This color",
     thisBackgroundLabel: "This background image",
-    exclusiveToPaidPlansError: "{item} is exclusive to paid plans. Upgrade at /subscribe to apply it to your profile.",
-    swapLimitReachedError: "You've already used the {count} Structure/Theme swaps included in the {plan} plan this month. You can swap again next month, or upgrade for more swaps.",
-    setExactLocationHint: "Set your business's exact location — it's what gets customers to the right door.",
-    gpsAccessErrorHintMaps: "We couldn't access your location. Check that you allowed GPS access, or paste the Google Maps link below.",
-    googleMapsLinkHintWithExample: "Paste the Google Maps link (short or long) or the plus code (e.g.: 3C72+J2J) for the business location.",
-    couldNotRecognizeLocationHint: "We couldn't recognize this location. Try the \"Use my current location\" button above, or paste just the numbers (e.g.: -25.9655, 32.5832).",
-    dataCollectionParagraph1: "We only collect the data needed for the app to work (account, optional location, your business info if you're a merchant). We never sell your data.",
-    dataCollectionParagraph2: "You can read the full details — what we collect, why, and your rights — on the Terms and Privacy page.",
+    exclusiveToPaidPlansError:
+      "{item} is exclusive to paid plans. Upgrade at /subscribe to apply it to your profile.",
+    swapLimitReachedError:
+      "You've already used the {count} Structure/Theme swaps included in the {plan} plan this month. You can swap again next month, or upgrade for more swaps.",
+    setExactLocationHint:
+      "Set your business's exact location — it's what gets customers to the right door.",
+    gpsAccessErrorHintMaps:
+      "We couldn't access your location. Check that you allowed GPS access, or paste the Google Maps link below.",
+    googleMapsLinkHintWithExample:
+      "Paste the Google Maps link (short or long) or the plus code (e.g.: 3C72+J2J) for the business location.",
+    couldNotRecognizeLocationHint:
+      'We couldn\'t recognize this location. Try the "Use my current location" button above, or paste just the numbers (e.g.: -25.9655, 32.5832).',
+    dataCollectionParagraph1:
+      "We only collect the data needed for the app to work (account, optional location, your business info if you're a merchant). We never sell your data.",
+    dataCollectionParagraph2:
+      "You can read the full details — what we collect, why, and your rights — on the Terms and Privacy page.",
     readTermsAndPrivacyAction: "Read Terms of Use and Privacy Policy",
     acceptTermsPrefix: "I have read and accept the",
     termsOfUseShortLabel: "Terms of Use",
     eALabel: "and the",
     privacyPolicyLabel: "Privacy Policy",
     ofSpotterLocalSuffix: "of Spotter Local.",
-    coverClickHint: "The cover is what the customer clicks to go to your official site. You can add photos of the",
+    coverClickHint:
+      "The cover is what the customer clicks to go to your official site. You can add photos of the",
     auditOnlyVisibleHint: "visible only to the XTACK audit team. Never shown to the public.",
     sendingEllipsis: "Sending...",
     sendForVerificationAction: "Send for verification",
-    verificationRunsBackgroundHint: "Verification runs in the background. You can close the app or keep exploring — nothing freezes.",
+    verificationRunsBackgroundHint:
+      "Verification runs in the background. You can close the app or keep exploring — nothing freezes.",
     securityCheckLabel: "Security check",
     emailValidationCodeLabel: "Email validation code",
     orderHistoryAction: "Order history",
     activateAction: "Enable",
-    notificationsBlockedHint: "Notifications are blocked for this site in your browser settings — the app can't ask again on its own. Tap the lock/info icon next to the address bar in Chrome → Permissions → Notifications → Allow, then come back here.",
+    notificationsBlockedHint:
+      "Notifications are blocked for this site in your browser settings — the app can't ask again on its own. Tap the lock/info icon next to the address bar in Chrome → Permissions → Notifications → Allow, then come back here.",
     whatsappHelpMessage: "Hi, I need help with Spotter Local",
     helpAndSupportLabel: "Help & support",
-    whoWeAreBody: "Spotter Local is an app developed by XTACK OFICIAL (hereinafter \"we\"), based in Inhambane and Maputo, Mozambique. Contact: xtackoficial@gmail.com",
+    whoWeAreBody:
+      'Spotter Local is an app developed by XTACK OFICIAL (hereinafter "we"), based in Inhambane and Maputo, Mozambique. Contact: xtackoficial@gmail.com',
     dataLocationLabel: "Location data:",
-    dataLocationBody: "Only used to sort results by proximity. Never stored on our servers without your explicit consent.",
+    dataLocationBody:
+      "Only used to sort results by proximity. Never stored on our servers without your explicit consent.",
     dataAccountLabel: "Account data:",
-    dataAccountBody: "Name, email and password (SHA-256 hashed) stored securely on Supabase (EU-based infrastructure).",
+    dataAccountBody:
+      "Name, email and password (SHA-256 hashed) stored securely on Supabase (EU-based infrastructure).",
     emailUsageLabel: "What we use your email for:",
-    emailUsageBody: "only to (1) let you sign in and recover your account if you lose your password, (2) confirm the account really is yours before any important change, and (3) contact you about your own account (e.g. a payment, a security notice). It's never shown on your public profile or visible to other users — for merchants, it sits in a separate table from the business's public info, restricted to the owner and our team. We don't use your email for advertising or share it with anyone outside XTACK OFICIAL.",
+    emailUsageBody:
+      "only to (1) let you sign in and recover your account if you lose your password, (2) confirm the account really is yours before any important change, and (3) contact you about your own account (e.g. a payment, a security notice). It's never shown on your public profile or visible to other users — for merchants, it sits in a separate table from the business's public info, restricted to the owner and our team. We don't use your email for advertising or share it with anyone outside XTACK OFICIAL.",
     dataBusinessLabel: "Business data:",
-    dataBusinessBody: "Name, category, location, photos, hours and contacts voluntarily provided by merchants.",
+    dataBusinessBody:
+      "Name, category, location, photos, hours and contacts voluntarily provided by merchants.",
     dataUsageLabel: "Usage data:",
-    dataUsageBody: "Searches and profile views, used to improve recommendations (only if \"{ads}\" is enabled).",
+    dataUsageBody:
+      'Searches and profile views, used to improve recommendations (only if "{ads}" is enabled).',
     gpsPermLabel: "Location (GPS):",
-    gpsPermBody: "Optional. Used to sort businesses by distance. You can decline and the app still works.",
+    gpsPermBody:
+      "Optional. Used to sort businesses by distance. You can decline and the app still works.",
     cameraPermLabel: "Camera:",
-    cameraPermBody: "Used only by the QR scanner. We never access the camera without an explicit action from you.",
+    cameraPermBody:
+      "Used only by the QR scanner. We never access the camera without an explicit action from you.",
     pushPermLabel: "Push notifications:",
     pushPermBody: "Optional. Used to alert you about promotions and messages from businesses.",
     internetPermLabel: "Internet:",
@@ -2297,17 +2383,23 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     firebaseBody: "(Google) — only for push notifications, if enabled.",
     unsplashLabel: "Unsplash",
     unsplashBody: "— generic cover images for businesses without their own photo.",
-    yourRightsBody: "You have the right to: access your data, correct it, export it (button below) and delete it at any time. To exercise these rights, email xtackoficial@gmail.com.",
-    minorsBody: "Spotter Local is not directed at children under 13. If you know a minor has provided personal data, contact us to have it removed.",
-    securityBody: "Passwords are stored hashed (never in plain text). Communication with the server uses HTTPS/TLS. Session tokens expire automatically.",
-    policyChangesBody: "Any significant change will be communicated via an in-app notification. Last updated: June 2026.",
+    yourRightsBody:
+      "You have the right to: access your data, correct it, export it (button below) and delete it at any time. To exercise these rights, email xtackoficial@gmail.com.",
+    minorsBody:
+      "Spotter Local is not directed at children under 13. If you know a minor has provided personal data, contact us to have it removed.",
+    securityBody:
+      "Passwords are stored hashed (never in plain text). Communication with the server uses HTTPS/TLS. Session tokens expire automatically.",
+    policyChangesBody:
+      "Any significant change will be communicated via an in-app notification. Last updated: June 2026.",
     contactAboutPrivacyLabel: "Contact us about privacy",
     lastUpdatedLabel: "Last updated",
     developedBySuffix: "Developed by",
     termsSection1Title: "1. Acceptance of Terms",
-    termsSection1Body: "By using Spotter Local, you accept these Terms of Use. If you don't agree, you shouldn't use the app.",
+    termsSection1Body:
+      "By using Spotter Local, you accept these Terms of Use. If you don't agree, you shouldn't use the app.",
     termsSection2Title: "2. Description of the service",
-    termsSection2Body: "Spotter Local is a local business discovery platform in Mozambique. It lets users find restaurants, hotels, pharmacies and other services near them, and lets merchants list and promote their businesses.",
+    termsSection2Body:
+      "Spotter Local is a local business discovery platform in Mozambique. It lets users find restaurants, hotels, pharmacies and other services near them, and lets merchants list and promote their businesses.",
     termsSection3Title: "3. User account",
     termsAccountBullet1: "You can use Spotter Local without an account to browse businesses.",
     termsAccountBullet2: "An account is required to post reviews or send messages.",
@@ -2322,33 +2414,42 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     termsUsageBullet4: "Attempt to access other users' accounts.",
     termsUsageBullet5: "Scrape or use automated tools without authorization.",
     termsSection5Title: "5. Merchant content",
-    termsSection5Body: "Merchants are responsible for the content they post (photos, descriptions, hours, prices). XTACK OFICIAL reserves the right to remove content that violates these terms or is misleading.",
+    termsSection5Body:
+      "Merchants are responsible for the content they post (photos, descriptions, hours, prices). XTACK OFICIAL reserves the right to remove content that violates these terms or is misleading.",
     termsSection6Title: "6. Plans and payments",
     termsPlansBullet1: "The Free plan is free and always remains available.",
-    termsPlansBullet2: "Paid plans (Starter 300 MZN, Pro 500 MZN, Premium 900 MZN) are billed monthly via M-Pesa or e-Mola.",
+    termsPlansBullet2:
+      "Paid plans (Starter 300 MZN, Pro 500 MZN, Premium 900 MZN) are billed monthly via M-Pesa or e-Mola.",
     termsPlansBullet3: "Cancellations take effect at the end of the paid period.",
     termsPlansBullet4: "There are no refunds for partial periods.",
     termsPlansBullet5: "Prices may be updated with 30 days' prior notice.",
     termsSection7Title: "7. Intellectual property",
-    termsSection7Body: "Spotter Local, its logo, brand and code are the property of XTACK OFICIAL. By posting photos or text on the platform, you grant XTACK OFICIAL a non-exclusive license to display that content in the app.",
+    termsSection7Body:
+      "Spotter Local, its logo, brand and code are the property of XTACK OFICIAL. By posting photos or text on the platform, you grant XTACK OFICIAL a non-exclusive license to display that content in the app.",
     termsSection8Title: "8. Limitation of liability",
-    termsSection8Body: "XTACK OFICIAL does not guarantee the accuracy of hours, prices or availability of listed businesses. That information is provided by the merchants themselves. We are not responsible for negative experiences at businesses discovered through the app.",
+    termsSection8Body:
+      "XTACK OFICIAL does not guarantee the accuracy of hours, prices or availability of listed businesses. That information is provided by the merchants themselves. We are not responsible for negative experiences at businesses discovered through the app.",
     termsSection9Title: "9. Service availability",
-    termsSection9Body: "We do our best to keep Spotter Local available 24/7, but we do not guarantee uninterrupted availability. Maintenance or technical failures may occur.",
+    termsSection9Body:
+      "We do our best to keep Spotter Local available 24/7, but we do not guarantee uninterrupted availability. Maintenance or technical failures may occur.",
     termsSection10Title: "10. Governing law",
-    termsSection10Body: "These terms are governed by Mozambican law. For legal matters, the competent jurisdiction is Inhambane, Mozambique.",
+    termsSection10Body:
+      "These terms are governed by Mozambican law. For legal matters, the competent jurisdiction is Inhambane, Mozambique.",
     termsSection11Title: "11. Contact",
     termsQuestionsLabel: "Questions about the terms",
     promotionLabel: "Promotion",
-    createdAccountWithGoogleHint: "Created your account with Google? Use the \"{google}\" button above instead of the password.",
+    createdAccountWithGoogleHint:
+      'Created your account with Google? Use the "{google}" button above instead of the password.',
     taxiTypeLabel: "Taxi type",
     chatAction: "Chat",
     taxiShortcutLabel: "Taxi",
-    guestProfileNotice: "You're browsing without an account. Create one to save favorites, reviews and chats.",
+    guestProfileNotice:
+      "You're browsing without an account. Create one to save favorites, reviews and chats.",
     createAccountAction: "Create account",
     createAccountOrLoginAction: "Create account / Log in",
     guestVisitorLabel: "Visitor",
-    deleteAccountConfirmMessage: "This deletes your account, your business (if you have one), and all associated data. This cannot be undone. Are you sure?",
+    deleteAccountConfirmMessage:
+      "This deletes your account, your business (if you have one), and all associated data. This cannot be undone. Are you sure?",
     deleteAccountConfirmAction: "Yes, delete everything",
     deletingEllipsis: "Deleting…",
   },
@@ -3319,7 +3420,8 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     pageNotFoundTitle: "La página que buscas no existe o fue movida.",
     backToHomeAction: "Volver al inicio",
     pageLoadErrorTitle: "Esta página no cargó",
-    somethingWentWrongSubtitle: "Algo salió mal de nuestro lado. Puedes intentar recargar o volver al inicio.",
+    somethingWentWrongSubtitle:
+      "Algo salió mal de nuestro lado. Puedes intentar recargar o volver al inicio.",
     analyticsProOnly: "Analítica es exclusiva de los planes Pro y Premium",
     visits14DaysTitle: "Visitas — últimos 14 días",
     top5DaysTitle: "Top 5 días con más visitas",
@@ -3346,13 +3448,15 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     businessProfileTitle: "Perfil Comercial",
     businessProfileDescription: "Registra tu negocio y sé encontrado por clientes de tu zona.",
     tapHereAtLocationHint: "Toca aquí estando en el lugar del negocio — más rápido, un solo toque.",
-    touristDescription: "Hoteles, puntos turísticos, playas, alquiler de coches, restaurantes gourmet.",
+    touristDescription:
+      "Hoteles, puntos turísticos, playas, alquiler de coches, restaurantes gourmet.",
     residentDescription: "Farmacias de turno, supermercados, clínicas, promociones del día.",
     businessSubmittedTitle: "¡Negocio enviado!",
     privacyAndTermsTitle: "Privacidad y Términos",
     privacyTabLabel: "Privacidad",
     termsTabLabel: "Términos de Uso",
-    complaintsResponseHint: "Para reclamos, dudas o eliminación de contenido, responderemos en un plazo de 72 horas.",
+    complaintsResponseHint:
+      "Para reclamos, dudas o eliminación de contenido, responderemos en un plazo de 72 horas.",
     myOrdersChatsStats: "Pedidos, chats, estadísticas",
     yourInterestsTitle: "Tus intereses",
     tapHeartToSaveHint: "Toca el corazón de un lugar para guardarlo aquí.",
@@ -3366,30 +3470,39 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     introSubtitle3: "Regístrate gratis y llega a más clientes hoy mismo.",
     goToScreenLabel: "Ir a la pantalla",
     notFoundHeading: "Página no encontrada",
-    analyticsProDescription: "Ve visitas, clics en el teléfono y mensajes recibidos, con comparación mes a mes. Disponible desde el plan Pro.",
+    analyticsProDescription:
+      "Ve visitas, clics en el teléfono y mensajes recibidos, con comparación mes a mes. Disponible desde el plan Pro.",
     clicksLabel: "clics",
     messagesLabel: "mensajes",
     calculatingFavoritesHint: "Calculando cuántas personas te añadieron a favoritos…",
     noOneFavoritedYet: "Aún nadie te ha añadido a favoritos.",
     favoritedYouSingular: "persona marcó tu negocio como favorito.",
     favoritedYouPlural: "personas marcaron tu negocio como favorito.",
-    alreadySentPromoHint: "Ya enviaste una promoción en las últimas 24h. Puedes enviar la siguiente a partir de las",
+    alreadySentPromoHint:
+      "Ya enviaste una promoción en las últimas 24h. Puedes enviar la siguiente a partir de las",
     promoSentToPrefix: "Promoción enviada a",
     personLabel: "persona",
     peopleLabel: "personas",
     deliveredSuffix: "entregadas",
     sendToFavoritesAction: "Enviar a favoritos",
-    noOneToNotifyHint: "Aún no tienes a nadie para notificar — esto aparece cuando alguien marque tu negocio como favorito.",
+    noOneToNotifyHint:
+      "Aún no tienes a nadie para notificar — esto aparece cuando alguien marque tu negocio como favorito.",
     validUntilPrefix: "Válida hasta",
-    locationBlockedApproxHint: "La ubicación está bloqueada — las distancias mostradas son aproximadas. Para ver distancias reales, activa la ubicación para este sitio en la configuración del navegador (icono de candado/información junto a la dirección → Permisos → Ubicación → Permitir).",
-    locationBlockedNoSortHint: "La ubicación está bloqueada — no es posible ordenar por distancia real. Activa la ubicación para este sitio en la configuración del navegador (icono de candado/información junto a la dirección → Permisos → Ubicación → Permitir).",
+    locationBlockedApproxHint:
+      "La ubicación está bloqueada — las distancias mostradas son aproximadas. Para ver distancias reales, activa la ubicación para este sitio en la configuración del navegador (icono de candado/información junto a la dirección → Permisos → Ubicación → Permitir).",
+    locationBlockedNoSortHint:
+      "La ubicación está bloqueada — no es posible ordenar por distancia real. Activa la ubicación para este sitio en la configuración del navegador (icono de candado/información junto a la dirección → Permisos → Ubicación → Permitir).",
     onlineBusinessesTitle: "Negocios en línea",
-    onlineServicesDescription: "Servicios digitales disponibles en todo el país — diseñadores, freelancers, tiendas online y más.",
-    willAppearInOnlineCategory: "Tu negocio aparecerá en la categoría \"Online\" — sin distancia ni mapa.",
-    keepLocationUpdatedHint: "Mantén la ubicación exacta actualizada — es lo que lleva a los clientes hasta la puerta correcta.",
+    onlineServicesDescription:
+      "Servicios digitales disponibles en todo el país — diseñadores, freelancers, tiendas online y más.",
+    willAppearInOnlineCategory:
+      'Tu negocio aparecerá en la categoría "Online" — sin distancia ni mapa.',
+    keepLocationUpdatedHint:
+      "Mantén la ubicación exacta actualizada — es lo que lleva a los clientes hasta la puerta correcta.",
     obtainingLocationEllipsis: "Obteniendo ubicación…",
     useMyCurrentLocationAction: "Usar mi ubicación actual",
-    gpsAccessErrorHint: "No pudimos acceder a tu ubicación. Verifica si permitiste el acceso al GPS, o pega el enlace abajo.",
+    gpsAccessErrorHint:
+      "No pudimos acceder a tu ubicación. Verifica si permitiste el acceso al GPS, o pega el enlace abajo.",
     verifyingLocationEllipsis: "Verificando ubicación…",
     locationFoundPrefix: "Ubicación encontrada",
     activeLabel: "Activo",
@@ -3397,86 +3510,118 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     savedExclamation: "¡Guardado!",
     saveAppearanceAction: "Guardar apariencia",
     saveScheduleAction: "Guardar horario",
-    structureExclusiveHint: "Esta estructura es exclusiva de planes de pago — puedes previsualizarla, pero para guardarla y que sea visible al público necesitas mejorar tu plan.",
-    colorExclusiveHint: "Este color es exclusivo de planes de pago — puedes previsualizarlo, pero para guardarlo y que sea visible al público necesitas mejorar tu plan.",
-    backgroundExclusiveHint: "Esta imagen de fondo es exclusiva de planes de pago — puedes previsualizarla, pero para guardarla y que sea visible al público necesitas mejorar tu plan.",
+    structureExclusiveHint:
+      "Esta estructura es exclusiva de planes de pago — puedes previsualizarla, pero para guardarla y que sea visible al público necesitas mejorar tu plan.",
+    colorExclusiveHint:
+      "Este color es exclusivo de planes de pago — puedes previsualizarlo, pero para guardarlo y que sea visible al público necesitas mejorar tu plan.",
+    backgroundExclusiveHint:
+      "Esta imagen de fondo es exclusiva de planes de pago — puedes previsualizarla, pero para guardarla y que sea visible al público necesitas mejorar tu plan.",
     themeSwapsUsedThisMonth: "Cambios de Estructura/Tema usados este mes",
     includedInPlanSuffix: "incluidos en el plan",
     reorderingNotCountedHint: "Reordenar los bloques no cuenta como cambio.",
     galleryLabel: "Galería",
     uploadingPhotosEllipsis: "Subiendo fotos…",
-    dragToReorderHint: "Arrastra las fotos para reordenar, o usa las flechas. La primera foto es la que aparece destacada en la lista de búsqueda.",
-    hiddenPhotosWarning: "Las últimas {count} foto(s) están guardadas pero ocultas en tu perfil público — el plan {plan} muestra hasta {limit}. Mejorar tu plan las hace visibles de nuevo, sin necesidad de volver a subirlas.",
+    dragToReorderHint:
+      "Arrastra las fotos para reordenar, o usa las flechas. La primera foto es la que aparece destacada en la lista de búsqueda.",
+    hiddenPhotosWarning:
+      "Las últimas {count} foto(s) están guardadas pero ocultas en tu perfil público — el plan {plan} muestra hasta {limit}. Mejorar tu plan las hace visibles de nuevo, sin necesidad de volver a subirlas.",
     thisStructureLabel: "Esa estructura",
     thisColorLabel: "Ese color",
     thisBackgroundLabel: "Esa imagen de fondo",
-    exclusiveToPaidPlansError: "{item} es exclusiva de planes de pago. Mejora tu plan en /subscribe para aplicarla a tu perfil.",
-    swapLimitReachedError: "Ya usaste los {count} cambios de Estructura/Tema incluidos en el plan {plan} este mes. Podrás volver a cambiar el próximo mes, o mejora tu plan para más cambios.",
-    setExactLocationHint: "Indica la ubicación exacta de tu negocio — es lo que lleva a los clientes hasta la puerta correcta.",
-    gpsAccessErrorHintMaps: "No pudimos acceder a tu ubicación. Verifica si permitiste el acceso al GPS, o pega el enlace de Google Maps abajo.",
-    googleMapsLinkHintWithExample: "Pega el enlace de Google Maps (corto o largo) o el plus code (ej: 3C72+J2J) del lugar del negocio.",
-    couldNotRecognizeLocationHint: "No pudimos reconocer esta ubicación. Prueba el botón \"Usar mi ubicación actual\" arriba, o pega solo los números (ej: -25.9655, 32.5832).",
-    dataCollectionParagraph1: "Solo recopilamos los datos necesarios para que la app funcione (cuenta, ubicación opcional, datos de tu negocio si eres comerciante). Nunca vendemos tus datos.",
-    dataCollectionParagraph2: "Puedes leer todo en detalle — qué recopilamos, por qué, y tus derechos — en la página de Términos y Privacidad.",
+    exclusiveToPaidPlansError:
+      "{item} es exclusiva de planes de pago. Mejora tu plan en /subscribe para aplicarla a tu perfil.",
+    swapLimitReachedError:
+      "Ya usaste los {count} cambios de Estructura/Tema incluidos en el plan {plan} este mes. Podrás volver a cambiar el próximo mes, o mejora tu plan para más cambios.",
+    setExactLocationHint:
+      "Indica la ubicación exacta de tu negocio — es lo que lleva a los clientes hasta la puerta correcta.",
+    gpsAccessErrorHintMaps:
+      "No pudimos acceder a tu ubicación. Verifica si permitiste el acceso al GPS, o pega el enlace de Google Maps abajo.",
+    googleMapsLinkHintWithExample:
+      "Pega el enlace de Google Maps (corto o largo) o el plus code (ej: 3C72+J2J) del lugar del negocio.",
+    couldNotRecognizeLocationHint:
+      'No pudimos reconocer esta ubicación. Prueba el botón "Usar mi ubicación actual" arriba, o pega solo los números (ej: -25.9655, 32.5832).',
+    dataCollectionParagraph1:
+      "Solo recopilamos los datos necesarios para que la app funcione (cuenta, ubicación opcional, datos de tu negocio si eres comerciante). Nunca vendemos tus datos.",
+    dataCollectionParagraph2:
+      "Puedes leer todo en detalle — qué recopilamos, por qué, y tus derechos — en la página de Términos y Privacidad.",
     readTermsAndPrivacyAction: "Leer Términos de Uso y Política de Privacidad",
     acceptTermsPrefix: "He leído y acepto los",
     termsOfUseShortLabel: "Términos de Uso",
     eALabel: "y la",
     privacyPolicyLabel: "Política de Privacidad",
     ofSpotterLocalSuffix: "de Spotter Local.",
-    coverClickHint: "La portada es lo que el cliente toca para ir a tu sitio oficial. Puedes añadir fotos del",
+    coverClickHint:
+      "La portada es lo que el cliente toca para ir a tu sitio oficial. Puedes añadir fotos del",
     auditOnlyVisibleHint: "visibles solo para la auditoría de XTACK. Nunca se muestran al público.",
     sendingEllipsis: "Enviando...",
     sendForVerificationAction: "Enviar para verificación",
-    verificationRunsBackgroundHint: "La verificación se ejecuta en segundo plano. Puedes cerrar la app o seguir explorando — nada se bloquea.",
+    verificationRunsBackgroundHint:
+      "La verificación se ejecuta en segundo plano. Puedes cerrar la app o seguir explorando — nada se bloquea.",
     securityCheckLabel: "Verificación de seguridad",
     emailValidationCodeLabel: "Código de validación por email",
     orderHistoryAction: "Historial de pedidos",
     activateAction: "Activar",
-    notificationsBlockedHint: "Las notificaciones están bloqueadas para este sitio en la configuración de tu navegador — la app no puede volver a pedirlo por sí sola. Toca el icono de candado/información junto a la dirección en Chrome → Permisos → Notificaciones → Permitir, y luego vuelve aquí.",
+    notificationsBlockedHint:
+      "Las notificaciones están bloqueadas para este sitio en la configuración de tu navegador — la app no puede volver a pedirlo por sí sola. Toca el icono de candado/información junto a la dirección en Chrome → Permisos → Notificaciones → Permitir, y luego vuelve aquí.",
     whatsappHelpMessage: "Hola, necesito ayuda con Spotter Local",
     helpAndSupportLabel: "Ayuda y soporte",
-    whoWeAreBody: "Spotter Local es una aplicación desarrollada por XTACK OFICIAL (en adelante \"nosotros\"), con sede en Inhambane y Maputo, Mozambique. Contacto: xtackoficial@gmail.com",
+    whoWeAreBody:
+      'Spotter Local es una aplicación desarrollada por XTACK OFICIAL (en adelante "nosotros"), con sede en Inhambane y Maputo, Mozambique. Contacto: xtackoficial@gmail.com',
     dataLocationLabel: "Datos de ubicación:",
-    dataLocationBody: "Solo se usan para ordenar resultados por proximidad. Nunca se guardan en nuestros servidores sin tu consentimiento explícito.",
+    dataLocationBody:
+      "Solo se usan para ordenar resultados por proximidad. Nunca se guardan en nuestros servidores sin tu consentimiento explícito.",
     dataAccountLabel: "Datos de cuenta:",
-    dataAccountBody: "Nombre, email y contraseña (con hash SHA-256) guardados de forma segura en Supabase (infraestructura en la UE).",
+    dataAccountBody:
+      "Nombre, email y contraseña (con hash SHA-256) guardados de forma segura en Supabase (infraestructura en la UE).",
     emailUsageLabel: "Para qué usamos tu email:",
-    emailUsageBody: "solo para (1) que inicies sesión en tu cuenta y la recuperes si pierdes la contraseña, (2) confirmar que la cuenta es realmente tuya antes de cualquier cambio importante, y (3) contactarte sobre tu propia cuenta (ej: un pago, un aviso de seguridad). Nunca se muestra en tu perfil público ni es visible para otros usuarios — en el caso de los comerciantes, queda en una tabla separada de la información pública del negocio, con acceso restringido al propio dueño y a nuestro equipo. No usamos tu email para publicidad ni lo compartimos con nadie fuera de XTACK OFICIAL.",
+    emailUsageBody:
+      "solo para (1) que inicies sesión en tu cuenta y la recuperes si pierdes la contraseña, (2) confirmar que la cuenta es realmente tuya antes de cualquier cambio importante, y (3) contactarte sobre tu propia cuenta (ej: un pago, un aviso de seguridad). Nunca se muestra en tu perfil público ni es visible para otros usuarios — en el caso de los comerciantes, queda en una tabla separada de la información pública del negocio, con acceso restringido al propio dueño y a nuestro equipo. No usamos tu email para publicidad ni lo compartimos con nadie fuera de XTACK OFICIAL.",
     dataBusinessLabel: "Datos de negocio:",
-    dataBusinessBody: "Nombre, categoría, ubicación, fotos, horarios y contactos proporcionados voluntariamente por los comerciantes.",
+    dataBusinessBody:
+      "Nombre, categoría, ubicación, fotos, horarios y contactos proporcionados voluntariamente por los comerciantes.",
     dataUsageLabel: "Datos de uso:",
-    dataUsageBody: "Búsquedas y visualizaciones de perfiles, usados para mejorar recomendaciones (solo si \"{ads}\" está activo).",
+    dataUsageBody:
+      'Búsquedas y visualizaciones de perfiles, usados para mejorar recomendaciones (solo si "{ads}" está activo).',
     gpsPermLabel: "Ubicación (GPS):",
-    gpsPermBody: "Opcional. Se usa para ordenar negocios por distancia. Puedes rechazarlo y la app funciona igual.",
+    gpsPermBody:
+      "Opcional. Se usa para ordenar negocios por distancia. Puedes rechazarlo y la app funciona igual.",
     cameraPermLabel: "Cámara:",
-    cameraPermBody: "Se usa solo en el escáner QR. Nunca accedemos a la cámara sin una acción explícita tuya.",
+    cameraPermBody:
+      "Se usa solo en el escáner QR. Nunca accedemos a la cámara sin una acción explícita tuya.",
     pushPermLabel: "Notificaciones push:",
     pushPermBody: "Opcionales. Se usan para avisarte sobre promociones y mensajes de negocios.",
     internetPermLabel: "Internet:",
     internetPermBody: "Necesaria para sincronizar datos con Supabase y cargar imágenes.",
     thirdPartyIntro: "No vendemos tus datos a terceros. Usamos:",
     supabaseLabel: "Supabase",
-    supabaseBody: "(base de datos, infraestructura UE) — para guardar perfiles de negocios y cuentas.",
+    supabaseBody:
+      "(base de datos, infraestructura UE) — para guardar perfiles de negocios y cuentas.",
     firebaseLabel: "Firebase",
     firebaseBody: "(Google) — solo para notificaciones push, si están activadas.",
     unsplashLabel: "Unsplash",
     unsplashBody: "— imágenes de portada genéricas para negocios sin foto propia.",
-    yourRightsBody: "Tienes derecho a: acceder a tus datos, rectificarlos, exportarlos (botón abajo) y eliminarlos en cualquier momento. Para ejercer estos derechos envía un email a xtackoficial@gmail.com.",
-    minorsBody: "Spotter Local no está dirigido a menores de 13 años. Si sabes que un menor proporcionó datos personales, contáctanos para eliminarlos.",
-    securityBody: "Las contraseñas se almacenan con hash (nunca en texto claro). La comunicación con el servidor usa HTTPS/TLS. Los tokens de sesión expiran automáticamente.",
-    policyChangesBody: "Cualquier cambio significativo será comunicado mediante notificación en la app. La fecha de última actualización es: junio 2026.",
+    yourRightsBody:
+      "Tienes derecho a: acceder a tus datos, rectificarlos, exportarlos (botón abajo) y eliminarlos en cualquier momento. Para ejercer estos derechos envía un email a xtackoficial@gmail.com.",
+    minorsBody:
+      "Spotter Local no está dirigido a menores de 13 años. Si sabes que un menor proporcionó datos personales, contáctanos para eliminarlos.",
+    securityBody:
+      "Las contraseñas se almacenan con hash (nunca en texto claro). La comunicación con el servidor usa HTTPS/TLS. Los tokens de sesión expiran automáticamente.",
+    policyChangesBody:
+      "Cualquier cambio significativo será comunicado mediante notificación en la app. La fecha de última actualización es: junio 2026.",
     contactAboutPrivacyLabel: "Contactar sobre privacidad",
     lastUpdatedLabel: "Última actualización",
     developedBySuffix: "Desarrollado por",
     termsSection1Title: "1. Aceptación de los Términos",
-    termsSection1Body: "Al usar Spotter Local, aceptas estos Términos de Uso. Si no estás de acuerdo, no deberías usar la aplicación.",
+    termsSection1Body:
+      "Al usar Spotter Local, aceptas estos Términos de Uso. Si no estás de acuerdo, no deberías usar la aplicación.",
     termsSection2Title: "2. Descripción del servicio",
-    termsSection2Body: "Spotter Local es una plataforma de descubrimiento de negocios locales en Mozambique. Permite a los usuarios encontrar restaurantes, hoteles, farmacias y otros servicios cerca de ellos, y a los comerciantes listar y promocionar sus negocios.",
+    termsSection2Body:
+      "Spotter Local es una plataforma de descubrimiento de negocios locales en Mozambique. Permite a los usuarios encontrar restaurantes, hoteles, farmacias y otros servicios cerca de ellos, y a los comerciantes listar y promocionar sus negocios.",
     termsSection3Title: "3. Cuenta de usuario",
     termsAccountBullet1: "Puedes usar Spotter Local sin cuenta para explorar negocios.",
     termsAccountBullet2: "Para crear reseñas o enviar mensajes se necesita una cuenta.",
-    termsAccountBullet3: "Los comerciantes necesitan una cuenta para gestionar el perfil de su negocio.",
+    termsAccountBullet3:
+      "Los comerciantes necesitan una cuenta para gestionar el perfil de su negocio.",
     termsAccountBullet4: "Eres responsable de la confidencialidad de tu contraseña.",
     termsAccountBullet5: "Solo puedes tener una cuenta por persona/negocio.",
     termsSection4Title: "4. Reglas de uso",
@@ -3487,33 +3632,42 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     termsUsageBullet4: "Intentar acceder a cuentas de otros usuarios.",
     termsUsageBullet5: "Hacer scraping o uso automatizado sin autorización.",
     termsSection5Title: "5. Contenido de los comerciantes",
-    termsSection5Body: "Los comerciantes son responsables del contenido que publican (fotos, descripciones, horarios, precios). XTACK OFICIAL se reserva el derecho de eliminar contenido que viole estos términos o que sea engañoso.",
+    termsSection5Body:
+      "Los comerciantes son responsables del contenido que publican (fotos, descripciones, horarios, precios). XTACK OFICIAL se reserva el derecho de eliminar contenido que viole estos términos o que sea engañoso.",
     termsSection6Title: "6. Planes y pagos",
     termsPlansBullet1: "El plan Free es gratuito y siempre permanece disponible.",
-    termsPlansBullet2: "Los planes de pago (Starter 300 MZN, Pro 500 MZN, Premium 900 MZN) se cobran mensualmente vía M-Pesa o e-Mola.",
+    termsPlansBullet2:
+      "Los planes de pago (Starter 300 MZN, Pro 500 MZN, Premium 900 MZN) se cobran mensualmente vía M-Pesa o e-Mola.",
     termsPlansBullet3: "Las cancelaciones entran en vigor al final del período pagado.",
     termsPlansBullet4: "No hay reembolsos por períodos parciales.",
     termsPlansBullet5: "Los precios pueden actualizarse con aviso previo de 30 días.",
     termsSection7Title: "7. Propiedad intelectual",
-    termsSection7Body: "Spotter Local, su logotipo, marca y código son propiedad de XTACK OFICIAL. Al publicar fotos o texto en la plataforma, concedes a XTACK OFICIAL una licencia no exclusiva para mostrar ese contenido en la app.",
+    termsSection7Body:
+      "Spotter Local, su logotipo, marca y código son propiedad de XTACK OFICIAL. Al publicar fotos o texto en la plataforma, concedes a XTACK OFICIAL una licencia no exclusiva para mostrar ese contenido en la app.",
     termsSection8Title: "8. Limitación de responsabilidad",
-    termsSection8Body: "XTACK OFICIAL no garantiza la exactitud de horarios, precios o disponibilidad de los negocios listados. Esa información es proporcionada por los propios comerciantes. No somos responsables de experiencias negativas en negocios descubiertos a través de la app.",
+    termsSection8Body:
+      "XTACK OFICIAL no garantiza la exactitud de horarios, precios o disponibilidad de los negocios listados. Esa información es proporcionada por los propios comerciantes. No somos responsables de experiencias negativas en negocios descubiertos a través de la app.",
     termsSection9Title: "9. Disponibilidad del servicio",
-    termsSection9Body: "Hacemos todo lo posible para mantener Spotter Local disponible 24/7, pero no garantizamos disponibilidad ininterrumpida. Pueden ocurrir mantenimientos o fallos técnicos.",
+    termsSection9Body:
+      "Hacemos todo lo posible para mantener Spotter Local disponible 24/7, pero no garantizamos disponibilidad ininterrumpida. Pueden ocurrir mantenimientos o fallos técnicos.",
     termsSection10Title: "10. Ley aplicable",
-    termsSection10Body: "Estos términos se rigen por la ley mozambiqueña. Para cuestiones legales, el fuero competente es el de Inhambane, Mozambique.",
+    termsSection10Body:
+      "Estos términos se rigen por la ley mozambiqueña. Para cuestiones legales, el fuero competente es el de Inhambane, Mozambique.",
     termsSection11Title: "11. Contacto",
     termsQuestionsLabel: "Dudas sobre los términos",
     promotionLabel: "Promoción",
-    createdAccountWithGoogleHint: "¿Creaste tu cuenta con Google? Usa el botón \"{google}\" arriba en vez de la contraseña.",
+    createdAccountWithGoogleHint:
+      '¿Creaste tu cuenta con Google? Usa el botón "{google}" arriba en vez de la contraseña.',
     taxiTypeLabel: "Tipo de taxi",
     chatAction: "Chat",
     taxiShortcutLabel: "Taxi",
-    guestProfileNotice: "Estás navegando sin cuenta. Crea una para guardar favoritos, reseñas y chats.",
+    guestProfileNotice:
+      "Estás navegando sin cuenta. Crea una para guardar favoritos, reseñas y chats.",
     createAccountAction: "Crear cuenta",
     createAccountOrLoginAction: "Crear cuenta / Entrar",
     guestVisitorLabel: "Visitante",
-    deleteAccountConfirmMessage: "Esto elimina tu cuenta, tu negocio (si tienes uno) y todos los datos asociados. No hay forma de deshacerlo. ¿Estás seguro?",
+    deleteAccountConfirmMessage:
+      "Esto elimina tu cuenta, tu negocio (si tienes uno) y todos los datos asociados. No hay forma de deshacerlo. ¿Estás seguro?",
     deleteAccountConfirmAction: "Sí, eliminar todo",
     deletingEllipsis: "Eliminando…",
   },
@@ -4489,7 +4643,8 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     pageNotFoundTitle: "La page que vous recherchez n'existe pas ou a été déplacée.",
     backToHomeAction: "Retour à l'accueil",
     pageLoadErrorTitle: "Cette page n'a pas pu se charger",
-    somethingWentWrongSubtitle: "Une erreur s'est produite de notre côté. Vous pouvez réessayer ou retourner à l'accueil.",
+    somethingWentWrongSubtitle:
+      "Une erreur s'est produite de notre côté. Vous pouvez réessayer ou retourner à l'accueil.",
     analyticsProOnly: "Les statistiques sont réservées aux forfaits Pro et Premium",
     visits14DaysTitle: "Visites — 14 derniers jours",
     top5DaysTitle: "Top 5 des jours avec le plus de visites",
@@ -4512,17 +4667,21 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     digitalServicesNationwide: "Services numériques · disponibles dans tout le pays",
     acceptAndContinueAction: "Accepter et continuer",
     personalProfileTitle: "Profil Personnel",
-    personalProfileDescription: "Explorez restaurants, pharmacies, hôtels et services près de vous.",
+    personalProfileDescription:
+      "Explorez restaurants, pharmacies, hôtels et services près de vous.",
     businessProfileTitle: "Profil Professionnel",
-    businessProfileDescription: "Enregistrez votre entreprise et soyez trouvé par les clients de votre région.",
+    businessProfileDescription:
+      "Enregistrez votre entreprise et soyez trouvé par les clients de votre région.",
     tapHereAtLocationHint: "Touchez ici en étant sur place — plus rapide, en un seul geste.",
-    touristDescription: "Hôtels, sites touristiques, plages, location de voitures, restaurants gastronomiques.",
+    touristDescription:
+      "Hôtels, sites touristiques, plages, location de voitures, restaurants gastronomiques.",
     residentDescription: "Pharmacies de garde, supermarchés, cliniques, promotions du jour.",
     businessSubmittedTitle: "Entreprise soumise !",
     privacyAndTermsTitle: "Confidentialité et Conditions",
     privacyTabLabel: "Confidentialité",
     termsTabLabel: "Conditions d'Utilisation",
-    complaintsResponseHint: "Pour toute plainte, question ou demande de suppression de contenu, nous répondrons sous 72 heures.",
+    complaintsResponseHint:
+      "Pour toute plainte, question ou demande de suppression de contenu, nous répondrons sous 72 heures.",
     myOrdersChatsStats: "Commandes, discussions, statistiques",
     yourInterestsTitle: "Vos intérêts",
     tapHeartToSaveHint: "Touchez le cœur d'un lieu pour l'enregistrer ici.",
@@ -4536,30 +4695,39 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     introSubtitle3: "Inscrivez-vous gratuitement et touchez plus de clients dès aujourd'hui.",
     goToScreenLabel: "Aller à l'écran",
     notFoundHeading: "Page introuvable",
-    analyticsProDescription: "Consultez les visites, clics sur le téléphone et messages reçus, avec comparaison mois par mois. Disponible à partir du forfait Pro.",
+    analyticsProDescription:
+      "Consultez les visites, clics sur le téléphone et messages reçus, avec comparaison mois par mois. Disponible à partir du forfait Pro.",
     clicksLabel: "clics",
     messagesLabel: "messages",
     calculatingFavoritesHint: "Calcul du nombre de personnes vous ayant mis en favori…",
     noOneFavoritedYet: "Personne ne vous a encore ajouté aux favoris.",
     favoritedYouSingular: "personne a mis votre entreprise en favori.",
     favoritedYouPlural: "personnes ont mis votre entreprise en favori.",
-    alreadySentPromoHint: "Vous avez déjà envoyé une promotion au cours des dernières 24h. Vous pourrez envoyer la suivante à partir de",
+    alreadySentPromoHint:
+      "Vous avez déjà envoyé une promotion au cours des dernières 24h. Vous pourrez envoyer la suivante à partir de",
     promoSentToPrefix: "Promotion envoyée à",
     personLabel: "personne",
     peopleLabel: "personnes",
     deliveredSuffix: "livrées",
     sendToFavoritesAction: "Envoyer aux favoris",
-    noOneToNotifyHint: "Vous n'avez encore personne à notifier — cela apparaît dès que quelqu'un met votre entreprise en favori.",
+    noOneToNotifyHint:
+      "Vous n'avez encore personne à notifier — cela apparaît dès que quelqu'un met votre entreprise en favori.",
     validUntilPrefix: "Valable jusqu'au",
-    locationBlockedApproxHint: "La localisation est bloquée — les distances affichées sont approximatives. Pour voir les distances réelles, activez la localisation pour ce site dans les paramètres de votre navigateur (icône de cadenas/info à côté de l'adresse → Autorisations → Localisation → Autoriser).",
-    locationBlockedNoSortHint: "La localisation est bloquée — impossible de trier par distance réelle. Activez la localisation pour ce site dans les paramètres de votre navigateur (icône de cadenas/info à côté de l'adresse → Autorisations → Localisation → Autoriser).",
+    locationBlockedApproxHint:
+      "La localisation est bloquée — les distances affichées sont approximatives. Pour voir les distances réelles, activez la localisation pour ce site dans les paramètres de votre navigateur (icône de cadenas/info à côté de l'adresse → Autorisations → Localisation → Autoriser).",
+    locationBlockedNoSortHint:
+      "La localisation est bloquée — impossible de trier par distance réelle. Activez la localisation pour ce site dans les paramètres de votre navigateur (icône de cadenas/info à côté de l'adresse → Autorisations → Localisation → Autoriser).",
     onlineBusinessesTitle: "Entreprises en ligne",
-    onlineServicesDescription: "Services numériques disponibles dans tout le pays — designers, freelances, boutiques en ligne et plus encore.",
-    willAppearInOnlineCategory: "Votre entreprise apparaîtra dans la catégorie « En ligne » — sans distance ni carte.",
-    keepLocationUpdatedHint: "Gardez la localisation exacte à jour — c'est ce qui mène les clients à la bonne porte.",
+    onlineServicesDescription:
+      "Services numériques disponibles dans tout le pays — designers, freelances, boutiques en ligne et plus encore.",
+    willAppearInOnlineCategory:
+      "Votre entreprise apparaîtra dans la catégorie « En ligne » — sans distance ni carte.",
+    keepLocationUpdatedHint:
+      "Gardez la localisation exacte à jour — c'est ce qui mène les clients à la bonne porte.",
     obtainingLocationEllipsis: "Obtention de la position…",
     useMyCurrentLocationAction: "Utiliser ma position actuelle",
-    gpsAccessErrorHint: "Nous n'avons pas pu accéder à votre position. Vérifiez que vous avez autorisé l'accès au GPS, ou collez le lien ci-dessous.",
+    gpsAccessErrorHint:
+      "Nous n'avons pas pu accéder à votre position. Vérifiez que vous avez autorisé l'accès au GPS, ou collez le lien ci-dessous.",
     verifyingLocationEllipsis: "Vérification de la position…",
     locationFoundPrefix: "Position trouvée",
     activeLabel: "Actif",
@@ -4567,123 +4735,170 @@ export const TRANSLATIONS: Record<Locale, Record<string, string>> = {
     savedExclamation: "Enregistré !",
     saveAppearanceAction: "Enregistrer l'apparence",
     saveScheduleAction: "Enregistrer les horaires",
-    structureExclusiveHint: "Cette structure est réservée aux forfaits payants — vous pouvez la prévisualiser, mais pour l'enregistrer et la rendre visible au public, vous devez passer à un forfait supérieur.",
-    colorExclusiveHint: "Cette couleur est réservée aux forfaits payants — vous pouvez la prévisualiser, mais pour l'enregistrer et la rendre visible au public, vous devez passer à un forfait supérieur.",
-    backgroundExclusiveHint: "Cette image de fond est réservée aux forfaits payants — vous pouvez la prévisualiser, mais pour l'enregistrer et la rendre visible au public, vous devez passer à un forfait supérieur.",
+    structureExclusiveHint:
+      "Cette structure est réservée aux forfaits payants — vous pouvez la prévisualiser, mais pour l'enregistrer et la rendre visible au public, vous devez passer à un forfait supérieur.",
+    colorExclusiveHint:
+      "Cette couleur est réservée aux forfaits payants — vous pouvez la prévisualiser, mais pour l'enregistrer et la rendre visible au public, vous devez passer à un forfait supérieur.",
+    backgroundExclusiveHint:
+      "Cette image de fond est réservée aux forfaits payants — vous pouvez la prévisualiser, mais pour l'enregistrer et la rendre visible au public, vous devez passer à un forfait supérieur.",
     themeSwapsUsedThisMonth: "Changements de Structure/Thème utilisés ce mois-ci",
     includedInPlanSuffix: "inclus dans le forfait",
     reorderingNotCountedHint: "Réorganiser les blocs ne compte pas comme un changement.",
     galleryLabel: "Galerie",
     uploadingPhotosEllipsis: "Envoi des photos…",
-    dragToReorderHint: "Faites glisser les photos pour les réorganiser, ou utilisez les flèches. La première photo est celle mise en avant dans les résultats de recherche.",
-    hiddenPhotosWarning: "Les {count} dernière(s) photo(s) sont enregistrées mais masquées sur votre profil public — le forfait {plan} en affiche jusqu'à {limit}. Passer à un forfait supérieur les rend à nouveau visibles, sans besoin de les recharger.",
+    dragToReorderHint:
+      "Faites glisser les photos pour les réorganiser, ou utilisez les flèches. La première photo est celle mise en avant dans les résultats de recherche.",
+    hiddenPhotosWarning:
+      "Les {count} dernière(s) photo(s) sont enregistrées mais masquées sur votre profil public — le forfait {plan} en affiche jusqu'à {limit}. Passer à un forfait supérieur les rend à nouveau visibles, sans besoin de les recharger.",
     thisStructureLabel: "Cette structure",
     thisColorLabel: "Cette couleur",
     thisBackgroundLabel: "Cette image de fond",
-    exclusiveToPaidPlansError: "{item} est réservée aux forfaits payants. Passez à un forfait supérieur sur /subscribe pour l'appliquer à votre profil.",
-    swapLimitReachedError: "Vous avez déjà utilisé les {count} changements de Structure/Thème inclus dans le forfait {plan} ce mois-ci. Vous pourrez à nouveau changer le mois prochain, ou passer à un forfait supérieur pour plus de changements.",
-    setExactLocationHint: "Indiquez la position exacte de votre entreprise — c'est ce qui mène les clients à la bonne porte.",
-    gpsAccessErrorHintMaps: "Nous n'avons pas pu accéder à votre position. Vérifiez que vous avez autorisé l'accès au GPS, ou collez le lien Google Maps ci-dessous.",
-    googleMapsLinkHintWithExample: "Collez le lien Google Maps (court ou long) ou le plus code (ex : 3C72+J2J) de l'emplacement de l'entreprise.",
-    couldNotRecognizeLocationHint: "Nous n'avons pas pu reconnaître cette position. Essayez le bouton « Utiliser ma position actuelle » ci-dessus, ou collez uniquement les chiffres (ex : -25.9655, 32.5832).",
-    dataCollectionParagraph1: "Nous ne collectons que les données nécessaires au fonctionnement de l'application (compte, localisation facultative, informations sur votre entreprise si vous êtes commerçant). Nous ne vendons jamais vos données.",
-    dataCollectionParagraph2: "Vous pouvez tout lire en détail — ce que nous collectons, pourquoi, et vos droits — sur la page Conditions et Confidentialité.",
-    readTermsAndPrivacyAction: "Lire les Conditions d'Utilisation et la Politique de Confidentialité",
+    exclusiveToPaidPlansError:
+      "{item} est réservée aux forfaits payants. Passez à un forfait supérieur sur /subscribe pour l'appliquer à votre profil.",
+    swapLimitReachedError:
+      "Vous avez déjà utilisé les {count} changements de Structure/Thème inclus dans le forfait {plan} ce mois-ci. Vous pourrez à nouveau changer le mois prochain, ou passer à un forfait supérieur pour plus de changements.",
+    setExactLocationHint:
+      "Indiquez la position exacte de votre entreprise — c'est ce qui mène les clients à la bonne porte.",
+    gpsAccessErrorHintMaps:
+      "Nous n'avons pas pu accéder à votre position. Vérifiez que vous avez autorisé l'accès au GPS, ou collez le lien Google Maps ci-dessous.",
+    googleMapsLinkHintWithExample:
+      "Collez le lien Google Maps (court ou long) ou le plus code (ex : 3C72+J2J) de l'emplacement de l'entreprise.",
+    couldNotRecognizeLocationHint:
+      "Nous n'avons pas pu reconnaître cette position. Essayez le bouton « Utiliser ma position actuelle » ci-dessus, ou collez uniquement les chiffres (ex : -25.9655, 32.5832).",
+    dataCollectionParagraph1:
+      "Nous ne collectons que les données nécessaires au fonctionnement de l'application (compte, localisation facultative, informations sur votre entreprise si vous êtes commerçant). Nous ne vendons jamais vos données.",
+    dataCollectionParagraph2:
+      "Vous pouvez tout lire en détail — ce que nous collectons, pourquoi, et vos droits — sur la page Conditions et Confidentialité.",
+    readTermsAndPrivacyAction:
+      "Lire les Conditions d'Utilisation et la Politique de Confidentialité",
     acceptTermsPrefix: "J'ai lu et j'accepte les",
     termsOfUseShortLabel: "Conditions d'Utilisation",
     eALabel: "et la",
     privacyPolicyLabel: "Politique de Confidentialité",
     ofSpotterLocalSuffix: "de Spotter Local.",
-    coverClickHint: "La couverture est ce que le client clique pour accéder à votre site officiel. Vous pouvez ajouter des photos du",
-    auditOnlyVisibleHint: "visibles uniquement pour l'équipe d'audit XTACK. Jamais exposées au public.",
+    coverClickHint:
+      "La couverture est ce que le client clique pour accéder à votre site officiel. Vous pouvez ajouter des photos du",
+    auditOnlyVisibleHint:
+      "visibles uniquement pour l'équipe d'audit XTACK. Jamais exposées au public.",
     sendingEllipsis: "Envoi en cours...",
     sendForVerificationAction: "Envoyer pour vérification",
-    verificationRunsBackgroundHint: "La vérification s'exécute en arrière-plan. Vous pouvez fermer l'application ou continuer à explorer — rien ne se bloque.",
+    verificationRunsBackgroundHint:
+      "La vérification s'exécute en arrière-plan. Vous pouvez fermer l'application ou continuer à explorer — rien ne se bloque.",
     securityCheckLabel: "Vérification de sécurité",
     emailValidationCodeLabel: "Code de validation par e-mail",
     orderHistoryAction: "Historique des commandes",
     activateAction: "Activer",
-    notificationsBlockedHint: "Les notifications sont bloquées pour ce site dans les paramètres de votre navigateur — l'application ne peut pas redemander automatiquement. Touchez l'icône de cadenas/info à côté de l'adresse dans Chrome → Autorisations → Notifications → Autoriser, puis revenez ici.",
+    notificationsBlockedHint:
+      "Les notifications sont bloquées pour ce site dans les paramètres de votre navigateur — l'application ne peut pas redemander automatiquement. Touchez l'icône de cadenas/info à côté de l'adresse dans Chrome → Autorisations → Notifications → Autoriser, puis revenez ici.",
     whatsappHelpMessage: "Bonjour, j'ai besoin d'aide avec Spotter Local",
     helpAndSupportLabel: "Aide et support",
-    whoWeAreBody: "Spotter Local est une application développée par XTACK OFICIAL (ci-après « nous »), basée à Inhambane et Maputo, au Mozambique. Contact : xtackoficial@gmail.com",
+    whoWeAreBody:
+      "Spotter Local est une application développée par XTACK OFICIAL (ci-après « nous »), basée à Inhambane et Maputo, au Mozambique. Contact : xtackoficial@gmail.com",
     dataLocationLabel: "Données de localisation :",
-    dataLocationBody: "Utilisées uniquement pour trier les résultats par proximité. Jamais enregistrées sur nos serveurs sans votre consentement explicite.",
+    dataLocationBody:
+      "Utilisées uniquement pour trier les résultats par proximité. Jamais enregistrées sur nos serveurs sans votre consentement explicite.",
     dataAccountLabel: "Données de compte :",
-    dataAccountBody: "Nom, e-mail et mot de passe (hashé en SHA-256) stockés de façon sécurisée sur Supabase (infrastructure dans l'UE).",
+    dataAccountBody:
+      "Nom, e-mail et mot de passe (hashé en SHA-256) stockés de façon sécurisée sur Supabase (infrastructure dans l'UE).",
     emailUsageLabel: "À quoi sert votre e-mail :",
-    emailUsageBody: "uniquement pour (1) vous connecter à votre compte et le récupérer si vous perdez votre mot de passe, (2) confirmer que le compte est bien le vôtre avant toute modification importante, et (3) vous contacter au sujet de votre propre compte (ex : un paiement, une alerte de sécurité). Il n'apparaît jamais sur votre profil public ni n'est visible par d'autres utilisateurs — pour les commerçants, il figure dans une table distincte des informations publiques de l'entreprise, avec un accès restreint au propriétaire et à notre équipe. Nous n'utilisons pas votre e-mail à des fins publicitaires et ne le partageons avec personne en dehors de XTACK OFICIAL.",
+    emailUsageBody:
+      "uniquement pour (1) vous connecter à votre compte et le récupérer si vous perdez votre mot de passe, (2) confirmer que le compte est bien le vôtre avant toute modification importante, et (3) vous contacter au sujet de votre propre compte (ex : un paiement, une alerte de sécurité). Il n'apparaît jamais sur votre profil public ni n'est visible par d'autres utilisateurs — pour les commerçants, il figure dans une table distincte des informations publiques de l'entreprise, avec un accès restreint au propriétaire et à notre équipe. Nous n'utilisons pas votre e-mail à des fins publicitaires et ne le partageons avec personne en dehors de XTACK OFICIAL.",
     dataBusinessLabel: "Données d'entreprise :",
-    dataBusinessBody: "Nom, catégorie, localisation, photos, horaires et contacts fournis volontairement par les commerçants.",
+    dataBusinessBody:
+      "Nom, catégorie, localisation, photos, horaires et contacts fournis volontairement par les commerçants.",
     dataUsageLabel: "Données d'utilisation :",
-    dataUsageBody: "Recherches et consultations de profils, utilisées pour améliorer les recommandations (uniquement si « {ads} » est activé).",
+    dataUsageBody:
+      "Recherches et consultations de profils, utilisées pour améliorer les recommandations (uniquement si « {ads} » est activé).",
     gpsPermLabel: "Localisation (GPS) :",
-    gpsPermBody: "Facultatif. Utilisée pour trier les entreprises par distance. Vous pouvez refuser et l'application fonctionne quand même.",
+    gpsPermBody:
+      "Facultatif. Utilisée pour trier les entreprises par distance. Vous pouvez refuser et l'application fonctionne quand même.",
     cameraPermLabel: "Caméra :",
-    cameraPermBody: "Utilisée uniquement par le scanner QR. Nous n'accédons jamais à la caméra sans une action explicite de votre part.",
+    cameraPermBody:
+      "Utilisée uniquement par le scanner QR. Nous n'accédons jamais à la caméra sans une action explicite de votre part.",
     pushPermLabel: "Notifications push :",
-    pushPermBody: "Facultatives. Utilisées pour vous alerter des promotions et des messages des entreprises.",
+    pushPermBody:
+      "Facultatives. Utilisées pour vous alerter des promotions et des messages des entreprises.",
     internetPermLabel: "Internet :",
-    internetPermBody: "Nécessaire pour synchroniser les données avec Supabase et charger les images.",
+    internetPermBody:
+      "Nécessaire pour synchroniser les données avec Supabase et charger les images.",
     thirdPartyIntro: "Nous ne vendons pas vos données à des tiers. Nous utilisons :",
     supabaseLabel: "Supabase",
-    supabaseBody: "(base de données, infrastructure UE) — pour stocker les profils d'entreprises et les comptes.",
+    supabaseBody:
+      "(base de données, infrastructure UE) — pour stocker les profils d'entreprises et les comptes.",
     firebaseLabel: "Firebase",
     firebaseBody: "(Google) — uniquement pour les notifications push, si activées.",
     unsplashLabel: "Unsplash",
     unsplashBody: "— images de couverture génériques pour les entreprises sans photo propre.",
-    yourRightsBody: "Vous avez le droit de : accéder à vos données, les rectifier, les exporter (bouton ci-dessous) et les supprimer à tout moment. Pour exercer ces droits, envoyez un e-mail à xtackoficial@gmail.com.",
-    minorsBody: "Spotter Local ne s'adresse pas aux mineurs de moins de 13 ans. Si vous savez qu'un mineur a fourni des données personnelles, contactez-nous pour les supprimer.",
-    securityBody: "Les mots de passe sont stockés hashés (jamais en clair). La communication avec le serveur utilise HTTPS/TLS. Les jetons de session expirent automatiquement.",
-    policyChangesBody: "Tout changement important sera communiqué via une notification dans l'application. Date de dernière mise à jour : juin 2026.",
+    yourRightsBody:
+      "Vous avez le droit de : accéder à vos données, les rectifier, les exporter (bouton ci-dessous) et les supprimer à tout moment. Pour exercer ces droits, envoyez un e-mail à xtackoficial@gmail.com.",
+    minorsBody:
+      "Spotter Local ne s'adresse pas aux mineurs de moins de 13 ans. Si vous savez qu'un mineur a fourni des données personnelles, contactez-nous pour les supprimer.",
+    securityBody:
+      "Les mots de passe sont stockés hashés (jamais en clair). La communication avec le serveur utilise HTTPS/TLS. Les jetons de session expirent automatiquement.",
+    policyChangesBody:
+      "Tout changement important sera communiqué via une notification dans l'application. Date de dernière mise à jour : juin 2026.",
     contactAboutPrivacyLabel: "Nous contacter au sujet de la confidentialité",
     lastUpdatedLabel: "Dernière mise à jour",
     developedBySuffix: "Développé par",
     termsSection1Title: "1. Acceptation des Conditions",
-    termsSection1Body: "En utilisant Spotter Local, vous acceptez ces Conditions d'Utilisation. Si vous n'êtes pas d'accord, vous ne devez pas utiliser l'application.",
+    termsSection1Body:
+      "En utilisant Spotter Local, vous acceptez ces Conditions d'Utilisation. Si vous n'êtes pas d'accord, vous ne devez pas utiliser l'application.",
     termsSection2Title: "2. Description du service",
-    termsSection2Body: "Spotter Local est une plateforme de découverte d'entreprises locales au Mozambique. Elle permet aux utilisateurs de trouver des restaurants, hôtels, pharmacies et autres services près d'eux, et aux commerçants de référencer et promouvoir leurs entreprises.",
+    termsSection2Body:
+      "Spotter Local est une plateforme de découverte d'entreprises locales au Mozambique. Elle permet aux utilisateurs de trouver des restaurants, hôtels, pharmacies et autres services près d'eux, et aux commerçants de référencer et promouvoir leurs entreprises.",
     termsSection3Title: "3. Compte utilisateur",
-    termsAccountBullet1: "Vous pouvez utiliser Spotter Local sans compte pour explorer les entreprises.",
+    termsAccountBullet1:
+      "Vous pouvez utiliser Spotter Local sans compte pour explorer les entreprises.",
     termsAccountBullet2: "Un compte est nécessaire pour publier des avis ou envoyer des messages.",
-    termsAccountBullet3: "Les commerçants ont besoin d'un compte pour gérer le profil de leur entreprise.",
+    termsAccountBullet3:
+      "Les commerçants ont besoin d'un compte pour gérer le profil de leur entreprise.",
     termsAccountBullet4: "Vous êtes responsable de la confidentialité de votre mot de passe.",
     termsAccountBullet5: "Vous ne pouvez avoir qu'un seul compte par personne/entreprise.",
     termsSection4Title: "4. Règles d'utilisation",
     termsUsageIntro: "Il est interdit de :",
     termsUsageBullet1: "Publier des informations fausses ou trompeuses sur les entreprises.",
     termsUsageBullet2: "Créer de faux avis ou des avis payés (astroturfing).",
-    termsUsageBullet3: "Utiliser la plateforme pour du spam, de la fraude ou des activités illégales.",
+    termsUsageBullet3:
+      "Utiliser la plateforme pour du spam, de la fraude ou des activités illégales.",
     termsUsageBullet4: "Tenter d'accéder aux comptes d'autres utilisateurs.",
     termsUsageBullet5: "Effectuer du scraping ou une utilisation automatisée sans autorisation.",
     termsSection5Title: "5. Contenu des commerçants",
-    termsSection5Body: "Les commerçants sont responsables du contenu qu'ils publient (photos, descriptions, horaires, prix). XTACK OFICIAL se réserve le droit de supprimer tout contenu qui enfreint ces conditions ou qui est trompeur.",
+    termsSection5Body:
+      "Les commerçants sont responsables du contenu qu'ils publient (photos, descriptions, horaires, prix). XTACK OFICIAL se réserve le droit de supprimer tout contenu qui enfreint ces conditions ou qui est trompeur.",
     termsSection6Title: "6. Forfaits et paiements",
     termsPlansBullet1: "Le forfait Free est gratuit et reste toujours disponible.",
-    termsPlansBullet2: "Les forfaits payants (Starter 300 MZN, Pro 500 MZN, Premium 900 MZN) sont facturés mensuellement via M-Pesa ou e-Mola.",
+    termsPlansBullet2:
+      "Les forfaits payants (Starter 300 MZN, Pro 500 MZN, Premium 900 MZN) sont facturés mensuellement via M-Pesa ou e-Mola.",
     termsPlansBullet3: "Les annulations prennent effet à la fin de la période payée.",
     termsPlansBullet4: "Il n'y a pas de remboursement pour les périodes partielles.",
     termsPlansBullet5: "Les prix peuvent être mis à jour avec un préavis de 30 jours.",
     termsSection7Title: "7. Propriété intellectuelle",
-    termsSection7Body: "Spotter Local, son logo, sa marque et son code sont la propriété de XTACK OFICIAL. En publiant des photos ou du texte sur la plateforme, vous accordez à XTACK OFICIAL une licence non exclusive pour afficher ce contenu dans l'application.",
+    termsSection7Body:
+      "Spotter Local, son logo, sa marque et son code sont la propriété de XTACK OFICIAL. En publiant des photos ou du texte sur la plateforme, vous accordez à XTACK OFICIAL une licence non exclusive pour afficher ce contenu dans l'application.",
     termsSection8Title: "8. Limitation de responsabilité",
-    termsSection8Body: "XTACK OFICIAL ne garantit pas l'exactitude des horaires, prix ou disponibilité des entreprises référencées. Ces informations sont fournies par les commerçants eux-mêmes. Nous ne sommes pas responsables des expériences négatives dans les entreprises découvertes via l'application.",
+    termsSection8Body:
+      "XTACK OFICIAL ne garantit pas l'exactitude des horaires, prix ou disponibilité des entreprises référencées. Ces informations sont fournies par les commerçants eux-mêmes. Nous ne sommes pas responsables des expériences négatives dans les entreprises découvertes via l'application.",
     termsSection9Title: "9. Disponibilité du service",
-    termsSection9Body: "Nous faisons de notre mieux pour maintenir Spotter Local disponible 24h/24 et 7j/7, mais nous ne garantissons pas une disponibilité ininterrompue. Des maintenances ou pannes techniques peuvent survenir.",
+    termsSection9Body:
+      "Nous faisons de notre mieux pour maintenir Spotter Local disponible 24h/24 et 7j/7, mais nous ne garantissons pas une disponibilité ininterrompue. Des maintenances ou pannes techniques peuvent survenir.",
     termsSection10Title: "10. Loi applicable",
-    termsSection10Body: "Ces conditions sont régies par le droit mozambicain. Pour toute question juridique, le tribunal compétent est celui d'Inhambane, Mozambique.",
+    termsSection10Body:
+      "Ces conditions sont régies par le droit mozambicain. Pour toute question juridique, le tribunal compétent est celui d'Inhambane, Mozambique.",
     termsSection11Title: "11. Contact",
     termsQuestionsLabel: "Questions sur les conditions",
     promotionLabel: "Promotion",
-    createdAccountWithGoogleHint: "Vous avez créé votre compte avec Google ? Utilisez le bouton « {google} » ci-dessus au lieu du mot de passe.",
+    createdAccountWithGoogleHint:
+      "Vous avez créé votre compte avec Google ? Utilisez le bouton « {google} » ci-dessus au lieu du mot de passe.",
     taxiTypeLabel: "Type de taxi",
     chatAction: "Chat",
     taxiShortcutLabel: "Taxi",
-    guestProfileNotice: "Vous naviguez sans compte. Créez-en un pour sauvegarder favoris, avis et discussions.",
+    guestProfileNotice:
+      "Vous naviguez sans compte. Créez-en un pour sauvegarder favoris, avis et discussions.",
     createAccountAction: "Créer un compte",
     createAccountOrLoginAction: "Créer un compte / Se connecter",
     guestVisitorLabel: "Visiteur",
-    deleteAccountConfirmMessage: "Cela supprime votre compte, votre entreprise (le cas échéant) et toutes les données associées. Cette action est irréversible. Êtes-vous sûr ?",
+    deleteAccountConfirmMessage:
+      "Cela supprime votre compte, votre entreprise (le cas échéant) et toutes les données associées. Cette action est irréversible. Êtes-vous sûr ?",
     deleteAccountConfirmAction: "Oui, tout supprimer",
     deletingEllipsis: "Suppression…",
   },

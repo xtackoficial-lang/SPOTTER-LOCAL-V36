@@ -415,7 +415,7 @@ function Welcome() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder={tr("yourName")}
-                      className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none focus:border-primary transition"
+                      className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition"
                     />
                   </div>
                 )}
@@ -426,7 +426,7 @@ function Welcome() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder={tr("yourEmail")}
-                    className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none focus:border-primary transition"
+                    className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition"
                   />
                 </div>
                 <div>
@@ -439,7 +439,7 @@ function Welcome() {
                     onChange={(e) => setPassword(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleContinue()}
                     placeholder={tr("minSixChars")}
-                    className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none focus:border-primary transition"
+                    className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition"
                   />
                   {!isSignup && (
                     // BUG DO ABRÃO (2026-08-23): quem criou a conta com
@@ -450,7 +450,10 @@ function Welcome() {
                     // pessoa ficava a tentar adivinhar uma senha que
                     // nunca existiu.
                     <p className="mt-1.5 text-[11px] text-muted-foreground">
-                      {tr("createdAccountWithGoogleHint").replace("{google}", tr("continueWithGoogle"))}
+                      {tr("createdAccountWithGoogleHint").replace(
+                        "{google}",
+                        tr("continueWithGoogle"),
+                      )}
                     </p>
                   )}
                 </div>

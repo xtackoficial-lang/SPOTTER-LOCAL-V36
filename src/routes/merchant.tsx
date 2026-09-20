@@ -4,7 +4,12 @@ import { useProducts } from "@/lib/products-storage";
 import { useSubscription } from "@/lib/subscription-storage";
 import { useAuth } from "@/lib/auth-context";
 import { upsertBusiness, fetchBusinessById, upsertBusinessAccount } from "@/lib/businesses-db";
-import { extractCoordinatesFromGoogleMaps, resolveLocationInput, getUserLocation, type Coordinates } from "@/lib/geo-utils";
+import {
+  extractCoordinatesFromGoogleMaps,
+  resolveLocationInput,
+  getUserLocation,
+  type Coordinates,
+} from "@/lib/geo-utils";
 import { BusinessBottomNav } from "@/components/BusinessBottomNav";
 import { Icon } from "@/components/Icon";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
@@ -509,7 +514,11 @@ function MerchantPanel() {
       setVisualError(
         tr("exclusiveToPaidPlansError").replace(
           "{item}",
-          structureLocked ? tr("thisStructureLabel") : themeLocked ? tr("thisColorLabel") : tr("thisBackgroundLabel"),
+          structureLocked
+            ? tr("thisStructureLabel")
+            : themeLocked
+              ? tr("thisColorLabel")
+              : tr("thisBackgroundLabel"),
         ),
       );
       return;
@@ -1001,7 +1010,8 @@ function MerchantPanel() {
                 </div>
                 {isDigital && (
                   <div className="mt-3 flex items-center gap-1.5 rounded-xl bg-violet-50 px-3 py-2 text-[11px] text-violet-700">
-                    <Icon name="delivery" size={12} />{tr("willAppearInOnlineCategory")}
+                    <Icon name="delivery" size={12} />
+                    {tr("willAppearInOnlineCategory")}
                   </div>
                 )}
               </div>
@@ -1089,7 +1099,9 @@ function MerchantPanel() {
                       className="press flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 text-sm font-semibold text-primary disabled:opacity-60"
                     >
                       <Icon name="pin" size={15} className={locatingGPS ? "animate-spin" : ""} />
-                      {locatingGPS ? tr("obtainingLocationEllipsis") : tr("useMyCurrentLocationAction")}
+                      {locatingGPS
+                        ? tr("obtainingLocationEllipsis")
+                        : tr("useMyCurrentLocationAction")}
                     </button>
                     {gpsError && (
                       <p className="mt-1.5 text-[11px] text-amber-600">
@@ -1112,7 +1124,8 @@ function MerchantPanel() {
                     </p>
                     {resolvingLink && (
                       <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                        <Icon name="pin" size={11} className="animate-spin" /> {tr("verifyingLocationEllipsis")}
+                        <Icon name="pin" size={11} className="animate-spin" />{" "}
+                        {tr("verifyingLocationEllipsis")}
                       </div>
                     )}
                     {!resolvingLink && mapsLink && (
@@ -1285,7 +1298,9 @@ function MerchantPanel() {
                 </button>
               )}
               {(() => {
-                const structIdx = STRUCTURES_BY_FAMILY[family].findIndex((s) => s.id === structureId);
+                const structIdx = STRUCTURES_BY_FAMILY[family].findIndex(
+                  (s) => s.id === structureId,
+                );
                 return structIdx >= plan.maxStructures ? (
                   <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-[11px] text-primary">
                     {tr("structureExclusiveHint")}
@@ -1386,7 +1401,10 @@ function MerchantPanel() {
                         ...(themeId === th.id ? { boxShadow: `0 0 0 1px ${th.accent}` } : {}),
                       }}
                     >
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: th.accent }} />
+                      <span
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ background: th.accent }}
+                      />
                       {th.label}
                       {th.glow && <Icon name="sparkles" size={11} />}
                       {locked && <Icon name="lock" size={11} />}
@@ -1453,8 +1471,8 @@ function MerchantPanel() {
 
             {swapsUsed !== null && (
               <p className="text-[11px] text-muted-foreground">
-                {tr("themeSwapsUsedThisMonth")}: {swapsUsed} de {plan.themeSwapsPerMonth}{" "}
-                ({tr("includedInPlanSuffix")} {plan.name}). {tr("reorderingNotCountedHint")}
+                {tr("themeSwapsUsedThisMonth")}: {swapsUsed} de {plan.themeSwapsPerMonth} (
+                {tr("includedInPlanSuffix")} {plan.name}). {tr("reorderingNotCountedHint")}
               </p>
             )}
             {visualError && (
@@ -1509,7 +1527,11 @@ function MerchantPanel() {
               >
                 {cover ? (
                   <>
-                    <img src={cover} alt={tr("coverAltLabel")} className="h-full w-full object-cover" />
+                    <img
+                      src={cover}
+                      alt={tr("coverAltLabel")}
+                      className="h-full w-full object-cover"
+                    />
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Icon name="camera" size={24} className="text-white" />
                       <span className="text-xs text-white font-medium">{tr("changePhoto")}</span>
@@ -1525,7 +1547,9 @@ function MerchantPanel() {
                 {uploadingCover && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/50">
                     <Icon name="pin" size={22} className="animate-spin text-white" />
-                    <span className="text-xs text-white font-medium">{tr("uploadingEllipsis")}</span>
+                    <span className="text-xs text-white font-medium">
+                      {tr("uploadingEllipsis")}
+                    </span>
                   </div>
                 )}
               </div>
@@ -1562,7 +1586,8 @@ function MerchantPanel() {
               />
               {uploadingGallery && (
                 <div className="mb-2 flex items-center gap-1.5 text-[11px] text-primary">
-                  <Icon name="pin" size={11} className="animate-spin" /> {tr("uploadingPhotosEllipsis")}
+                  <Icon name="pin" size={11} className="animate-spin" />{" "}
+                  {tr("uploadingPhotosEllipsis")}
                 </div>
               )}
               {gallery.length === 0 ? (
@@ -1733,9 +1758,7 @@ function MerchantPanel() {
               <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-border py-10 text-center">
                 <Icon name="tag" size={32} className="text-muted-foreground" />
                 <p className="text-sm font-medium text-foreground">{tr("noProductsYetOwn")}</p>
-                <p className="text-xs text-muted-foreground px-8">
-                  {tr("noProductsHint")}
-                </p>
+                <p className="text-xs text-muted-foreground px-8">{tr("noProductsHint")}</p>
                 <button
                   onClick={openAddProduct}
                   className="press mt-1 rounded-full px-5 py-2.5 text-xs font-semibold text-white"

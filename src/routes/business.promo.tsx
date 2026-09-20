@@ -139,7 +139,9 @@ function PromoPage() {
         ) : (
           <div className="space-y-4 rounded-2xl border border-border bg-card p-4">
             <div>
-              <label className="text-xs font-semibold text-foreground">{tr("titleFieldLabel")}</label>
+              <label className="text-xs font-semibold text-foreground">
+                {tr("titleFieldLabel")}
+              </label>
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value.slice(0, MAX_TITLE))}
@@ -152,7 +154,9 @@ function PromoPage() {
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-foreground">{tr("messageFieldLabel")}</label>
+              <label className="text-xs font-semibold text-foreground">
+                {tr("messageFieldLabel")}
+              </label>
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value.slice(0, MAX_BODY))}
@@ -186,7 +190,8 @@ function PromoPage() {
             {sentOk && (
               <p className="rounded-xl bg-emerald-500/10 px-3 py-2 text-[11px] text-emerald-700">
                 {tr("promoSentToPrefix")} {sentOk.recipients}{" "}
-                {sentOk.recipients === 1 ? tr("personLabel") : tr("peopleLabel")} ({sentOk.success} {tr("deliveredSuffix")}).
+                {sentOk.recipients === 1 ? tr("personLabel") : tr("peopleLabel")} ({sentOk.success}{" "}
+                {tr("deliveredSuffix")}).
               </p>
             )}
 

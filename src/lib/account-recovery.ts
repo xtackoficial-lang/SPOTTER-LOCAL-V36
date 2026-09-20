@@ -110,7 +110,17 @@ export function useAccountRecovery() {
         setStatus("done");
       }
     })();
-  }, [hydrated, authLoading, draft.completed, user, attempted, update, updateBusiness, updatePersonal, ensureOwner]);
+  }, [
+    hydrated,
+    authLoading,
+    draft.completed,
+    user,
+    attempted,
+    update,
+    updateBusiness,
+    updatePersonal,
+    ensureOwner,
+  ]);
 
   return {
     draft,

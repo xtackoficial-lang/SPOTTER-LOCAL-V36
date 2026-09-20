@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Component, type ReactNode } from "react";
+import { reportLovableError } from "../lib/lovable-error-reporting";
 import {
   getMerchants,
   updateMerchant,
@@ -67,6 +68,8 @@ import {
   THEME_SCREENS,
   THEME_PRESETS,
   ANIMATIONS,
+  checkBackgroundReadability,
+  isThemeScheduledActive,
   type AppTheme,
   type ThemeScreen,
   type ScreenAppearance,
@@ -1439,10 +1442,20 @@ function AppearanceTab() {
   const [activeScreen, setActiveScreen] = useState<ThemeScreen>("login");
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // BARREIRA DE SEGURANÇA (pedido do Abrão, 2026-09-14): "Reverter
+  // última alteração" — guarda o tema tal como estava publicado antes
+  // da última vez que se carregou em "Publicar", para dar para desfazer
+  // rapidamente se a mudança sair mal (ex: fundo ilegível que passou
+  // pelo aviso de contraste na mesma). Só guarda 1 nível (a alteração
+  // imediatamente anterior), não um histórico completo.
+  const [liveTheme, setLiveTheme] = useState<AppTheme | null>(null);
+  const [undoTheme, setUndoTheme] = useState<AppTheme | null>(null);
+  const [fullPreview, setFullPreview] = useState(false);
 
   useEffect(() => {
     fetchTheme().then((t) => {
       setTheme(t);
+      setLiveTheme(t);
       setLoading(false);
     });
   }, []);
@@ -1466,6 +1479,21 @@ function AppearanceTab() {
   async function handleUploadImage(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    // CONSERTO/NOVO (pedido do Abrão, 2026-09-14): "validação do
+    // link/ficheiro de imagem" — antes só se validava o tamanho em
+    // bytes. Um ficheiro que não seja imagem de verdade (renomeado à
+    // força, corrompido) passava por aqui e só rebentava mais tarde,
+    // já para todos os utilizadores, mostrando um fundo partido em vez
+    // de imagem. Agora verifica o tipo do ficheiro E que o browser
+    // consegue mesmo decodificá-lo como imagem antes de aceitar.
+    if (!file.type.startsWith("image/")) {
+      setSaveMsg({
+        ok: false,
+        text: `Este ficheiro não é uma imagem (${file.type || "tipo desconhecido"}). Escolha um .jpg, .png ou .webp.`,
+      });
+      e.target.value = "";
+      return;
+    }
     if (file.size > MAX_THEME_IMAGE_BYTES) {
       setSaveMsg({
         ok: false,
@@ -1475,16 +1503,52 @@ function AppearanceTab() {
       return;
     }
     const b64 = await readFileAsBase64(file);
+    const decodesOk = await new Promise<boolean>((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(true);
+      img.onerror = () => resolve(false);
+      img.src = b64;
+    });
+    if (!decodesOk) {
+      setSaveMsg({
+        ok: false,
+        text: "Não foi possível ler esta imagem — o ficheiro pode estar corrompido. Tente outra.",
+      });
+      e.target.value = "";
+      return;
+    }
     patchScreen({ backgroundType: "image", backgroundValue: b64 });
   }
 
   async function handleSave() {
     setSaving(true);
     setSaveMsg(null);
+    const before = liveTheme; // estado publicado antes desta gravação
     const { error } = await saveTheme(theme);
     setSaving(false);
+    if (!error) {
+      setUndoTheme(before);
+      setLiveTheme(theme);
+    }
     setSaveMsg(
       error ? { ok: false, text: error } : { ok: true, text: tr("adminThemePublishedOk") },
+    );
+    setTimeout(() => setSaveMsg(null), 5000);
+  }
+
+  async function handleUndo() {
+    if (!undoTheme) return;
+    setSaving(true);
+    setSaveMsg(null);
+    const { error } = await saveTheme(undoTheme);
+    setSaving(false);
+    if (!error) {
+      setTheme(undoTheme);
+      setLiveTheme(undoTheme);
+      setUndoTheme(null);
+    }
+    setSaveMsg(
+      error ? { ok: false, text: error } : { ok: true, text: "Revertido para a versão anterior." },
     );
     setTimeout(() => setSaveMsg(null), 5000);
   }
@@ -1509,26 +1573,155 @@ function AppearanceTab() {
           início). Pode afinar tudo a seguir.
         </p>
         <div className="grid grid-cols-2 gap-2">
-          {THEME_PRESETS.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => applyPreset(p.id)}
-              className={`press flex items-center gap-2 rounded-xl border p-2.5 text-left transition ${
-                theme.themeName === p.label
-                  ? "border-primary bg-primary/5"
-                  : "border-border bg-muted/30"
-              }`}
-            >
-              <span className="text-lg leading-none">{p.emoji}</span>
-              <span className="text-xs font-medium text-foreground">{p.label}</span>
-            </button>
-          ))}
+          {THEME_PRESETS.map((p) => {
+            const swatch = p.build().screens.login?.backgroundValue;
+            return (
+              <button
+                key={p.id}
+                onClick={() => applyPreset(p.id)}
+                className={`press flex items-center gap-2 rounded-xl border p-2.5 text-left transition ${
+                  theme.themeName === p.label
+                    ? "border-primary bg-primary/5"
+                    : "border-border bg-muted/30"
+                }`}
+              >
+                {/* Amostra do gradiente real do tema em vez de um emoji
+                    — mostra as cores que vão realmente ser aplicadas,
+                    em vez de um ícone decorativo sem relação directa. */}
+                <span
+                  className="h-6 w-6 shrink-0 rounded-lg ring-1 ring-black/10"
+                  style={{ background: swatch }}
+                />
+                <span className="text-xs font-medium text-foreground">{p.label}</span>
+              </button>
+            );
+          })}
         </div>
         {theme.themeName !== "Padrão" && (
           <div className="flex items-center gap-1.5 rounded-xl bg-primary/10 px-3 py-2 text-[11px] font-medium text-primary">
             <Icon name="check" size={13} /> {tr("adminThemeActivePrefix")} {theme.themeName}
           </div>
         )}
+      </div>
+
+      {/* NOVO (pedido do Abrão, 2026-09-14): agendamento automático.
+          Datas opcionais — sem elas, o tema fica sempre activo enquanto
+          publicado (como sempre foi). Com elas, os utilizadores deixam
+          de ver o tema sozinho fora da janela, sem precisares de voltar
+          cá para desligar. */}
+      <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+        <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+          <Icon name="calendar" size={15} /> Agendamento automático
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Define datas para este tema ligar e desligar sozinho (ex: Natal só de 1 a 31 de Dezembro).
+          Deixa em branco para ficar sempre activo enquanto publicado.
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Início">
+            <input
+              type="date"
+              value={theme.scheduleStart ?? ""}
+              onChange={(e) => setTheme({ ...theme, scheduleStart: e.target.value || undefined })}
+              className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs outline-none focus:border-primary"
+            />
+          </Field>
+          <Field label="Fim">
+            <input
+              type="date"
+              value={theme.scheduleEnd ?? ""}
+              onChange={(e) => setTheme({ ...theme, scheduleEnd: e.target.value || undefined })}
+              className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs outline-none focus:border-primary"
+            />
+          </Field>
+        </div>
+        {(theme.scheduleStart || theme.scheduleEnd) && (
+          <button
+            onClick={() => setTheme({ ...theme, scheduleStart: undefined, scheduleEnd: undefined })}
+            className="press text-[11px] font-medium text-muted-foreground underline"
+          >
+            Limpar datas (ficar sempre activo)
+          </button>
+        )}
+        {(theme.scheduleStart || theme.scheduleEnd) &&
+          (() => {
+            const active = isThemeScheduledActive(theme);
+            const today = new Date().toISOString().slice(0, 10);
+            let text: string;
+            if (active) {
+              text = theme.scheduleEnd
+                ? `Activo agora — desliga sozinho a ${theme.scheduleEnd}.`
+                : "Activo agora.";
+            } else if (theme.scheduleStart && today < theme.scheduleStart) {
+              text = `Ainda não começou — liga sozinho a ${theme.scheduleStart}.`;
+            } else {
+              text = "Já terminou — os utilizadores já veem o tema Padrão.";
+            }
+            return (
+              <div
+                className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-medium ${
+                  active ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                <Icon name={active ? "check" : "clock"} size={13} /> {text}
+              </div>
+            );
+          })()}
+      </div>
+
+      {/* NOVO (pedido do Abrão, 2026-09-14): "mais partes do app para
+          controlar, mais opções de cor" — cores base da app inteira
+          (botões, barra de baixo, links, ícones activos), separadas do
+          fundo por página acima. type="color" dá logo um selector
+          nativo e garante sempre um hex válido — sem risco de partir o
+          CSS com texto inválido, ao contrário do campo de fundo. */}
+      <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+        <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+          <Icon name="palette" size={15} /> Cores globais da app
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Mudam os botões, a barra de navegação de baixo, links e ícones activos em toda a app —
+          mesmo nas páginas sem tema de fundo. Deixa em branco para usar as cores originais da
+          marca.
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Cor primária (botões)">
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={theme.primaryColor ?? "#e11d48"}
+                onChange={(e) => setTheme({ ...theme, primaryColor: e.target.value })}
+                className="h-10 w-12 shrink-0 cursor-pointer rounded-lg border border-input bg-background"
+              />
+              {theme.primaryColor && (
+                <button
+                  onClick={() => setTheme({ ...theme, primaryColor: undefined })}
+                  className="press text-[11px] font-medium text-muted-foreground underline"
+                >
+                  Repor
+                </button>
+              )}
+            </div>
+          </Field>
+          <Field label="Cor de destaque">
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={theme.accentColor ?? "#f59e0b"}
+                onChange={(e) => setTheme({ ...theme, accentColor: e.target.value })}
+                className="h-10 w-12 shrink-0 cursor-pointer rounded-lg border border-input bg-background"
+              />
+              {theme.accentColor && (
+                <button
+                  onClick={() => setTheme({ ...theme, accentColor: undefined })}
+                  className="press text-[11px] font-medium text-muted-foreground underline"
+                >
+                  Repor
+                </button>
+              )}
+            </div>
+          </Field>
+        </div>
       </div>
 
       {/* Selecção de cenário */}
@@ -1640,6 +1833,19 @@ function AppearanceTab() {
                   }
                   className="h-10 w-full rounded-xl border border-input bg-background px-3 text-xs outline-none focus:border-primary font-mono"
                 />
+                {(() => {
+                  const warning = checkBackgroundReadability(
+                    screen.backgroundType,
+                    screen.backgroundValue,
+                  );
+                  if (!warning) return null;
+                  return (
+                    <div className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-amber-500/10 px-2.5 py-2 text-[11px] text-amber-600">
+                      <Icon name="alert" size={13} className="mt-0.5 shrink-0" />
+                      <span>{warning}</span>
+                    </div>
+                  );
+                })()}
               </Field>
             )}
 
@@ -1656,7 +1862,8 @@ function AppearanceTab() {
                         : "border-border bg-muted/30 text-muted-foreground"
                     }`}
                   >
-                    <span>{a.emoji}</span> {a.label}
+                    <Icon name="sparkles" size={12} />
+                    {a.label}
                   </button>
                 ))}
               </div>
@@ -1686,8 +1893,17 @@ function AppearanceTab() {
 
             {/* Preview */}
             <div>
-              <div className="mb-1.5 text-[11px] font-medium text-muted-foreground">
-                Pré-visualização
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  Pré-visualização
+                </span>
+                <button
+                  onClick={() => setFullPreview(true)}
+                  className="press flex items-center gap-1 text-[11px] font-medium text-primary"
+                >
+                  <Icon name="expand" size={12} />
+                  Ver em ecrã inteiro
+                </button>
               </div>
               <ThemeBackdrop appearance={screen} className="h-28 w-full rounded-2xl">
                 <div className="relative flex h-full flex-col items-start justify-end p-3 text-white">
@@ -1701,6 +1917,37 @@ function AppearanceTab() {
           </div>
         )}
       </div>
+
+      {/* CONSERTO/NOVO (pedido do Abrão, 2026-09-14): "pré-visualização
+          antes de publicar" — antes só havia o cartão pequeno de 112px
+          acima, que dá pouca noção de como fica a sério no telemóvel.
+          Isto mostra o fundo + textos a ocupar o ecrã todo, como o
+          ecrã de login/início real, SEM gravar nada no Supabase — só
+          depois de fechar isto é que o botão "Publicar" (mais abaixo)
+          grava a sério para todos os utilizadores. */}
+      {fullPreview && (
+        <div className="fixed inset-0 z-50 bg-black/60 p-4 sm:flex sm:items-center sm:justify-center">
+          <div className="relative mx-auto h-full w-full max-w-[420px] overflow-hidden rounded-3xl sm:h-[85vh]">
+            <ThemeBackdrop appearance={screen} className="h-full w-full">
+              <div className="relative flex h-full flex-col items-start justify-end p-6 text-white">
+                {screen.heading && (
+                  <div className="text-2xl font-bold leading-tight">{screen.heading}</div>
+                )}
+                {screen.subtext && <div className="mt-1 text-sm opacity-85">{screen.subtext}</div>}
+              </div>
+            </ThemeBackdrop>
+            <button
+              onClick={() => setFullPreview(false)}
+              className="press absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white"
+            >
+              <Icon name="x" size={16} />
+            </button>
+            <div className="absolute left-3 top-3 rounded-full bg-black/40 px-3 py-1 text-[11px] font-medium text-white">
+              Pré-visualização — ainda não publicado
+            </div>
+          </div>
+        </div>
+      )}
 
       {saveMsg && (
         <div
@@ -1730,6 +1977,17 @@ function AppearanceTab() {
           "Publicar para todos os utilizadores"
         )}
       </button>
+
+      {undoTheme && (
+        <button
+          onClick={handleUndo}
+          disabled={saving}
+          className="press flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-muted/30 text-xs font-medium text-muted-foreground disabled:opacity-50"
+        >
+          <Icon name="undo" size={13} />
+          Reverter para a versão anterior a esta publicação
+        </button>
+      )}
     </div>
   );
 }
@@ -1965,6 +2223,47 @@ function AccountsTab() {
 }
 
 // ── Main Dashboard ────────────────────────────────────────────────────
+// BARREIRA DE BUG (pedido do Abrão, 2026-09-14): antes, um erro em
+// qualquer separador do admin (ex: dado inesperado vindo do Supabase
+// numa lista) derrubava a app inteira via o ErrorBoundary global —
+// tela de erro genérica, "Recarregar" mandava para "/" e era preciso
+// voltar a fazer login e navegar até ao admin outra vez. Esta barreira
+// fica só à volta do conteúdo de cada separador: se um separador
+// rebentar, mostra um aviso ali mesmo, sem sair do admin nem perder a
+// sessão, e ao trocar de separador (key={activeTab} onde é usada)
+// tenta renderizar de novo automaticamente.
+class AdminTabErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: unknown, info: unknown) {
+    console.error("AdminTabErrorBoundary apanhou um erro:", error, info);
+    reportLovableError(error, { boundary: "admin_tab_error_boundary" });
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-5 text-center">
+          <div className="text-sm font-semibold text-destructive">
+            Este separador teve um erro inesperado.
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            O resto do painel continua a funcionar — tenta outro separador ou volta a tentar este.
+          </p>
+          <button
+            onClick={() => this.setState({ hasError: false })}
+            className="mt-3 inline-flex h-9 items-center justify-center rounded-lg bg-destructive px-4 text-xs font-semibold text-destructive-foreground"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function AdminDashboard() {
   const tr = useT();
   const navigate = useNavigate();
@@ -2185,322 +2484,326 @@ function AdminDashboard() {
       </div>
 
       <main className="flex-1 px-5 py-5 pb-24 space-y-4">
-        {/* ── Tab: Merchants ── */}
-        {activeTab === "merchants" && (
-          <>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Icon
-                  name="search"
-                  size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                />
-                <input
-                  className="h-11 w-full rounded-xl border border-input bg-card pl-8 pr-3 text-sm outline-none focus:border-primary"
-                  placeholder={tr("adminSearchMerchantsPlaceholder")}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-              <button
-                onClick={() => setSelected("new")}
-                className="press grid h-11 w-11 shrink-0 place-items-center rounded-xl text-primary-foreground"
-                style={{ background: "var(--gradient-primary)" }}
-              >
-                <Icon name="plus" size={20} />
-              </button>
-            </div>
-
-            {merchantSaveError && (
-              <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
-                <span className="font-semibold">Falha ao gravar: </span>
-                {merchantSaveError}
-              </div>
-            )}
-
-            <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-              {(["all", "active", "trial", "overdue", "blocked"] as const).map((f) => (
+        <AdminTabErrorBoundary key={activeTab}>
+          {/* ── Tab: Merchants ── */}
+          {activeTab === "merchants" && (
+            <>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Icon
+                    name="search"
+                    size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  />
+                  <input
+                    className="h-11 w-full rounded-xl border border-input bg-card pl-8 pr-3 text-sm outline-none focus:border-primary"
+                    placeholder={tr("adminSearchMerchantsPlaceholder")}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
                 <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`press shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
-                    filter === f
-                      ? "text-primary-foreground"
-                      : "border border-border bg-card text-muted-foreground"
-                  }`}
-                  style={filter === f ? { background: "var(--gradient-primary)" } : undefined}
+                  onClick={() => setSelected("new")}
+                  className="press grid h-11 w-11 shrink-0 place-items-center rounded-xl text-primary-foreground"
+                  style={{ background: "var(--gradient-primary)" }}
                 >
-                  {f === "all" ? `Todos (${stats.total})` : STATUS_LABELS[f]}
+                  <Icon name="plus" size={20} />
                 </button>
-              ))}
-            </div>
-
-            {filtered.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-border bg-card/50 p-10 text-center text-sm text-muted-foreground">
-                Nenhum comerciante encontrado
               </div>
-            ) : (
-              <div className="space-y-3 stagger">
-                {filtered.map((m) => {
-                  const days = daysTo(m.renewsAt);
-                  return (
-                    <div
-                      key={m.id}
-                      className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-soft)]"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="truncate font-semibold text-sm text-foreground">
-                            {m.businessName}
-                          </div>
-                          <div className="text-[11px] text-muted-foreground mt-0.5">
-                            {m.ownerName} · {m.city}
-                          </div>
-                        </div>
-                        <span
-                          className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${STATUS_COLOR[m.status]}`}
-                        >
-                          {STATUS_LABELS[m.status]}
-                        </span>
-                      </div>
 
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <span className="rounded-lg bg-accent px-2 py-0.5 text-[10px] text-accent-foreground">
-                          {PLAN_LABELS[m.planId]} — {PLAN_PRICES[m.planId]} MZN
-                        </span>
-                        <span className="rounded-lg bg-accent px-2 py-0.5 text-[10px] text-accent-foreground">
-                          {m.productCount} produtos
-                        </span>
-                        {m.paymentMethod && (
-                          <span className="rounded-lg bg-accent px-2 py-0.5 text-[10px] text-accent-foreground uppercase">
-                            {m.paymentMethod}
-                          </span>
-                        )}
-                        <span
-                          className={`rounded-lg px-2 py-0.5 text-[10px] font-medium ${days < 0 ? "bg-destructive/15 text-destructive" : days <= 5 ? "bg-amber-500/15 text-amber-700" : "bg-emerald-500/10 text-emerald-700"}`}
-                        >
-                          {days < 0 ? `Venceu há ${Math.abs(days)}d` : `Renova em ${days}d`}
-                        </span>
-                      </div>
-
-                      {m.notes && (
-                        <div className="mt-2 flex items-start gap-1.5 rounded-xl bg-muted/60 px-3 py-2 text-[11px] text-muted-foreground">
-                          <Icon name="pencil" size={12} className="mt-0.5 shrink-0" />
-                          <span>{m.notes}</span>
-                        </div>
-                      )}
-
-                      <div className="mt-3 flex gap-2">
-                        <button
-                          onClick={() => setSelected(m)}
-                          className="press flex-1 h-9 rounded-xl border border-border bg-muted text-[11px] font-medium text-foreground"
-                        >
-                          Editar
-                        </button>
-                        {m.status === "blocked" || m.status === "overdue" ? (
-                          <button
-                            onClick={() => quickAction(m.id, "activate")}
-                            className="press ripple flex h-9 items-center justify-center gap-1 px-3 rounded-xl text-[11px] font-semibold text-primary-foreground"
-                            style={{ background: "var(--gradient-primary)" }}
-                          >
-                            <Icon name="check" size={12} /> {tr("adminActivateAction")}
-                          </button>
-                        ) : m.status === "active" ? (
-                          <button
-                            onClick={() => quickAction(m.id, "block")}
-                            className="press h-9 px-3 rounded-xl border border-destructive/40 bg-destructive/10 text-[11px] font-medium text-destructive"
-                          >
-                            Bloquear
-                          </button>
-                        ) : null}
-                        <a
-                          href={`https://wa.me/${m.phone.replace(/\D/g, "")}?text=Ol%C3%A1%20${encodeURIComponent(m.ownerName)}%2C%20contacto%20da%20XTACK%20sobre%20o%20seu%20plano%20Spotter.`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="press grid h-9 w-9 place-items-center rounded-xl bg-[#25D366] text-white"
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
-                            <path d="M12 2C6.477 2 2 6.477 2 12c0 1.989.574 3.842 1.563 5.408L2 22l4.738-1.543A9.953 9.953 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.963 7.963 0 01-4.236-1.22l-.303-.181-3.135 1.02 1.05-3.044-.198-.313A7.963 7.963 0 014 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8z" />
-                          </svg>
-                        </a>
-                        <a
-                          href={`tel:${m.phone}`}
-                          className="press grid h-9 w-9 place-items-center rounded-xl border border-border bg-muted"
-                        >
-                          <Icon name="phoneCall" size={14} />
-                        </a>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {(() => {
-              const expiring = merchants.filter(
-                (m) => m.status === "active" && daysTo(m.renewsAt) <= 3 && daysTo(m.renewsAt) >= 0,
-              );
-              if (!expiring.length) return null;
-              return (
-                <div className="rounded-2xl border border-amber-300/40 bg-amber-500/10 p-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-amber-700 mb-2">
-                    <Icon name="clock" size={14} /> {expiring.length} plano
-                    {expiring.length > 1 ? "s" : ""} a vencer em breve
-                  </div>
-                  {expiring.map((m) => (
-                    <div key={m.id} className="text-xs text-amber-700 mt-1">
-                      · {m.businessName} — {daysTo(m.renewsAt)}d ({m.phone})
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
-          </>
-        )}
-
-        {/* ── Tab: Billing ── */}
-        {activeTab === "billing" && billingStats && (
-          <div className="space-y-4 animate-slide-up">
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                {
-                  label: "MRR",
-                  value: `${billingStats.mrr.toLocaleString()} MZN`,
-                  sub: tr("adminMonthlyRevenueLabel"),
-                  color: "bg-emerald-500/15 text-emerald-700",
-                },
-                {
-                  label: tr("adminArrLabel"),
-                  value: `${(billingStats.arr / 1000).toFixed(0)}K MZN`,
-                  sub: tr("adminAnnualLabel"),
-                  color: "bg-blue-500/15 text-blue-700",
-                },
-                {
-                  label: tr("adminAtRiskRevenueLabel"),
-                  value: `${billingStats.overdueRevenue.toLocaleString()} MZN`,
-                  sub: `${billingStats.overdueCount} em atraso`,
-                  color: "bg-orange-500/15 text-orange-700",
-                },
-                {
-                  label: tr("adminConversionLabel"),
-                  value: `${billingStats.conversionRate}%`,
-                  sub: tr("adminTrialToActiveLabel"),
-                  color: "bg-violet-500/15 text-violet-700",
-                },
-              ].map((s) => (
-                <div key={s.label} className={`rounded-2xl p-4 ${s.color}`}>
-                  <div className="text-lg font-bold">{s.value}</div>
-                  <div className="text-[10px] font-semibold">{s.label}</div>
-                  <div className="text-[10px] opacity-70">{s.sub}</div>
-                </div>
-              ))}
-            </div>
-            <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-              <div className="text-sm font-semibold text-foreground">Distribuição por plano</div>
-              {Object.entries(billingStats.planBreakdown).map(([plan, d]) => (
-                <div key={plan} className="flex items-center justify-between">
-                  <div className="text-sm font-medium text-foreground capitalize">{plan}</div>
-                  <div className="flex gap-4 text-xs text-muted-foreground">
-                    <span>{d.count} comerciantes</span>
-                    <span className="font-semibold text-foreground">
-                      {d.revenue.toLocaleString()} MZN/mês
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="rounded-2xl border border-border bg-card p-4 space-y-2">
-              <div className="text-sm font-semibold text-foreground">
-                Motor de cobrança automática
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Corre sozinho todos os dias às 06:00 UTC (cron no Supabase). O
-                botão abaixo força uma verificação imediata, sem esperar pelo
-                próximo ciclo.
-              </p>
-              {billingResult && (
-                <div className="rounded-xl bg-emerald-500/10 border border-emerald-300/30 p-2 text-xs text-emerald-700">
-                  {billingResult}
+              {merchantSaveError && (
+                <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
+                  <span className="font-semibold">Falha ao gravar: </span>
+                  {merchantSaveError}
                 </div>
               )}
-              <button
-                onClick={handleRunBilling}
-                disabled={billingRunning}
-                className="press h-10 w-full rounded-xl text-sm font-semibold text-primary-foreground disabled:opacity-50"
-                style={{ background: "var(--gradient-primary)" }}
-              >
-                {billingRunning ? tr("adminProcessingAction") : tr("adminRunBillingAction")}
-              </button>
-            </div>
-          </div>
-        )}
 
-        {/* ── Tab: Notifications ── */}
-        {activeTab === "notifications" && (
-          <div className="space-y-3 animate-slide-up">
-            {unread > 0 && (
-              <button
-                onClick={handleMarkAllRead}
-                className="press w-full rounded-xl border border-border bg-card py-2 text-xs text-muted-foreground"
-              >
-                Marcar todas como lidas ({unread})
-              </button>
-            )}
-            {notifications.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-border bg-card/50 p-10 text-center text-sm text-muted-foreground">
-                Sem notificações de billing
-              </div>
-            ) : (
-              notifications.map((n) => {
-                const COLOR: Record<string, string> = {
-                  trial_ending: "bg-amber-500/10 border-amber-300/30",
-                  trial_expired: "bg-orange-500/10 border-orange-300/30",
-                  payment_due: "bg-blue-500/10 border-blue-300/30",
-                  payment_overdue: "bg-orange-500/10 border-orange-300/30",
-                  auto_blocked: "bg-destructive/10 border-destructive/30",
-                  plan_renewed: "bg-emerald-500/10 border-emerald-300/30",
-                };
-                return (
+              <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                {(["all", "active", "trial", "overdue", "blocked"] as const).map((f) => (
                   <button
-                    key={n.id}
-                    onClick={() => handleMarkOneRead(n)}
-                    className={`w-full rounded-2xl border p-4 text-left transition ${COLOR[n.event] ?? "border-border bg-card"} ${n.read ? "opacity-60" : ""}`}
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    className={`press shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
+                      filter === f
+                        ? "text-primary-foreground"
+                        : "border border-border bg-card text-muted-foreground"
+                    }`}
+                    style={filter === f ? { background: "var(--gradient-primary)" } : undefined}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="text-xs font-semibold text-foreground">{n.businessName}</div>
-                      <div className="text-[10px] text-muted-foreground shrink-0">
-                        {new Date(n.createdAt).toLocaleDateString("pt-MZ")}
-                      </div>
-                    </div>
-                    <p className="mt-1 text-xs text-foreground/80">{n.message}</p>
+                    {f === "all" ? `Todos (${stats.total})` : STATUS_LABELS[f]}
                   </button>
+                ))}
+              </div>
+
+              {filtered.length === 0 ? (
+                <div className="rounded-3xl border border-dashed border-border bg-card/50 p-10 text-center text-sm text-muted-foreground">
+                  Nenhum comerciante encontrado
+                </div>
+              ) : (
+                <div className="space-y-3 stagger">
+                  {filtered.map((m) => {
+                    const days = daysTo(m.renewsAt);
+                    return (
+                      <div
+                        key={m.id}
+                        className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-soft)]"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="truncate font-semibold text-sm text-foreground">
+                              {m.businessName}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground mt-0.5">
+                              {m.ownerName} · {m.city}
+                            </div>
+                          </div>
+                          <span
+                            className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${STATUS_COLOR[m.status]}`}
+                          >
+                            {STATUS_LABELS[m.status]}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <span className="rounded-lg bg-accent px-2 py-0.5 text-[10px] text-accent-foreground">
+                            {PLAN_LABELS[m.planId]} — {PLAN_PRICES[m.planId]} MZN
+                          </span>
+                          <span className="rounded-lg bg-accent px-2 py-0.5 text-[10px] text-accent-foreground">
+                            {m.productCount} produtos
+                          </span>
+                          {m.paymentMethod && (
+                            <span className="rounded-lg bg-accent px-2 py-0.5 text-[10px] text-accent-foreground uppercase">
+                              {m.paymentMethod}
+                            </span>
+                          )}
+                          <span
+                            className={`rounded-lg px-2 py-0.5 text-[10px] font-medium ${days < 0 ? "bg-destructive/15 text-destructive" : days <= 5 ? "bg-amber-500/15 text-amber-700" : "bg-emerald-500/10 text-emerald-700"}`}
+                          >
+                            {days < 0 ? `Venceu há ${Math.abs(days)}d` : `Renova em ${days}d`}
+                          </span>
+                        </div>
+
+                        {m.notes && (
+                          <div className="mt-2 flex items-start gap-1.5 rounded-xl bg-muted/60 px-3 py-2 text-[11px] text-muted-foreground">
+                            <Icon name="pencil" size={12} className="mt-0.5 shrink-0" />
+                            <span>{m.notes}</span>
+                          </div>
+                        )}
+
+                        <div className="mt-3 flex gap-2">
+                          <button
+                            onClick={() => setSelected(m)}
+                            className="press flex-1 h-9 rounded-xl border border-border bg-muted text-[11px] font-medium text-foreground"
+                          >
+                            Editar
+                          </button>
+                          {m.status === "blocked" || m.status === "overdue" ? (
+                            <button
+                              onClick={() => quickAction(m.id, "activate")}
+                              className="press ripple flex h-9 items-center justify-center gap-1 px-3 rounded-xl text-[11px] font-semibold text-primary-foreground"
+                              style={{ background: "var(--gradient-primary)" }}
+                            >
+                              <Icon name="check" size={12} /> {tr("adminActivateAction")}
+                            </button>
+                          ) : m.status === "active" ? (
+                            <button
+                              onClick={() => quickAction(m.id, "block")}
+                              className="press h-9 px-3 rounded-xl border border-destructive/40 bg-destructive/10 text-[11px] font-medium text-destructive"
+                            >
+                              Bloquear
+                            </button>
+                          ) : null}
+                          <a
+                            href={`https://wa.me/${m.phone.replace(/\D/g, "")}?text=Ol%C3%A1%20${encodeURIComponent(m.ownerName)}%2C%20contacto%20da%20XTACK%20sobre%20o%20seu%20plano%20Spotter.`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="press grid h-9 w-9 place-items-center rounded-xl bg-[#25D366] text-white"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+                              <path d="M12 2C6.477 2 2 6.477 2 12c0 1.989.574 3.842 1.563 5.408L2 22l4.738-1.543A9.953 9.953 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.963 7.963 0 01-4.236-1.22l-.303-.181-3.135 1.02 1.05-3.044-.198-.313A7.963 7.963 0 014 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8z" />
+                            </svg>
+                          </a>
+                          <a
+                            href={`tel:${m.phone}`}
+                            className="press grid h-9 w-9 place-items-center rounded-xl border border-border bg-muted"
+                          >
+                            <Icon name="phoneCall" size={14} />
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {(() => {
+                const expiring = merchants.filter(
+                  (m) =>
+                    m.status === "active" && daysTo(m.renewsAt) <= 3 && daysTo(m.renewsAt) >= 0,
                 );
-              })
-            )}
-          </div>
-        )}
+                if (!expiring.length) return null;
+                return (
+                  <div className="rounded-2xl border border-amber-300/40 bg-amber-500/10 p-4">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-amber-700 mb-2">
+                      <Icon name="clock" size={14} /> {expiring.length} plano
+                      {expiring.length > 1 ? "s" : ""} a vencer em breve
+                    </div>
+                    {expiring.map((m) => (
+                      <div key={m.id} className="text-xs text-amber-700 mt-1">
+                        · {m.businessName} — {daysTo(m.renewsAt)}d ({m.phone})
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </>
+          )}
 
-        {/* ── Tab: Payments ── */}
-        {activeTab === "payments" && <PaymentsTab />}
+          {/* ── Tab: Billing ── */}
+          {activeTab === "billing" && billingStats && (
+            <div className="space-y-4 animate-slide-up">
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  {
+                    label: "MRR",
+                    value: `${billingStats.mrr.toLocaleString()} MZN`,
+                    sub: tr("adminMonthlyRevenueLabel"),
+                    color: "bg-emerald-500/15 text-emerald-700",
+                  },
+                  {
+                    label: tr("adminArrLabel"),
+                    value: `${(billingStats.arr / 1000).toFixed(0)}K MZN`,
+                    sub: tr("adminAnnualLabel"),
+                    color: "bg-blue-500/15 text-blue-700",
+                  },
+                  {
+                    label: tr("adminAtRiskRevenueLabel"),
+                    value: `${billingStats.overdueRevenue.toLocaleString()} MZN`,
+                    sub: `${billingStats.overdueCount} em atraso`,
+                    color: "bg-orange-500/15 text-orange-700",
+                  },
+                  {
+                    label: tr("adminConversionLabel"),
+                    value: `${billingStats.conversionRate}%`,
+                    sub: tr("adminTrialToActiveLabel"),
+                    color: "bg-violet-500/15 text-violet-700",
+                  },
+                ].map((s) => (
+                  <div key={s.label} className={`rounded-2xl p-4 ${s.color}`}>
+                    <div className="text-lg font-bold">{s.value}</div>
+                    <div className="text-[10px] font-semibold">{s.label}</div>
+                    <div className="text-[10px] opacity-70">{s.sub}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+                <div className="text-sm font-semibold text-foreground">Distribuição por plano</div>
+                {Object.entries(billingStats.planBreakdown).map(([plan, d]) => (
+                  <div key={plan} className="flex items-center justify-between">
+                    <div className="text-sm font-medium text-foreground capitalize">{plan}</div>
+                    <div className="flex gap-4 text-xs text-muted-foreground">
+                      <span>{d.count} comerciantes</span>
+                      <span className="font-semibold text-foreground">
+                        {d.revenue.toLocaleString()} MZN/mês
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="rounded-2xl border border-border bg-card p-4 space-y-2">
+                <div className="text-sm font-semibold text-foreground">
+                  Motor de cobrança automática
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Corre sozinho todos os dias às 06:00 UTC (cron no Supabase). O botão abaixo força
+                  uma verificação imediata, sem esperar pelo próximo ciclo.
+                </p>
+                {billingResult && (
+                  <div className="rounded-xl bg-emerald-500/10 border border-emerald-300/30 p-2 text-xs text-emerald-700">
+                    {billingResult}
+                  </div>
+                )}
+                <button
+                  onClick={handleRunBilling}
+                  disabled={billingRunning}
+                  className="press h-10 w-full rounded-xl text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                  style={{ background: "var(--gradient-primary)" }}
+                >
+                  {billingRunning ? tr("adminProcessingAction") : tr("adminRunBillingAction")}
+                </button>
+              </div>
+            </div>
+          )}
 
-        {/* ── Tab: Push ── */}
-        {activeTab === "push" && <PushTab merchants={merchants} />}
+          {/* ── Tab: Notifications ── */}
+          {activeTab === "notifications" && (
+            <div className="space-y-3 animate-slide-up">
+              {unread > 0 && (
+                <button
+                  onClick={handleMarkAllRead}
+                  className="press w-full rounded-xl border border-border bg-card py-2 text-xs text-muted-foreground"
+                >
+                  Marcar todas como lidas ({unread})
+                </button>
+              )}
+              {notifications.length === 0 ? (
+                <div className="rounded-3xl border border-dashed border-border bg-card/50 p-10 text-center text-sm text-muted-foreground">
+                  Sem notificações de billing
+                </div>
+              ) : (
+                notifications.map((n) => {
+                  const COLOR: Record<string, string> = {
+                    trial_ending: "bg-amber-500/10 border-amber-300/30",
+                    trial_expired: "bg-orange-500/10 border-orange-300/30",
+                    payment_due: "bg-blue-500/10 border-blue-300/30",
+                    payment_overdue: "bg-orange-500/10 border-orange-300/30",
+                    auto_blocked: "bg-destructive/10 border-destructive/30",
+                    plan_renewed: "bg-emerald-500/10 border-emerald-300/30",
+                  };
+                  return (
+                    <button
+                      key={n.id}
+                      onClick={() => handleMarkOneRead(n)}
+                      className={`w-full rounded-2xl border p-4 text-left transition ${COLOR[n.event] ?? "border-border bg-card"} ${n.read ? "opacity-60" : ""}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="text-xs font-semibold text-foreground">
+                          {n.businessName}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground shrink-0">
+                          {new Date(n.createdAt).toLocaleDateString("pt-MZ")}
+                        </div>
+                      </div>
+                      <p className="mt-1 text-xs text-foreground/80">{n.message}</p>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          )}
 
-        {/* ── Tab: Aparência ── */}
-        {activeTab === "appearance" && <AppearanceTab />}
+          {/* ── Tab: Payments ── */}
+          {activeTab === "payments" && <PaymentsTab />}
 
-        {/* ── Tab: Feature Flags ── */}
-        {activeTab === "flags" && <FlagsTab />}
+          {/* ── Tab: Push ── */}
+          {activeTab === "push" && <PushTab merchants={merchants} />}
 
-        {/* ── Tab: Reports ── */}
-        {activeTab === "reports" && <ReportsTab merchants={merchants} />}
+          {/* ── Tab: Aparência ── */}
+          {activeTab === "appearance" && <AppearanceTab />}
 
-        {/* ── Tab: Audit Log ── */}
-        {activeTab === "audit" && <AuditTab />}
+          {/* ── Tab: Feature Flags ── */}
+          {activeTab === "flags" && <FlagsTab />}
 
-        {/* ── Tab: Accounts ── */}
-        {activeTab === "accounts" && <AccountsTab />}
+          {/* ── Tab: Reports ── */}
+          {activeTab === "reports" && <ReportsTab merchants={merchants} />}
+
+          {/* ── Tab: Audit Log ── */}
+          {activeTab === "audit" && <AuditTab />}
+
+          {/* ── Tab: Accounts ── */}
+          {activeTab === "accounts" && <AccountsTab />}
+        </AdminTabErrorBoundary>
       </main>
 
       <div className="py-4 text-center text-[10px] text-muted-foreground border-t border-border">
@@ -2595,11 +2898,11 @@ function AdminNotAuthorized({
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {status === "not-logged-in" &&
-              "Não estás com sessão iniciada na app normal (Google/email) neste navegador. Sem isso, o Supabase não te reconhece como admin — a leitura de dados funciona (por isso o painel \"parece\" normal), mas activar planos, publicar temas ou qualquer outra gravação falha sempre em silêncio."}
+              'Não estás com sessão iniciada na app normal (Google/email) neste navegador. Sem isso, o Supabase não te reconhece como admin — a leitura de dados funciona (por isso o painel "parece" normal), mas activar planos, publicar temas ou qualquer outra gravação falha sempre em silêncio.'}
             {status === "not-admin" &&
-              "Já estás com sessão iniciada, mas esta conta ainda não está na tabela \"admins\" do Supabase. Sem isso, as gravações falham em silêncio mesmo com o painel a parecer normal."}
+              'Já estás com sessão iniciada, mas esta conta ainda não está na tabela "admins" do Supabase. Sem isso, as gravações falham em silêncio mesmo com o painel a parecer normal.'}
             {status === "offline" &&
-              "Não foi possível confirmar a autorização de administrador — ou o Supabase está indisponível, ou a função is_admin() ainda não foi criada (bloco \"ADMIN REAL\" em SUPABASE_SETUP.sql)."}
+              'Não foi possível confirmar a autorização de administrador — ou o Supabase está indisponível, ou a função is_admin() ainda não foi criada (bloco "ADMIN REAL" em SUPABASE_SETUP.sql).'}
           </p>
         </div>
 
@@ -2607,13 +2910,13 @@ function AdminNotAuthorized({
           <p className="font-semibold text-foreground">Como resolver:</p>
           <ol className="list-decimal space-y-2 pl-4 text-muted-foreground">
             <li>
-              Abre o Spotter Local normal (não o /admin) neste MESMO navegador e
-              faz login com Google ou email/senha — a conta que vai ser admin.
+              Abre o Spotter Local normal (não o /admin) neste MESMO navegador e faz login com
+              Google ou email/senha — a conta que vai ser admin.
             </li>
             <li>
               No Supabase → SQL Editor, corre (com o teu email real):
               <pre className="mt-1.5 overflow-x-auto rounded-xl bg-muted p-2.5 text-[11px] text-foreground">
-{`insert into public.admins (id)
+                {`insert into public.admins (id)
 select id from auth.users
 where email = 'o-teu-email@aqui.com';`}
               </pre>

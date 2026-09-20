@@ -41,6 +41,12 @@ export interface BlockContext {
   // têm chamada + chat da app, nunca WhatsApp.
   onChat: () => void;
   onProductClick: (p: ProductDB) => void;
+  // true quando o negócio tem reserva de quarto e/ou mesa ativa —
+  // nesse caso o widget de "Reservar / pedir info" (perguntas rápidas +
+  // WhatsApp genérico) some, substituído pelo fluxo de reserva a sério;
+  // o botão WhatsApp da linha Rota/Ligar/WhatsApp também desaparece,
+  // mantendo-se só Rota e Ligar (pedido do Abrão, 2026-09-18).
+  reservationsEnabled?: boolean;
 }
 
 export function glowShadow(theme: ProfileTheme) {
@@ -110,11 +116,7 @@ export function BlockInfo({ ctx }: { ctx: BlockContext }) {
               {place.name}
             </h1>
             {place.verified && (
-              <VerifiedBadge
-                size={16}
-                className="shrink-0"
-                style={{ color: theme.accent }}
-              />
+              <VerifiedBadge size={16} className="shrink-0" style={{ color: theme.accent }} />
             )}
           </div>
           <div className="mt-0.5 text-xs" style={{ color: theme.sub }}>
@@ -177,18 +179,27 @@ export function BlockAbout({ ctx }: { ctx: BlockContext }) {
 }
 
 export function BlockContactRow({ ctx }: { ctx: BlockContext }) {
-  const { theme, place, onRoute, onCall, onWhatsapp, onChat } = ctx;
+  const { theme, place, onRoute, onCall, onWhatsapp, onChat, reservationsEnabled } = ctx;
   const tr = useT();
   // Categoria "taxi" (Táxi Moto/Carro/Txopela): nunca mostra WhatsApp —
   // só Chamar e Chat da app (pedido do Abrão, 2026-09-07). Também sem
   // Rotas — motorista não tem morada fixa (pedido do Abrão, 2026-09-09).
   const isTaxi = place.category === "taxi";
   const items = [
-    ...(isTaxi ? [] : [{ icon: "navigation" as const, label: tr("routeAction"), onClick: onRoute }]),
+    ...(isTaxi
+      ? []
+      : [{ icon: "navigation" as const, label: tr("routeAction"), onClick: onRoute }]),
     { icon: "phoneCall" as const, label: tr("callAction"), onClick: onCall },
-    isTaxi
-      ? { icon: "message" as const, label: tr("chatAction"), onClick: onChat }
-      : { icon: "message" as const, label: "WhatsApp", onClick: onWhatsapp },
+    // Com reservas online ativas, o WhatsApp genérico some daqui — o
+    // contacto passa a ser só depois do pagamento, dentro do fluxo de
+    // reserva (ver reservations-db.ts → buildPostPaymentWhatsAppLink).
+    ...(reservationsEnabled
+      ? []
+      : [
+          isTaxi
+            ? { icon: "message" as const, label: tr("chatAction"), onClick: onChat }
+            : { icon: "message" as const, label: "WhatsApp", onClick: onWhatsapp },
+        ]),
   ];
   return (
     <div className="flex gap-2 px-4 pb-3">

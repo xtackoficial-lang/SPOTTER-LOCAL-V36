@@ -2,10 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useOnboarding } from "@/lib/onboarding-storage";
 import { CATEGORY_FILTERS, matchesCategoryFilter } from "@/lib/places-data";
-import {
-  LocationScopeButton,
-  type LocationScope,
-} from "@/components/LocationScopePicker";
+import { LocationScopeButton, type LocationScope } from "@/components/LocationScopePicker";
 import { useDiscoverPlaces } from "@/lib/businesses-db";
 import { useAccountRecovery } from "@/lib/account-recovery";
 import { PlaceCard } from "@/components/PlaceCard";
@@ -22,6 +19,7 @@ import { ThemeAnimationOnly, resolveBackgroundStyle } from "@/components/ThemeBa
 import { HeroBgCanvas } from "@/components/HeroBgCanvas";
 import { BreathingLoader } from "@/components/BreathingLoader";
 import { getActiveBoostedBusinessIds, applyBoostOrder } from "@/lib/boost-storage";
+import { SponsoredPostsFeed } from "@/components/SponsoredPostsFeed";
 import { useT } from "@/lib/i18n";
 
 export const Route = createFileRoute("/home")({
@@ -260,10 +258,17 @@ function Home() {
           >
             <Icon name="taxi" size={12} /> {tr("taxiShortcutLabel")}
           </button>
+          <Link
+            to="/events"
+            className="press flex items-center gap-1 rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-medium text-white backdrop-blur-sm"
+          >
+            <Icon name="calendar" size={12} /> Eventos
+          </Link>
         </div>
       </header>
 
       <main className="flex-1 pb-8">
+        <SponsoredPostsFeed city={profile.city} />
         {/* BUG CORRIGIDO (2026-09-02): locationDenied existia mas nunca
             era mostrado — o utilizador nunca sabia porque as distâncias
             não eram reais. Banner dispensável (não bloqueia o uso da
@@ -380,9 +385,7 @@ function Home() {
                   : CATEGORY_FILTERS.find((c) => c.id === cat)?.label}
           </h2>
           {cat === "online" && (
-            <p className="mb-4 text-xs text-muted-foreground">
-              {tr("onlineServicesDescription")}
-            </p>
+            <p className="mb-4 text-xs text-muted-foreground">{tr("onlineServicesDescription")}</p>
           )}
           <div className="space-y-4 stagger">
             {places.map((p) => (

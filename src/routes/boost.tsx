@@ -16,10 +16,12 @@ import { Icon } from "@/components/Icon";
 import { ShimmerButton } from "@/components/ShimmerButton";
 import {
   createPaymentRequest,
+  createZumboPayPayment,
   getPaymentInstructions,
   type PaymentRequest,
   type PaymentMethod,
 } from "@/lib/payments-db";
+import { supabase, SUPABASE_CONFIGURED } from "@/lib/supabase";
 import {
   getPaymentConfig,
   addPaymentProof,
@@ -95,6 +97,12 @@ function BoostPage() {
   const tr = useT();
   const METHODS = [
     {
+      id: "zumbopay" as PaymentMethod,
+      label: "Pagar online (ZumboPay)",
+      color: "bg-emerald-600",
+      hint: "M-Pesa, e-Mola, mKesh ou cartão — confirmação automática",
+    },
+    {
       id: "mpesa" as PaymentMethod,
       label: "M-Pesa",
       color: "bg-rose-600",
@@ -135,6 +143,7 @@ function BoostPage() {
     updatedAt: "",
   });
   const [initError, setInitError] = useState<string | null>(null);
+  const [zumboPopupBlocked, setZumboPopupBlocked] = useState(false);
 
   const instructions = req ? getPaymentInstructions(req) : null;
 
@@ -163,6 +172,18 @@ function BoostPage() {
     setLoading(true);
     setInitError(null);
     try {
+      // ZumboPay: sem USSD/comprovativo manual — abre o link de pagamento
+      // e fica a aguardar a confirmação automática via webhook (o mesmo
+      // padrão já usado em /payment).
+      if (method === "zumbopay") {
+        const { payment, paymentUrl } = await createZumboPayPayment(businessId, "boost", pkg);
+        setReq(payment);
+        const opened = window.open(paymentUrl, "_blank", "noopener,noreferrer");
+        if (!opened) setZumboPopupBlocked(true);
+        setStep("waiting");
+        return;
+      }
+
       const r = await createPaymentRequest(businessId, "boost", method, phone, {
         amount: boostPackagePrice(pkg),
         boostPackageId: pkg,
@@ -176,6 +197,51 @@ function BoostPage() {
       setLoading(false);
     }
   };
+
+  // Subscrição em tempo real: quando o webhook da ZumboPay confirma o
+  // pagamento (payments.status → "confirmed"), o zumbopay-webhook já
+  // cria a linha em business_boosts sozinho — aqui só avançamos o ecrã.
+  useEffect(() => {
+    if (step !== "waiting" || method !== "zumbopay" || !req?.id) return;
+    if (!SUPABASE_CONFIGURED || !supabase) return;
+    const client = supabase;
+
+    const channel = client
+      .channel(`zumbopay-boost-${req.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "payments", filter: `id=eq.${req.id}` },
+        (payload) => {
+          if (payload.new.status === "confirmed") setStep("done");
+          else if (payload.new.status === "failed" || payload.new.status === "expired")
+            setStep("failed");
+        },
+      )
+      .subscribe();
+
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, [step, method, req?.id]);
+
+  // Fallback de polling a cada 5s, caso o Realtime não dispare.
+  useEffect(() => {
+    if (step !== "waiting" || method !== "zumbopay" || !req?.id) return;
+    if (!SUPABASE_CONFIGURED || !supabase) return;
+    const client = supabase;
+
+    const interval = setInterval(async () => {
+      const { data } = await client
+        .from("payments")
+        .select("status")
+        .eq("id", req.id)
+        .maybeSingle();
+      if (data?.status === "confirmed") setStep("done");
+      else if (data?.status === "failed" || data?.status === "expired") setStep("failed");
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [step, method, req?.id]);
 
   // v24 — mesmo padrão de payment.tsx: alerta o admin já ao clicar
   // "Já paguei", antes de escrever qualquer nota.
@@ -569,6 +635,18 @@ function BoostPage() {
               <div className="text-xs text-muted-foreground">{tr("referenceLabel")}</div>
               <div className="font-mono font-semibold text-sm text-primary">{req?.merchantRef}</div>
             </div>
+            {method === "zumbopay" && req?.paymentUrl && (
+              <ShimmerButton
+                onClick={() => {
+                  const opened = window.open(req.paymentUrl, "_blank", "noopener,noreferrer");
+                  if (opened) setZumboPopupBlocked(false);
+                }}
+                className="press h-12 w-full rounded-2xl text-sm font-semibold text-primary-foreground"
+                style={{ background: "var(--gradient-primary)" }}
+              >
+                {zumboPopupBlocked ? "Abrir link de pagamento" : "Reabrir link de pagamento"}
+              </ShimmerButton>
+            )}
             {initError && <p className="text-xs text-destructive">{initError}</p>}
           </div>
         )}

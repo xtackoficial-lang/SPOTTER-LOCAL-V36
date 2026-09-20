@@ -11,17 +11,24 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SubscribeRouteImport } from './routes/subscribe'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as ReservationsDashboardRouteImport } from './routes/reservations-dashboard'
+import { Route as ReservationSettingsRouteImport } from './routes/reservation-settings'
 import { Route as QrBusinessRouteImport } from './routes/qr-business'
 import { Route as QrRouteImport } from './routes/qr'
+import { Route as PublishPostRouteImport } from './routes/publish-post'
+import { Route as PublishEventRouteImport } from './routes/publish-event'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ProductsRouteImport } from './routes/products'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PaymentRouteImport } from './routes/payment'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as MyReservationsRouteImport } from './routes/my-reservations'
 import { Route as MerchantRouteImport } from './routes/merchant'
 import { Route as MapRouteImport } from './routes/map'
+import { Route as ManageRoomsRouteImport } from './routes/manage-rooms'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as HistoryRouteImport } from './routes/history'
+import { Route as EventsRouteImport } from './routes/events'
 import { Route as ChatsRouteImport } from './routes/chats'
 import { Route as BusinessInboxRouteImport } from './routes/business-inbox'
 import { Route as BusinessRouteImport } from './routes/business'
@@ -29,7 +36,10 @@ import { Route as BoostRouteImport } from './routes/boost'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as RoomsBusinessIdRouteImport } from './routes/rooms.$businessId'
 import { Route as ReviewsIdRouteImport } from './routes/reviews.$id'
+import { Route as ReserveTableBusinessIdRouteImport } from './routes/reserve-table.$businessId'
+import { Route as ReserveRoomRoomIdRouteImport } from './routes/reserve-room.$roomId'
 import { Route as PlaceIdRouteImport } from './routes/place.$id'
 import { Route as ChatIdRouteImport } from './routes/chat.$id'
 import { Route as BusinessPromoRouteImport } from './routes/business.promo'
@@ -46,6 +56,16 @@ const SearchRoute = SearchRouteImport.update({
   path: '/search',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReservationsDashboardRoute = ReservationsDashboardRouteImport.update({
+  id: '/reservations-dashboard',
+  path: '/reservations-dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReservationSettingsRoute = ReservationSettingsRouteImport.update({
+  id: '/reservation-settings',
+  path: '/reservation-settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const QrBusinessRoute = QrBusinessRouteImport.update({
   id: '/qr-business',
   path: '/qr-business',
@@ -54,6 +74,16 @@ const QrBusinessRoute = QrBusinessRouteImport.update({
 const QrRoute = QrRouteImport.update({
   id: '/qr',
   path: '/qr',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PublishPostRoute = PublishPostRouteImport.update({
+  id: '/publish-post',
+  path: '/publish-post',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PublishEventRoute = PublishEventRouteImport.update({
+  id: '/publish-event',
+  path: '/publish-event',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileRoute = ProfileRouteImport.update({
@@ -81,6 +111,11 @@ const OnboardingRoute = OnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MyReservationsRoute = MyReservationsRouteImport.update({
+  id: '/my-reservations',
+  path: '/my-reservations',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MerchantRoute = MerchantRouteImport.update({
   id: '/merchant',
   path: '/merchant',
@@ -91,6 +126,11 @@ const MapRoute = MapRouteImport.update({
   path: '/map',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ManageRoomsRoute = ManageRoomsRouteImport.update({
+  id: '/manage-rooms',
+  path: '/manage-rooms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HomeRoute = HomeRouteImport.update({
   id: '/home',
   path: '/home',
@@ -99,6 +139,11 @@ const HomeRoute = HomeRouteImport.update({
 const HistoryRoute = HistoryRouteImport.update({
   id: '/history',
   path: '/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventsRoute = EventsRouteImport.update({
+  id: '/events',
+  path: '/events',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatsRoute = ChatsRouteImport.update({
@@ -136,9 +181,24 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RoomsBusinessIdRoute = RoomsBusinessIdRouteImport.update({
+  id: '/rooms/$businessId',
+  path: '/rooms/$businessId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReviewsIdRoute = ReviewsIdRouteImport.update({
   id: '/reviews/$id',
   path: '/reviews/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReserveTableBusinessIdRoute = ReserveTableBusinessIdRouteImport.update({
+  id: '/reserve-table/$businessId',
+  path: '/reserve-table/$businessId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReserveRoomRoomIdRoute = ReserveRoomRoomIdRouteImport.update({
+  id: '/reserve-room/$roomId',
+  path: '/reserve-room/$roomId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlaceIdRoute = PlaceIdRouteImport.update({
@@ -175,17 +235,24 @@ export interface FileRoutesByFullPath {
   '/business': typeof BusinessRouteWithChildren
   '/business-inbox': typeof BusinessInboxRoute
   '/chats': typeof ChatsRoute
+  '/events': typeof EventsRoute
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
+  '/manage-rooms': typeof ManageRoomsRoute
   '/map': typeof MapRoute
   '/merchant': typeof MerchantRoute
+  '/my-reservations': typeof MyReservationsRoute
   '/onboarding': typeof OnboardingRoute
   '/payment': typeof PaymentRoute
   '/privacy': typeof PrivacyRoute
   '/products': typeof ProductsRoute
   '/profile': typeof ProfileRoute
+  '/publish-event': typeof PublishEventRoute
+  '/publish-post': typeof PublishPostRoute
   '/qr': typeof QrRoute
   '/qr-business': typeof QrBusinessRoute
+  '/reservation-settings': typeof ReservationSettingsRoute
+  '/reservations-dashboard': typeof ReservationsDashboardRoute
   '/search': typeof SearchRoute
   '/subscribe': typeof SubscribeRoute
   '/business/coupons': typeof BusinessCouponsRoute
@@ -193,7 +260,10 @@ export interface FileRoutesByFullPath {
   '/business/promo': typeof BusinessPromoRoute
   '/chat/$id': typeof ChatIdRoute
   '/place/$id': typeof PlaceIdRoute
+  '/reserve-room/$roomId': typeof ReserveRoomRoomIdRoute
+  '/reserve-table/$businessId': typeof ReserveTableBusinessIdRoute
   '/reviews/$id': typeof ReviewsIdRoute
+  '/rooms/$businessId': typeof RoomsBusinessIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -203,17 +273,24 @@ export interface FileRoutesByTo {
   '/business': typeof BusinessRouteWithChildren
   '/business-inbox': typeof BusinessInboxRoute
   '/chats': typeof ChatsRoute
+  '/events': typeof EventsRoute
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
+  '/manage-rooms': typeof ManageRoomsRoute
   '/map': typeof MapRoute
   '/merchant': typeof MerchantRoute
+  '/my-reservations': typeof MyReservationsRoute
   '/onboarding': typeof OnboardingRoute
   '/payment': typeof PaymentRoute
   '/privacy': typeof PrivacyRoute
   '/products': typeof ProductsRoute
   '/profile': typeof ProfileRoute
+  '/publish-event': typeof PublishEventRoute
+  '/publish-post': typeof PublishPostRoute
   '/qr': typeof QrRoute
   '/qr-business': typeof QrBusinessRoute
+  '/reservation-settings': typeof ReservationSettingsRoute
+  '/reservations-dashboard': typeof ReservationsDashboardRoute
   '/search': typeof SearchRoute
   '/subscribe': typeof SubscribeRoute
   '/business/coupons': typeof BusinessCouponsRoute
@@ -221,7 +298,10 @@ export interface FileRoutesByTo {
   '/business/promo': typeof BusinessPromoRoute
   '/chat/$id': typeof ChatIdRoute
   '/place/$id': typeof PlaceIdRoute
+  '/reserve-room/$roomId': typeof ReserveRoomRoomIdRoute
+  '/reserve-table/$businessId': typeof ReserveTableBusinessIdRoute
   '/reviews/$id': typeof ReviewsIdRoute
+  '/rooms/$businessId': typeof RoomsBusinessIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -232,17 +312,24 @@ export interface FileRoutesById {
   '/business': typeof BusinessRouteWithChildren
   '/business-inbox': typeof BusinessInboxRoute
   '/chats': typeof ChatsRoute
+  '/events': typeof EventsRoute
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
+  '/manage-rooms': typeof ManageRoomsRoute
   '/map': typeof MapRoute
   '/merchant': typeof MerchantRoute
+  '/my-reservations': typeof MyReservationsRoute
   '/onboarding': typeof OnboardingRoute
   '/payment': typeof PaymentRoute
   '/privacy': typeof PrivacyRoute
   '/products': typeof ProductsRoute
   '/profile': typeof ProfileRoute
+  '/publish-event': typeof PublishEventRoute
+  '/publish-post': typeof PublishPostRoute
   '/qr': typeof QrRoute
   '/qr-business': typeof QrBusinessRoute
+  '/reservation-settings': typeof ReservationSettingsRoute
+  '/reservations-dashboard': typeof ReservationsDashboardRoute
   '/search': typeof SearchRoute
   '/subscribe': typeof SubscribeRoute
   '/business/coupons': typeof BusinessCouponsRoute
@@ -250,7 +337,10 @@ export interface FileRoutesById {
   '/business/promo': typeof BusinessPromoRoute
   '/chat/$id': typeof ChatIdRoute
   '/place/$id': typeof PlaceIdRoute
+  '/reserve-room/$roomId': typeof ReserveRoomRoomIdRoute
+  '/reserve-table/$businessId': typeof ReserveTableBusinessIdRoute
   '/reviews/$id': typeof ReviewsIdRoute
+  '/rooms/$businessId': typeof RoomsBusinessIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -262,17 +352,24 @@ export interface FileRouteTypes {
     | '/business'
     | '/business-inbox'
     | '/chats'
+    | '/events'
     | '/history'
     | '/home'
+    | '/manage-rooms'
     | '/map'
     | '/merchant'
+    | '/my-reservations'
     | '/onboarding'
     | '/payment'
     | '/privacy'
     | '/products'
     | '/profile'
+    | '/publish-event'
+    | '/publish-post'
     | '/qr'
     | '/qr-business'
+    | '/reservation-settings'
+    | '/reservations-dashboard'
     | '/search'
     | '/subscribe'
     | '/business/coupons'
@@ -280,7 +377,10 @@ export interface FileRouteTypes {
     | '/business/promo'
     | '/chat/$id'
     | '/place/$id'
+    | '/reserve-room/$roomId'
+    | '/reserve-table/$businessId'
     | '/reviews/$id'
+    | '/rooms/$businessId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -290,17 +390,24 @@ export interface FileRouteTypes {
     | '/business'
     | '/business-inbox'
     | '/chats'
+    | '/events'
     | '/history'
     | '/home'
+    | '/manage-rooms'
     | '/map'
     | '/merchant'
+    | '/my-reservations'
     | '/onboarding'
     | '/payment'
     | '/privacy'
     | '/products'
     | '/profile'
+    | '/publish-event'
+    | '/publish-post'
     | '/qr'
     | '/qr-business'
+    | '/reservation-settings'
+    | '/reservations-dashboard'
     | '/search'
     | '/subscribe'
     | '/business/coupons'
@@ -308,7 +415,10 @@ export interface FileRouteTypes {
     | '/business/promo'
     | '/chat/$id'
     | '/place/$id'
+    | '/reserve-room/$roomId'
+    | '/reserve-table/$businessId'
     | '/reviews/$id'
+    | '/rooms/$businessId'
   id:
     | '__root__'
     | '/'
@@ -318,17 +428,24 @@ export interface FileRouteTypes {
     | '/business'
     | '/business-inbox'
     | '/chats'
+    | '/events'
     | '/history'
     | '/home'
+    | '/manage-rooms'
     | '/map'
     | '/merchant'
+    | '/my-reservations'
     | '/onboarding'
     | '/payment'
     | '/privacy'
     | '/products'
     | '/profile'
+    | '/publish-event'
+    | '/publish-post'
     | '/qr'
     | '/qr-business'
+    | '/reservation-settings'
+    | '/reservations-dashboard'
     | '/search'
     | '/subscribe'
     | '/business/coupons'
@@ -336,7 +453,10 @@ export interface FileRouteTypes {
     | '/business/promo'
     | '/chat/$id'
     | '/place/$id'
+    | '/reserve-room/$roomId'
+    | '/reserve-table/$businessId'
     | '/reviews/$id'
+    | '/rooms/$businessId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -347,22 +467,32 @@ export interface RootRouteChildren {
   BusinessRoute: typeof BusinessRouteWithChildren
   BusinessInboxRoute: typeof BusinessInboxRoute
   ChatsRoute: typeof ChatsRoute
+  EventsRoute: typeof EventsRoute
   HistoryRoute: typeof HistoryRoute
   HomeRoute: typeof HomeRoute
+  ManageRoomsRoute: typeof ManageRoomsRoute
   MapRoute: typeof MapRoute
   MerchantRoute: typeof MerchantRoute
+  MyReservationsRoute: typeof MyReservationsRoute
   OnboardingRoute: typeof OnboardingRoute
   PaymentRoute: typeof PaymentRoute
   PrivacyRoute: typeof PrivacyRoute
   ProductsRoute: typeof ProductsRoute
   ProfileRoute: typeof ProfileRoute
+  PublishEventRoute: typeof PublishEventRoute
+  PublishPostRoute: typeof PublishPostRoute
   QrRoute: typeof QrRoute
   QrBusinessRoute: typeof QrBusinessRoute
+  ReservationSettingsRoute: typeof ReservationSettingsRoute
+  ReservationsDashboardRoute: typeof ReservationsDashboardRoute
   SearchRoute: typeof SearchRoute
   SubscribeRoute: typeof SubscribeRoute
   ChatIdRoute: typeof ChatIdRoute
   PlaceIdRoute: typeof PlaceIdRoute
+  ReserveRoomRoomIdRoute: typeof ReserveRoomRoomIdRoute
+  ReserveTableBusinessIdRoute: typeof ReserveTableBusinessIdRoute
   ReviewsIdRoute: typeof ReviewsIdRoute
+  RoomsBusinessIdRoute: typeof RoomsBusinessIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -381,6 +511,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SearchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reservations-dashboard': {
+      id: '/reservations-dashboard'
+      path: '/reservations-dashboard'
+      fullPath: '/reservations-dashboard'
+      preLoaderRoute: typeof ReservationsDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reservation-settings': {
+      id: '/reservation-settings'
+      path: '/reservation-settings'
+      fullPath: '/reservation-settings'
+      preLoaderRoute: typeof ReservationSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/qr-business': {
       id: '/qr-business'
       path: '/qr-business'
@@ -393,6 +537,20 @@ declare module '@tanstack/react-router' {
       path: '/qr'
       fullPath: '/qr'
       preLoaderRoute: typeof QrRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/publish-post': {
+      id: '/publish-post'
+      path: '/publish-post'
+      fullPath: '/publish-post'
+      preLoaderRoute: typeof PublishPostRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/publish-event': {
+      id: '/publish-event'
+      path: '/publish-event'
+      fullPath: '/publish-event'
+      preLoaderRoute: typeof PublishEventRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -430,6 +588,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/my-reservations': {
+      id: '/my-reservations'
+      path: '/my-reservations'
+      fullPath: '/my-reservations'
+      preLoaderRoute: typeof MyReservationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/merchant': {
       id: '/merchant'
       path: '/merchant'
@@ -444,6 +609,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MapRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/manage-rooms': {
+      id: '/manage-rooms'
+      path: '/manage-rooms'
+      fullPath: '/manage-rooms'
+      preLoaderRoute: typeof ManageRoomsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/home': {
       id: '/home'
       path: '/home'
@@ -456,6 +628,13 @@ declare module '@tanstack/react-router' {
       path: '/history'
       fullPath: '/history'
       preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/events': {
+      id: '/events'
+      path: '/events'
+      fullPath: '/events'
+      preLoaderRoute: typeof EventsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chats': {
@@ -507,11 +686,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/rooms/$businessId': {
+      id: '/rooms/$businessId'
+      path: '/rooms/$businessId'
+      fullPath: '/rooms/$businessId'
+      preLoaderRoute: typeof RoomsBusinessIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reviews/$id': {
       id: '/reviews/$id'
       path: '/reviews/$id'
       fullPath: '/reviews/$id'
       preLoaderRoute: typeof ReviewsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reserve-table/$businessId': {
+      id: '/reserve-table/$businessId'
+      path: '/reserve-table/$businessId'
+      fullPath: '/reserve-table/$businessId'
+      preLoaderRoute: typeof ReserveTableBusinessIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reserve-room/$roomId': {
+      id: '/reserve-room/$roomId'
+      path: '/reserve-room/$roomId'
+      fullPath: '/reserve-room/$roomId'
+      preLoaderRoute: typeof ReserveRoomRoomIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/place/$id': {
@@ -576,22 +776,32 @@ const rootRouteChildren: RootRouteChildren = {
   BusinessRoute: BusinessRouteWithChildren,
   BusinessInboxRoute: BusinessInboxRoute,
   ChatsRoute: ChatsRoute,
+  EventsRoute: EventsRoute,
   HistoryRoute: HistoryRoute,
   HomeRoute: HomeRoute,
+  ManageRoomsRoute: ManageRoomsRoute,
   MapRoute: MapRoute,
   MerchantRoute: MerchantRoute,
+  MyReservationsRoute: MyReservationsRoute,
   OnboardingRoute: OnboardingRoute,
   PaymentRoute: PaymentRoute,
   PrivacyRoute: PrivacyRoute,
   ProductsRoute: ProductsRoute,
   ProfileRoute: ProfileRoute,
+  PublishEventRoute: PublishEventRoute,
+  PublishPostRoute: PublishPostRoute,
   QrRoute: QrRoute,
   QrBusinessRoute: QrBusinessRoute,
+  ReservationSettingsRoute: ReservationSettingsRoute,
+  ReservationsDashboardRoute: ReservationsDashboardRoute,
   SearchRoute: SearchRoute,
   SubscribeRoute: SubscribeRoute,
   ChatIdRoute: ChatIdRoute,
   PlaceIdRoute: PlaceIdRoute,
+  ReserveRoomRoomIdRoute: ReserveRoomRoomIdRoute,
+  ReserveTableBusinessIdRoute: ReserveTableBusinessIdRoute,
   ReviewsIdRoute: ReviewsIdRoute,
+  RoomsBusinessIdRoute: RoomsBusinessIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

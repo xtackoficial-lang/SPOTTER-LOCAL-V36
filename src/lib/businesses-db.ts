@@ -268,10 +268,24 @@ export async function fetchBusinesses(location?: string | LocationFilter): Promi
 export async function fetchBusinessById(id: string): Promise<BusinessDB | null> {
   if (SUPABASE_CONFIGURED && supabase) {
     try {
-      const { data, error } = await supabase.from("businesses").select("*").eq("id", id).single();
-      if (!error && data) return data as BusinessDB;
+      // CONSERTO (2026-09-14): mesmo problema de fetchBusinessPublicById
+      // — .single() tratava "0 linhas" como erro e o erro nunca era
+      // registado, caindo sempre em silêncio nos dados locais de
+      // exemplo. Isto é usado pelo próprio comerciante para ver o seu
+      // painel — uma falha aqui é o "perfil sem informações" visto do
+      // lado do comerciante.
+      const { data, error } = await supabase
+        .from("businesses")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+      if (error) {
+        console.error("fetchBusinessById: erro do Supabase ao buscar negócio", id, error);
+      } else if (data) {
+        return data as BusinessDB;
+      }
     } catch (err) {
-      console.warn("fetchBusinessById: Supabase indisponível, a usar dados locais.", err);
+      console.error("fetchBusinessById: Supabase indisponível, a usar dados locais.", err);
     }
   }
   const place = PLACES.find((p) => p.id === id);
@@ -287,14 +301,39 @@ export async function fetchBusinessById(id: string): Promise<BusinessDB | null> 
 export async function fetchBusinessPublicById(id: string): Promise<BusinessDB | null> {
   if (SUPABASE_CONFIGURED && supabase) {
     try {
+      // CONSERTO (2026-09-14): "clico no perfil e diz que não está
+      // disponível" — para um negócio real, criado depois dos dados de
+      // exemplo. Causa: .single() faz o Supabase devolver um "error"
+      // (PGRST116) mesmo só por não achar a linha (0 resultados
+      // devolvidos como "erro" em vez de dado vazio) — e esse "error"
+      // era completamente ignorado (nem chegava a aparecer na consola),
+      // caindo direto no fallback de PLACES, uma lista estática de
+      // exemplos que nunca tem os negócios reais cadastrados pelos
+      // comerciantes. Ou seja: QUALQUER falha aqui — RLS mal configurada
+      // na view businesses_public, rede instável, coluna em falta —
+      // ficava indistinguível de "este negócio não existe", e mostrava
+      // sempre a mesma tela de "não disponível", sem pista nenhuma de
+      // que era um erro de configuração/rede e não o negócio em si.
+      // maybeSingle() não trata "0 linhas" como erro (só erros reais de
+      // ligação/permissão continuam em "error"), e agora o erro real é
+      // sempre registado na consola para dar para diagnosticar.
       const { data, error } = await supabase
         .from("businesses_public")
         .select("*")
         .eq("id", id)
-        .single();
-      if (!error && data) return data as BusinessDB;
+        .maybeSingle();
+      if (error) {
+        console.error(
+          "fetchBusinessPublicById: erro do Supabase ao buscar negócio",
+          id,
+          "— a cair para dados locais (que provavelmente não têm este negócio real):",
+          error,
+        );
+      } else if (data) {
+        return data as BusinessDB;
+      }
     } catch (err) {
-      console.warn("fetchBusinessPublicById: Supabase indisponível, a usar dados locais.", err);
+      console.error("fetchBusinessPublicById: Supabase indisponível, a usar dados locais.", err);
     }
   }
   const place = PLACES.find((p) => p.id === id);
@@ -446,7 +485,15 @@ export async function upsertProduct(
         .upsert({ ...product, updated_at: new Date().toISOString() })
         .select()
         .single();
-      if (!error && data) return data as ProductDB;
+      // CONSERTO (2026-09-15): quando a gravação falhava (RLS, coluna
+      // em falta, limite do plano, etc.), isto devolvia null em
+      // silêncio total — o comerciante achava que tinha gravado o
+      // produto/menu e nunca soube que não gravou nada.
+      if (error) {
+        console.error("upsertProduct: erro do Supabase ao gravar produto.", error);
+      } else if (data) {
+        return data as ProductDB;
+      }
     } catch (err) {
       console.warn("upsertProduct: Supabase indisponível.", err);
     }
@@ -457,7 +504,8 @@ export async function upsertProduct(
 export async function deleteProduct(id: string): Promise<void> {
   if (SUPABASE_CONFIGURED && supabase) {
     try {
-      await supabase.from("products").delete().eq("id", id);
+      const { error } = await supabase.from("products").delete().eq("id", id);
+      if (error) console.error("deleteProduct: erro do Supabase ao apagar produto.", error);
     } catch (err) {
       console.warn("deleteProduct: Supabase indisponível.", err);
     }

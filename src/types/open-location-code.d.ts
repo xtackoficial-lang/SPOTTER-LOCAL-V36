@@ -24,7 +24,11 @@ declare module "open-location-code" {
     isFull(code: string): boolean;
     encode(latitude: number, longitude: number, codeLength?: number): string;
     decode(code: string): CodeArea;
-    recoverNearest(shortCode: string, referenceLatitude: number, referenceLongitude: number): string;
+    recoverNearest(
+      shortCode: string,
+      referenceLatitude: number,
+      referenceLongitude: number,
+    ): string;
     shorten(code: string, latitude: number, longitude: number): string;
   }
 }

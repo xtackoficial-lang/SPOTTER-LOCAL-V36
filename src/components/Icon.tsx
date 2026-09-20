@@ -18,6 +18,9 @@ import {
   Scissors,
   Phone,
   Heart,
+  RotateCcw,
+  Maximize2,
+  Calendar,
   Flame,
   Star,
   Clock,
@@ -87,6 +90,10 @@ import {
   Info,
   type LucideIcon,
   Minus,
+  BedDouble,
+  CalendarCheck2,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 
 const MAP: Record<string, LucideIcon> = {
@@ -104,6 +111,13 @@ const MAP: Record<string, LucideIcon> = {
   cafe: Coffee,
   pharmacy: Pill,
   hotel: Hotel,
+  bed: BedDouble,
+  "calendar-check": CalendarCheck2,
+  // Corrigidos na varredura de 2026-09-19 — estavam a cair para o
+  // círculo genérico de fallback (name não batia com nenhuma chave):
+  map: MapIcon,
+  "check-circle": CheckCircle2,
+  "x-circle": XCircle,
   supermarket: ShoppingCart,
   beauty: Palette,
   bar: Beer,
@@ -112,6 +126,10 @@ const MAP: Record<string, LucideIcon> = {
   rental: Home,
   barber: Scissors,
   sparkles: Sparkles,
+  undo: RotateCcw,
+  expand: Maximize2,
+  calendar: Calendar,
+  palette: Palette,
   wine: Wine,
   pizza: Utensils,
   hotel_restaurant: Bed,

@@ -34,6 +34,18 @@ function Profile() {
   );
   const [pushBlockedHint, setPushBlockedHint] = useState(false);
   const [favs, setFavs] = useState<Place[]>([]);
+  // CONSERTO CRÍTICO (2026-09-15): "clico em Perfil e a página não
+  // carrega" — estes 3 useState estavam depois do `if (!hydrated)
+  // return` mais abaixo. Isso viola a regra dos Hooks do React: no
+  // primeiro render (hydrated ainda false) o React só via os hooks até
+  // aqui; assim que hydrated ficava true, aparecia de repente mais
+  // hooks a seguir ao return — o React trata isso como erro fatal
+  // ("Rendered more hooks than during the previous render") e a app
+  // crasha para o ecrã genérico de erro. Agora ficam todos ANTES de
+  // qualquer return condicional, como têm de estar sempre.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Carrega negócios favoritos — primeiro tenta Supabase, fallback para dados locais
   useEffect(() => {
@@ -74,9 +86,6 @@ function Profile() {
 
   // Apagar conta (pedido do Abrão, 2026-09-09): pede confirmação explícita
   // antes de chamar a Edge Function — é irreversível, não há "desfazer".
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const handleDeleteAccount = async () => {
     setDeleting(true);
     setDeleteError(null);
@@ -152,10 +161,10 @@ function Profile() {
                     <Icon name="chart" size={18} />
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-foreground">{tr("businessPanelLabel")}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {tr("myOrdersChatsStats")}
+                    <div className="text-sm font-semibold text-foreground">
+                      {tr("businessPanelLabel")}
                     </div>
+                    <div className="text-xs text-muted-foreground">{tr("myOrdersChatsStats")}</div>
                   </div>
                 </div>
                 <Icon name="chevronRight" size={16} className="text-muted-foreground" />
@@ -293,7 +302,11 @@ function Profile() {
         </section>
 
         {user ? (
-          <Button variant="outline" className="press h-12 w-full gap-2 rounded-2xl" onClick={signOut}>
+          <Button
+            variant="outline"
+            className="press h-12 w-full gap-2 rounded-2xl"
+            onClick={signOut}
+          >
             <Icon name="logout" size={16} /> {tr("logout")}
           </Button>
         ) : (

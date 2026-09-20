@@ -193,9 +193,7 @@ function PrivacyPage() {
 
             <Section title={tr("privacyFullPolicyTitle")}>
               <LegalBlock title={tr("privacyWhoWeAre")}>
-                <p>
-                  {tr("whoWeAreBody")}
-                </p>
+                <p>{tr("whoWeAreBody")}</p>
               </LegalBlock>
               <LegalBlock title={tr("privacyDataCollected")}>
                 <p>
@@ -211,7 +209,8 @@ function PrivacyPage() {
                   <strong>{tr("dataBusinessLabel")}</strong> {tr("dataBusinessBody")}
                 </p>
                 <p>
-                  <strong>{tr("dataUsageLabel")}</strong> {tr("dataUsageBody").replace("{ads}", tr("privacyAds"))}
+                  <strong>{tr("dataUsageLabel")}</strong>{" "}
+                  {tr("dataUsageBody").replace("{ads}", tr("privacyAds"))}
                 </p>
               </LegalBlock>
               <LegalBlock title={tr("privacyDevicePerms")}>
@@ -241,24 +240,16 @@ function PrivacyPage() {
                 </p>
               </LegalBlock>
               <LegalBlock title={tr("privacyYourRights")}>
-                <p>
-                  {tr("yourRightsBody")}
-                </p>
+                <p>{tr("yourRightsBody")}</p>
               </LegalBlock>
               <LegalBlock title={tr("privacyMinors")}>
-                <p>
-                  {tr("minorsBody")}
-                </p>
+                <p>{tr("minorsBody")}</p>
               </LegalBlock>
               <LegalBlock title={tr("privacySecurity")}>
-                <p>
-                  {tr("securityBody")}
-                </p>
+                <p>{tr("securityBody")}</p>
               </LegalBlock>
               <LegalBlock title={tr("privacyPolicyChanges")}>
-                <p>
-                  {tr("policyChangesBody")}
-                </p>
+                <p>{tr("policyChangesBody")}</p>
               </LegalBlock>
             </Section>
 
@@ -281,7 +272,8 @@ function PrivacyPage() {
                 className="press flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3.5 text-left hover:bg-accent/40"
               >
                 <span className="inline-flex items-center gap-3 text-sm font-medium text-foreground">
-                  <Icon name="help" size={16} className="text-primary" /> {tr("contactAboutPrivacyLabel")}
+                  <Icon name="help" size={16} className="text-primary" />{" "}
+                  {tr("contactAboutPrivacyLabel")}
                 </span>
                 <Icon name="chevronRight" size={14} className="text-muted-foreground" />
               </a>
@@ -329,14 +321,10 @@ function PrivacyPage() {
 
             <Section title={tr("termsOfUseTitle")}>
               <LegalBlock title={tr("termsSection1Title")}>
-                <p>
-                  {tr("termsSection1Body")}
-                </p>
+                <p>{tr("termsSection1Body")}</p>
               </LegalBlock>
               <LegalBlock title={tr("termsSection2Title")}>
-                <p>
-                  {tr("termsSection2Body")}
-                </p>
+                <p>{tr("termsSection2Body")}</p>
               </LegalBlock>
               <LegalBlock title={tr("termsSection3Title")}>
                 <p>• {tr("termsAccountBullet1")}</p>
@@ -354,44 +342,30 @@ function PrivacyPage() {
                 <p>• {tr("termsUsageBullet5")}</p>
               </LegalBlock>
               <LegalBlock title={tr("termsSection5Title")}>
-                <p>
-                  {tr("termsSection5Body")}
-                </p>
+                <p>{tr("termsSection5Body")}</p>
               </LegalBlock>
               <LegalBlock title={tr("termsSection6Title")}>
                 <p>• {tr("termsPlansBullet1")}</p>
-                <p>
-                  • {tr("termsPlansBullet2")}
-                </p>
+                <p>• {tr("termsPlansBullet2")}</p>
                 <p>• {tr("termsPlansBullet3")}</p>
                 <p>• {tr("termsPlansBullet4")}</p>
                 <p>• {tr("termsPlansBullet5")}</p>
               </LegalBlock>
               <LegalBlock title={tr("termsSection7Title")}>
-                <p>
-                  {tr("termsSection7Body")}
-                </p>
+                <p>{tr("termsSection7Body")}</p>
               </LegalBlock>
               <LegalBlock title={tr("termsSection8Title")}>
-                <p>
-                  {tr("termsSection8Body")}
-                </p>
+                <p>{tr("termsSection8Body")}</p>
               </LegalBlock>
               <LegalBlock title={tr("termsSection9Title")}>
-                <p>
-                  {tr("termsSection9Body")}
-                </p>
+                <p>{tr("termsSection9Body")}</p>
               </LegalBlock>
               <LegalBlock title={tr("termsSection10Title")}>
-                <p>
-                  {tr("termsSection10Body")}
-                </p>
+                <p>{tr("termsSection10Body")}</p>
               </LegalBlock>
               <LegalBlock title={tr("termsSection11Title")}>
                 <p>XTACK OFICIAL · xtackoficial@gmail.com · WhatsApp: +258 870 480 970</p>
-                <p>
-                  {tr("complaintsResponseHint")}
-                </p>
+                <p>{tr("complaintsResponseHint")}</p>
               </LegalBlock>
             </Section>
 

@@ -463,7 +463,10 @@ export const THEMES: Record<string, ProfileTheme> = {
 // padrão já usado por getStructure() acima. Sem isto, um theme_id "pago"
 // gravado antes de um downgrade para Free (ou por qualquer via fora da
 // UI normal) continuaria a aparecer normalmente na página pública.
-export function getTheme(themeId?: string, planId?: "free" | "starter" | "pro" | "premium"): ProfileTheme {
+export function getTheme(
+  themeId?: string,
+  planId?: "free" | "starter" | "pro" | "premium",
+): ProfileTheme {
   const theme = THEMES[themeId ?? "classico"] ?? THEMES.classico;
   if (planId === "free" && theme.plan === "pago") return THEMES.classico;
   return theme;

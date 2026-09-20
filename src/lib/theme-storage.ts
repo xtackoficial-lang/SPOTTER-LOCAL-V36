@@ -47,21 +47,41 @@ export type AnimationId =
   | "leaves"
   | "bubbles";
 
-export const ANIMATIONS: { id: AnimationId; label: string; emoji: string }[] = [
-  { id: "none", label: "Sem animação", emoji: "—" },
-  { id: "snow", label: "Neve (Natal/Ano Novo)", emoji: "❄️" },
-  { id: "confetti", label: "Confettis (Festa/Aniversário)", emoji: "🎉" },
-  { id: "hearts", label: "Corações (Dia dos Namorados)", emoji: "💕" },
-  { id: "stars", label: "Estrelas brilhantes", emoji: "✨" },
-  { id: "fireworks", label: "Fogos de artifício", emoji: "🎆" },
-  { id: "leaves", label: "Folhas (Outono/Independência)", emoji: "🍃" },
-  { id: "bubbles", label: "Bolhas suaves", emoji: "🫧" },
+export const ANIMATIONS: { id: AnimationId; label: string }[] = [
+  { id: "none", label: "Sem animação" },
+  { id: "snow", label: "Neve (Natal/Ano Novo)" },
+  { id: "confetti", label: "Confettis (Festa/Aniversário)" },
+  { id: "hearts", label: "Corações (Dia dos Namorados)" },
+  { id: "stars", label: "Estrelas brilhantes" },
+  { id: "fireworks", label: "Fogos de artifício" },
+  { id: "leaves", label: "Folhas (Outono/Independência)" },
+  { id: "bubbles", label: "Bolhas suaves" },
 ];
 
 export interface AppTheme {
   themeName: string; // nome do tema activo, só para identificação no admin
   screens: Record<ThemeScreen, ScreenAppearance>;
   updatedAt: string;
+  // NOVO (pedido do Abrão, 2026-09-14): agendamento automático — datas
+  // (YYYY-MM-DD, inclusive) fora das quais o tema não é mostrado aos
+  // utilizadores, mesmo estando gravado como "publicado". Serve para
+  // não ser preciso lembrar de desligar o Natal a 2 de Janeiro: o
+  // próprio tema "desactiva-se" sozinho e os utilizadores voltam a ver
+  // o tema Padrão automaticamente. Sem estas datas definidas, o tema
+  // fica sempre activo enquanto estiver publicado (comportamento de
+  // antes, sem alterações).
+  scheduleStart?: string;
+  scheduleEnd?: string;
+  // NOVO (pedido do Abrão, 2026-09-14): "mais partes do app para
+  // controlar, mais opções de cor" — ao contrário dos fundos por
+  // página acima (que só mudam o ecrã de login/início/etc.), isto
+  // muda as cores base da app inteira: botões, barra de navegação de
+  // baixo, links, ícones activos — tudo o que usa var(--primary) ou
+  // var(--accent) em qualquer ecrã, incluindo os que não têm tema de
+  // fundo nenhum activo. São opcionais: sem valor, usam-se as cores
+  // originais da marca (definidas em styles.css).
+  primaryColor?: string;
+  accentColor?: string;
 }
 
 const DEFAULT_SCREEN: ScreenAppearance = {
@@ -85,7 +105,8 @@ export function defaultTheme(): AppTheme {
 export interface ThemePreset {
   id: string;
   label: string;
-  emoji: string;
+  // Amostra de cor mostrada no admin (o próprio gradiente do tema, em
+  // vez de um emoji) — ver ThemePresetSwatch no admin.
   build: () => Pick<AppTheme, "themeName" | "screens">;
 }
 
@@ -113,7 +134,6 @@ export const THEME_PRESETS: ThemePreset[] = [
   {
     id: "natal",
     label: "Natal",
-    emoji: "🎄",
     build: () => ({
       themeName: "Natal",
       screens: presetScreens(
@@ -127,7 +147,6 @@ export const THEME_PRESETS: ThemePreset[] = [
   {
     id: "ano-novo",
     label: "Ano Novo",
-    emoji: "🎆",
     build: () => ({
       themeName: "Ano Novo",
       screens: presetScreens(
@@ -141,7 +160,6 @@ export const THEME_PRESETS: ThemePreset[] = [
   {
     id: "pascoa",
     label: "Páscoa",
-    emoji: "🐣",
     build: () => ({
       themeName: "Páscoa",
       screens: presetScreens(
@@ -155,7 +173,6 @@ export const THEME_PRESETS: ThemePreset[] = [
   {
     id: "dia-namorados",
     label: "Dia dos Namorados",
-    emoji: "💕",
     build: () => ({
       themeName: "Dia dos Namorados",
       screens: presetScreens(
@@ -169,7 +186,6 @@ export const THEME_PRESETS: ThemePreset[] = [
   {
     id: "independencia",
     label: "Dia da Independência",
-    emoji: "🇲🇿",
     build: () => ({
       themeName: "Dia da Independência",
       screens: presetScreens(
@@ -183,7 +199,6 @@ export const THEME_PRESETS: ThemePreset[] = [
   {
     id: "festa",
     label: "Festa / Aniversário da app",
-    emoji: "🎉",
     build: () => ({
       themeName: "Festa",
       screens: presetScreens(
@@ -197,7 +212,6 @@ export const THEME_PRESETS: ThemePreset[] = [
   {
     id: "padrao",
     label: "Padrão (remover tema)",
-    emoji: "↩️",
     build: () => ({ themeName: "Padrão", screens: defaultTheme().screens }),
   },
 ];
@@ -335,11 +349,57 @@ export function useAppTheme() {
   // Devolve a aparência de um ecrã específico, já resolvida (com
   // fallback ao default se o ecrã não estiver activo).
   const getScreen = useCallback(
-    (screen: ThemeScreen): ScreenAppearance => theme.screens[screen] ?? DEFAULT_SCREEN,
+    (screen: ThemeScreen): ScreenAppearance => {
+      // Fora da janela agendada, os utilizadores reais vêem o ecrã
+      // "Padrão" (sem tema), como se o admin tivesse revertido — sem
+      // precisar de o fazer manualmente. O admin continua a ver/editar
+      // o tema agendado normalmente na sua própria aba Aparência
+      // (aquele ecrã lê `theme.screens` directamente, não por aqui).
+      if (!isThemeScheduledActive(theme)) return DEFAULT_SCREEN;
+      return theme.screens[screen] ?? DEFAULT_SCREEN;
+    },
     [theme],
   );
 
   return { theme, loaded, getScreen };
+}
+
+// Devolve true se o tema deve estar activo HOJE, considerando o
+// agendamento (scheduleStart/scheduleEnd). Sem datas definidas, está
+// sempre activo (comportamento antigo). As datas são "YYYY-MM-DD" e
+// comparadas como texto simples (funciona porque esse formato ordena
+// igual a data real), sem depender do fuso horário do dispositivo.
+export function isThemeScheduledActive(theme: AppTheme): boolean {
+  const today = new Date().toISOString().slice(0, 10);
+  if (theme.scheduleStart && today < theme.scheduleStart) return false;
+  if (theme.scheduleEnd && today > theme.scheduleEnd) return false;
+  return true;
+}
+
+// NOVO (pedido do Abrão, 2026-09-14): aplica as cores globais
+// (primaryColor/accentColor) a toda a app, montado UMA vez em
+// __root.tsx — ao contrário do fundo por ecrã, isto afecta botões,
+// barra de baixo, links, etc. em QUALQUER página, mesmo as que não têm
+// nenhum tema de fundo activo. Não renderiza nada visível — só define/
+// remove as variáveis CSS na raiz do documento.
+export function GlobalThemeColors() {
+  const { theme, loaded } = useAppTheme();
+  useEffect(() => {
+    if (!loaded) return;
+    const root = document.documentElement;
+    const active = isThemeScheduledActive(theme);
+    if (active && theme.primaryColor) {
+      root.style.setProperty("--primary", theme.primaryColor);
+    } else {
+      root.style.removeProperty("--primary");
+    }
+    if (active && theme.accentColor) {
+      root.style.setProperty("--accent", theme.accentColor);
+    } else {
+      root.style.removeProperty("--accent");
+    }
+  }, [theme, loaded]);
+  return null;
 }
 
 // Hook utilitário para UMA única página: devolve directamente a
@@ -347,4 +407,51 @@ export function useAppTheme() {
 export function useScreenAppearance(screen: ThemeScreen) {
   const { getScreen, loaded } = useAppTheme();
   return { appearance: getScreen(screen), loaded };
+}
+
+// ── Validação de contraste/legibilidade (admin) ─────────────────────
+// CONSERTO (pedido do Abrão, 2026-09-14): esta era exactamente a causa
+// do bug "as letras da página de login não ficam mais visíveis" — um
+// fundo claro escolhido no admin por cima de texto sempre claro
+// (text-primary-foreground, usado em login/home/perfil/etc.). Em vez
+// de o admin só descobrir isso depois de publicar (e alguém reportar),
+// este helper calcula a "claridade" aproximada do valor introduzido e
+// devolve um aviso para mostrar já no formulário, antes de gravar.
+// Não é uma validação 100% exacta para qualquer CSS possível (gradientes
+// complexos, variáveis CSS, etc.) — é uma rede de segurança para o caso
+// mais comum: cor sólida ou gradiente com cores em hex/oklch directas.
+export function checkBackgroundReadability(
+  backgroundType: BackgroundType,
+  value: string,
+): string | null {
+  if (!value || !value.trim()) return null;
+  if (backgroundType === "image") return null; // imagens já têm véu escuro automático
+
+  // Extrai todas as claridades (0=escuro, 1=claro) que conseguir do
+  // texto — cobre hex (#fff, #ffffff) e oklch(L ...).
+  const lightnesses: number[] = [];
+
+  const hexMatches = value.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g) ?? [];
+  for (const hex of hexMatches) {
+    const h = hex.length === 4 ? hex.replace(/#(.)(.)(.)/, "#$1$1$2$2$3$3") : hex;
+    const r = parseInt(h.slice(1, 3), 16) / 255;
+    const g = parseInt(h.slice(3, 5), 16) / 255;
+    const b = parseInt(h.slice(5, 7), 16) / 255;
+    // Luminância relativa aproximada (percepção humana, sem gama-correcção
+    // completa — suficiente para um aviso, não para precisão de acessibilidade).
+    lightnesses.push(0.2126 * r + 0.7152 * g + 0.0722 * b);
+  }
+
+  const oklchMatches = value.matchAll(/oklch\(\s*([0-9.]+)/g);
+  for (const m of oklchMatches) {
+    lightnesses.push(parseFloat(m[1]));
+  }
+
+  if (lightnesses.length === 0) return null; // não deu para reconhecer nenhuma cor
+
+  const maxLightness = Math.max(...lightnesses);
+  if (maxLightness >= 0.72) {
+    return "Este fundo é muito claro. O texto por cima é sempre branco — pode ficar quase invisível. Considera escurecer ou escolher outra cor.";
+  }
+  return null;
 }

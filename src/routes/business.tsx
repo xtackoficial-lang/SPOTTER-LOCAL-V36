@@ -12,6 +12,7 @@ import {
   type BusinessBoost,
 } from "@/lib/boost-storage";
 import { BusinessBottomNav } from "@/components/BusinessBottomNav";
+import { fetchReservationSettings, type BusinessReservationSettings } from "@/lib/reservations-db";
 import { Icon } from "@/components/Icon";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { RequireBusiness } from "@/components/RequireBusiness";
@@ -53,6 +54,12 @@ function BusinessDash() {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [activeBoost, setActiveBoost] = useState<BusinessBoost | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
+  const [reservationSettings, setReservationSettings] =
+    useState<BusinessReservationSettings | null>(null);
+
+  useEffect(() => {
+    fetchReservationSettings(businessId).then(setReservationSettings);
+  }, [businessId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -365,6 +372,41 @@ function BusinessDash() {
               {activeBoost
                 ? `${tr("boostActiveExpires")} ${formatBoostExpiry(activeBoost.expiresAt, tr)}`
                 : `${tr("boostFromPrice")} ${BOOST_PRICE_PER_DAY_MZN} ${tr("perDaySuffix")}`}
+            </button>
+            <button
+              onClick={() => navigate({ to: "/publish-post" })}
+              className="press mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-card text-sm font-semibold text-foreground"
+            >
+              <Icon name="image" size={15} /> Publicar foto no feed — desde 50 MZN
+            </button>
+            <button
+              onClick={() => navigate({ to: "/publish-event" })}
+              className="press mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-card text-sm font-semibold text-foreground"
+            >
+              <Icon name="calendar" size={15} /> Publicar evento — desde 100 MZN
+            </button>
+            {reservationSettings?.acceptsRoomReservation && (
+              <button
+                onClick={() => navigate({ to: "/manage-rooms" })}
+                className="press mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-card text-sm font-semibold text-foreground"
+              >
+                <Icon name="bed" size={15} /> Gerir quartos
+              </button>
+            )}
+            {(reservationSettings?.acceptsRoomReservation ||
+              reservationSettings?.acceptsTableReservation) && (
+              <button
+                onClick={() => navigate({ to: "/reservations-dashboard" })}
+                className="press mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-card text-sm font-semibold text-foreground"
+              >
+                <Icon name="calendar-check" size={15} /> Reservas
+              </button>
+            )}
+            <button
+              onClick={() => navigate({ to: "/reservation-settings" })}
+              className="press mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-dashed border-border text-sm font-semibold text-muted-foreground"
+            >
+              <Icon name="info" size={15} /> Definições de reserva
             </button>
           </div>
         </section>

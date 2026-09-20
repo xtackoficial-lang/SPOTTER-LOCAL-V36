@@ -107,7 +107,6 @@ export interface AdminAuditLog {
 
 export type AdminAction = "activate" | "block" | "unblock" | "change_plan" | "add_note";
 
-
 // ── SEGURANÇA (sessão continua em localStorage — é só do browser do admin) ──
 const ADMIN_HASH = "29e66bc2d2abf3713471691afd5c27331a28607fb32caff350e3b01fe930341a";
 const SESSION_KEY = "xlocal.admin.session.v2";
@@ -240,7 +239,6 @@ export function adminChangePassword(currentPw: string, _newPw: string): Promise<
   return sha256(currentPw).then((h) => h === ADMIN_HASH);
 }
 
-
 // ── AUDIT LOG — Supabase com fallback localStorage ──────────────────
 export async function addAuditLog(action: string, target: string, detail: string) {
   const entry = {
@@ -316,7 +314,6 @@ export function clearAuditLog() {
   localStorage.removeItem("xlocal.admin.audit.v1");
 }
 
-
 // ── EXPORTAR CSV ──────────────────────────────────────────────────────
 export async function exportMerchantsCSV(): Promise<string> {
   const merchants = await getMerchants();
@@ -356,7 +353,6 @@ export async function downloadCSV() {
   URL.revokeObjectURL(url);
   await addAuditLog("export", "merchants", "CSV exportado");
 }
-
 
 // ── FEATURE FLAGS — Supabase ─────────────────────────────────────────
 export interface FeatureFlag {
@@ -408,18 +404,25 @@ export const DEFAULT_FLAGS: FeatureFlag[] = [
 export async function getFeatureFlags(): Promise<FeatureFlag[]> {
   if (SUPABASE_CONFIGURED && supabase) {
     try {
+      // CONSERTO (2026-09-15): mesmo padrão de bug já corrigido
+      // noutros ficheiros hoje — .single() numa linha que ainda pode
+      // não existir (antes de qualquer admin gravar aqui) contava
+      // como erro e ficava sem registo nenhum, escondendo problemas
+      // reais de RLS/rede atrás de "ainda não configurado".
       const { data, error } = await supabase
         .from("admin_settings")
         .select("value")
         .eq("key", "feature_flags")
-        .single();
-      if (!error && data?.value) {
+        .maybeSingle();
+      if (error) {
+        console.error("getFeatureFlags: erro do Supabase.", error);
+      } else if (data?.value) {
         const saved = data.value as FeatureFlag[];
         const savedKeys = new Set(saved.map((f) => f.key));
         return [...saved, ...DEFAULT_FLAGS.filter((f) => !savedKeys.has(f.key))];
       }
-    } catch {
-      /* fallback */
+    } catch (err) {
+      console.error("getFeatureFlags: Supabase indisponível.", err);
     }
   }
   try {
@@ -456,7 +459,6 @@ export async function toggleFeatureFlag(key: string, enabled: boolean): Promise<
   }
   return flags;
 }
-
 
 // ── PUSH CAMPAIGNS — Supabase ────────────────────────────────────────
 export interface PushCampaign {

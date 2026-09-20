@@ -6,10 +6,18 @@ import { webcrypto } from "node:crypto";
 // ── polyfills mínimos de browser ──
 // (Node 20+ já expõe globalThis.crypto com .subtle e .randomUUID)
 class MemoryStorage {
-  constructor() { this.map = new Map(); }
-  getItem(k) { return this.map.has(k) ? this.map.get(k) : null; }
-  setItem(k, v) { this.map.set(k, String(v)); }
-  removeItem(k) { this.map.delete(k); }
+  constructor() {
+    this.map = new Map();
+  }
+  getItem(k) {
+    return this.map.has(k) ? this.map.get(k) : null;
+  }
+  setItem(k, v) {
+    this.map.set(k, String(v));
+  }
+  removeItem(k) {
+    this.map.delete(k);
+  }
 }
 globalThis.localStorage = new MemoryStorage();
 globalThis.window = { localStorage: globalThis.localStorage };
@@ -23,10 +31,16 @@ const {
   adminLogout,
 } = await import("../src/lib/admin-storage.ts");
 
-let pass = 0, fail = 0;
+let pass = 0,
+  fail = 0;
 function check(name, cond) {
-  if (cond) { pass++; console.log(`✅ ${name}`); }
-  else { fail++; console.log(`❌ FALHOU: ${name}`); }
+  if (cond) {
+    pass++;
+    console.log(`✅ ${name}`);
+  } else {
+    fail++;
+    console.log(`❌ FALHOU: ${name}`);
+  }
 }
 
 console.log("\n=== TESTE 1: password errada não deixa entrar ===");
@@ -51,14 +65,22 @@ check("login recusado com 'locked' mesmo sem saber a password certa", r === "loc
 check("sessão continua falsa durante bloqueio", getAdminSession() === false);
 
 console.log("\n=== TESTE 4: logout limpa a sessão ===");
-globalThis.localStorage.setItem("xlocal.admin.session.v2", JSON.stringify({ token: "fake", expires: Date.now() + 999999 }));
+globalThis.localStorage.setItem(
+  "xlocal.admin.session.v2",
+  JSON.stringify({ token: "fake", expires: Date.now() + 999999 }),
+);
 check("sessão fica válida depois de simular login", getAdminSession() === true);
 await adminLogout();
 check("sessão fica inválida depois de logout()", getAdminSession() === false);
 
 console.log("\n=== TESTE 5: sessão expirada não conta como logada ===");
-globalThis.localStorage.setItem("xlocal.admin.session.v2", JSON.stringify({ token: "fake", expires: Date.now() - 1000 }));
+globalThis.localStorage.setItem(
+  "xlocal.admin.session.v2",
+  JSON.stringify({ token: "fake", expires: Date.now() - 1000 }),
+);
 check("sessão expirada devolve false", getAdminSession() === false);
 
-console.log(`\n${"=".repeat(50)}\nRESULTADO: ${pass} passaram, ${fail} falharam\n${"=".repeat(50)}`);
+console.log(
+  `\n${"=".repeat(50)}\nRESULTADO: ${pass} passaram, ${fail} falharam\n${"=".repeat(50)}`,
+);
 process.exit(fail > 0 ? 1 : 0);

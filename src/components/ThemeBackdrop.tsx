@@ -34,18 +34,68 @@ function makeParticles(count: number, seedBase: number): Particle[] {
   return particles;
 }
 
-const PARTICLE_GLYPH: Record<AnimationId, string | null> = {
-  none: null,
-  snow: "❄",
-  confetti: null, // confetti usa blocos coloridos, não emoji
-  hearts: "♥",
-  stars: "✦",
-  fireworks: null, // fireworks usa explosões CSS, não emoji
-  leaves: "🍃",
-  bubbles: null, // bubbles usa círculos translúcidos, não emoji
-};
-
 const CONFETTI_COLORS = ["#FF6B6B", "#FFD93D", "#6BCB77", "#4D96FF", "#FF8FE0", "#FFA94D"];
+
+// CONSERTO (pedido do Abrão, 2026-09-14): "temas sazonais muito
+// parecido com emoji, quero mais profissional" — antes, neve/corações/
+// estrelas/folhas eram desenhados com um carácter de texto (❄ ♥ ✦ 🍃),
+// que renderiza de forma inconsistente entre dispositivos (fonte de
+// emoji do Android vs iOS vs Windows) e tem um ar mais "sticker" do
+// que de identidade visual da marca. Agora são desenhadas em SVG
+// vectorial com uma única cor sólida (a mesma técnica que já era usada
+// em confetti/bolhas/fogo-de-artifício, que já não usavam emoji) —
+// consistentes em qualquer ecrã e com o ar de acabamento do resto da
+// app, não de sticker pack.
+function ParticleShape({
+  animation,
+  size,
+  className,
+}: {
+  animation: AnimationId;
+  size: number;
+  className?: string;
+}) {
+  const common = { width: size, height: size, className };
+  if (animation === "snow") {
+    // Ponto suave desfocado em vez do glifo ❄ — o efeito de neve mais
+    // usado em produtos "premium" é um brilho difuso, não um floco
+    // literal desenhado.
+    return (
+      <span
+        className={className}
+        style={{
+          display: "block",
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 70%)",
+        }}
+      />
+    );
+  }
+  if (animation === "hearts") {
+    return (
+      <svg {...common} viewBox="0 0 24 24" fill="currentColor" style={{ color: "#f4a3b8" }}>
+        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+      </svg>
+    );
+  }
+  if (animation === "stars") {
+    return (
+      <svg {...common} viewBox="0 0 24 24" fill="currentColor" style={{ color: "#f6d78a" }}>
+        <path d="M12 0l2 10 10 2-10 2-2 10-2-10L0 12l10-2z" />
+      </svg>
+    );
+  }
+  if (animation === "leaves") {
+    return (
+      <svg {...common} viewBox="0 0 24 24" fill="currentColor" style={{ color: "#8fbf7a" }}>
+        <path d="M17 8c-9 2-11.1 8.17-13.18 13.34l1.89.66.95-2.3c.48.17.98.3 1.34.3C16 20 22 14 22 8c0-1.05-.16-2.13-.36-3.02C15.5 8 10 12 6 13c4-3 8-7 9.5-9.9C16.9 4.02 17 6 17 8z" />
+      </svg>
+    );
+  }
+  return null;
+}
 
 function AnimationLayer({ animation }: { animation: AnimationId }) {
   const particles = useMemo(() => makeParticles(animation === "stars" ? 18 : 26, 7), [animation]);
@@ -129,25 +179,24 @@ function AnimationLayer({ animation }: { animation: AnimationId }) {
     );
   }
 
-  // snow / hearts / stars / leaves — partícula única em queda com glyph
-  const glyph = PARTICLE_GLYPH[animation];
+  // snow / hearts / stars / leaves — partícula vectorial única em queda
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       {particles.map((p, i) => (
         <span
           key={i}
-          className="absolute top-[-8%] block select-none animate-theme-fall text-white/80"
+          className="absolute top-[-8%] block select-none animate-theme-fall"
           style={
             {
               left: `${p.left}%`,
-              fontSize: `${p.size}px`,
               animationDelay: `${p.delay}s`,
               animationDuration: `${p.duration}s`,
               "--theme-drift": `${p.drift}px`,
+              opacity: 0.85,
             } as React.CSSProperties
           }
         >
-          {glyph}
+          <ParticleShape animation={animation} size={p.size} />
         </span>
       ))}
     </div>

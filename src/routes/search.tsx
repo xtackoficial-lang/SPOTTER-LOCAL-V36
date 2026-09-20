@@ -2,10 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { CATEGORY_FILTERS, matchesCategoryFilter } from "@/lib/places-data";
-import {
-  LocationScopeButton,
-  type LocationScope,
-} from "@/components/LocationScopePicker";
+import { LocationScopeButton, type LocationScope } from "@/components/LocationScopePicker";
 import { useDiscoverPlaces } from "@/lib/businesses-db";
 import { useOnboarding } from "@/lib/onboarding-storage";
 import { PlaceCard } from "@/components/PlaceCard";

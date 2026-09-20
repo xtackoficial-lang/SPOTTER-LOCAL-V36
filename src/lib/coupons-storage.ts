@@ -155,15 +155,27 @@ export async function fetchCouponByCode(businessId: string, code: string): Promi
   const normalised = code.trim().toUpperCase();
   if (SUPABASE_CONFIGURED && supabase) {
     try {
-      const { data } = await supabase
+      // CONSERTO (2026-09-15): mesmo bug já corrigido em
+      // fetchBusinessPublicById — .single() tratava "código não
+      // encontrado" (0 linhas) como erro do Supabase, e o erro nunca
+      // era sequer olhado (nem para a consola), caindo sempre em
+      // silêncio para os cupões guardados localmente no dispositivo —
+      // que não têm os cupões reais criados por outros comerciantes/
+      // noutros dispositivos. Um cupão real podia parecer "inválido"
+      // por uma simples instabilidade de rede, sem pista nenhuma.
+      const { data, error } = await supabase
         .from("coupons")
         .select("*")
         .eq("business_id", businessId)
         .ilike("code", normalised)
-        .single();
-      if (data) return fromRow(data as CouponRow);
-    } catch {
-      /* falha silenciosa — ignorar erro de storage/sync */
+        .maybeSingle();
+      if (error) {
+        console.error("fetchCouponByCode: erro do Supabase ao validar cupão.", error);
+      } else if (data) {
+        return fromRow(data as CouponRow);
+      }
+    } catch (err) {
+      console.error("fetchCouponByCode: Supabase indisponível, a usar dados locais.", err);
     }
   }
   return (

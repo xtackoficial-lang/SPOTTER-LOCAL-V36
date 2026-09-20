@@ -10,9 +10,51 @@ import { t } from "./i18n";
 
 export type PaymentMethod = "mpesa" | "emola" | "manual" | "zumbopay";
 export type PaymentStatus = "pending" | "confirmed" | "failed" | "expired";
+export type PostPackageId = "24h" | "3d" | "7d";
+export type EventTier = "standard" | "featured";
 // "boost" é um pseudo-plano: pagamento único de destaque (1/7/30 dias),
 // não uma subscrição mensal — mas reaproveita a mesma tabela/fluxo.
-export type PaymentPlanId = PlanId | "boost";
+// "post" e "event" seguem o mesmo padrão: pagamento único ligado a
+// conteúdo (foto/cartaz) que só é criado depois de o pagamento confirmar.
+// "room"/"table" seguem o mesmo padrão para reservas — ver reservations-db.ts.
+export type PaymentPlanId = PlanId | "boost" | "post" | "event" | "room" | "table";
+
+export interface RoomReservationInput {
+  roomId: string;
+  checkIn: string; // "YYYY-MM-DD"
+  checkOut: string; // "YYYY-MM-DD"
+  guests: number;
+  specialRequest?: string;
+  clientName: string;
+  clientPhone: string;
+  clientEmail?: string;
+}
+
+export interface TableReservationInput {
+  reservationDate: string; // "YYYY-MM-DD"
+  timeSlot: string;
+  guests: number;
+  specialRequest?: string;
+  clientName: string;
+  clientPhone: string;
+  clientEmail?: string;
+  tipo?: "normal" | "evento";
+}
+
+export interface PostContentInput {
+  photoUrl: string;
+  caption?: string;
+  city?: string;
+}
+
+export interface EventContentInput {
+  posterUrl: string;
+  title: string;
+  ticketPhone?: string;
+  ticketLink?: string;
+  eventDate?: string; // YYYY-MM-DD
+  city?: string;
+}
 
 export interface PaymentRequest {
   id: string;
@@ -20,6 +62,8 @@ export interface PaymentRequest {
   merchantRef: string; // referência única para o operador
   planId: PaymentPlanId;
   boostPackageId?: BoostPackageId | null; // só relevante quando planId === "boost"
+  postPackageId?: PostPackageId | null; // só relevante quando planId === "post"
+  eventTier?: EventTier | null; // só relevante quando planId === "event"
   amount: number;
   currency: "MZN";
   method: PaymentMethod;
@@ -80,18 +124,24 @@ function localUpdate(id: string, patch: Partial<PaymentRequest>): PaymentRequest
 
 // ── Criar pedido de pagamento ────────────────────────────────
 // Para planos mensais (starter/pro/premium), o valor vem de PLAN_PRICES.
-// Para "boost", o valor depende do pacote escolhido (1/7/30 dias) e tem
+// Para "boost"/"post"/"event", o valor depende do pacote escolhido e tem
 // de ser passado explicitamente em opts.amount — não há valor único fixo.
+// "room"/"table" NUNCA passam por aqui: exigem sessão autenticada e o
+// preço é sempre calculado no servidor (ver create-zumbopay-payment) —
+// usar sempre createZumboPayRoomPayment/createZumboPayTablePayment.
 export async function createPaymentRequest(
   businessId: string,
-  planId: PaymentPlanId,
+  planId: Exclude<PaymentPlanId, "room" | "table">,
   method: PaymentMethod,
   phone?: string,
   opts?: { amount?: number; boostPackageId?: BoostPackageId },
 ): Promise<PaymentRequest> {
   const now = new Date();
   const expires = new Date(now.getTime() + 10 * 60 * 1000); // 10 min
-  const amount = planId === "boost" ? (opts?.amount ?? 0) : PLAN_PRICES[planId];
+  const amount =
+    planId === "boost" || planId === "post" || planId === "event"
+      ? (opts?.amount ?? 0)
+      : PLAN_PRICES[planId];
 
   const req: PaymentRequest = {
     id: crypto.randomUUID(),
@@ -137,7 +187,8 @@ export async function createPaymentRequest(
   return req;
 }
 
-// ── Criar pagamento via ZumboPay (só assinaturas starter/pro/premium) ──
+// ── Criar pagamento via ZumboPay (assinaturas starter/pro/premium E
+// Turbinar/boost) ──
 // Ao contrário de createPaymentRequest (mpesa/emola/manual), aqui não é
 // dado nenhum código USSD — o comerciante é redirecionado para o link
 // de pagamento hospedado pela própria ZumboPay. A confirmação acontece
@@ -145,14 +196,18 @@ export async function createPaymentRequest(
 // precisar do admin confirmar manualmente.
 export async function createZumboPayPayment(
   businessId: string,
-  planId: PlanId,
+  planId: PaymentPlanId,
+  boostPackageId?: BoostPackageId,
 ): Promise<{ payment: PaymentRequest; paymentUrl: string }> {
   if (!SUPABASE_CONFIGURED || !supabase) {
     throw new Error("Pagamento via ZumboPay requer ligação ao Supabase.");
   }
+  if (planId === "boost" && !boostPackageId) {
+    throw new Error("boostPackageId é obrigatório quando planId é 'boost'.");
+  }
 
   const { data, error } = await supabase.functions.invoke("create-zumbopay-payment", {
-    body: { businessId, planId },
+    body: { businessId, planId, boostPackageId },
   });
 
   if (error || !data?.paymentUrl) {
@@ -166,6 +221,213 @@ export async function createZumboPayPayment(
     businessId,
     merchantRef: data.merchantRef,
     planId,
+    boostPackageId: planId === "boost" ? (boostPackageId ?? null) : null,
+    amount: data.amount,
+    currency: "MZN",
+    method: "zumbopay",
+    status: "pending",
+    createdAt: data.createdAt,
+    expiresAt: data.expiresAt,
+    paymentUrl: data.paymentUrl,
+  };
+
+  localAdd(payment);
+  return { payment, paymentUrl: data.paymentUrl };
+}
+
+// ── Criar pagamento de Publicação no feed (Ideia 1 — só fotos) ──
+// O comerciante já fez upload da foto antes (Storage) e escolhe a
+// cidade onde quer que apareça — pode ser diferente da cidade do
+// próprio negócio (ex: quer anunciar em Maputo mesmo estando em Tofo).
+export async function createZumboPayPostPayment(
+  businessId: string,
+  postPackageId: PostPackageId,
+  content: PostContentInput,
+): Promise<{ payment: PaymentRequest; paymentUrl: string }> {
+  if (!SUPABASE_CONFIGURED || !supabase) {
+    throw new Error("Publicação via ZumboPay requer ligação ao Supabase.");
+  }
+
+  const { data, error } = await supabase.functions.invoke("create-zumbopay-payment", {
+    body: {
+      businessId,
+      planId: "post",
+      postPackageId,
+      contentMetadata: {
+        photo_url: content.photoUrl,
+        caption: content.caption ?? null,
+        city: content.city ?? null,
+      },
+    },
+  });
+
+  if (error || !data?.paymentUrl) {
+    throw new Error(
+      (data && data.error) || error?.message || "Falha ao criar o pagamento da publicação.",
+    );
+  }
+
+  const payment: PaymentRequest = {
+    id: data.paymentId,
+    businessId,
+    merchantRef: data.merchantRef,
+    planId: "post",
+    postPackageId,
+    amount: data.amount,
+    currency: "MZN",
+    method: "zumbopay",
+    status: "pending",
+    createdAt: data.createdAt,
+    expiresAt: data.expiresAt,
+    paymentUrl: data.paymentUrl,
+  };
+
+  localAdd(payment);
+  return { payment, paymentUrl: data.paymentUrl };
+}
+
+// ── Criar pagamento de Evento (Ideia 2 — cartaz + bilhetes) ──
+// Exige conta comercial (businessId) — sem convidados, tal como o
+// Turbinar e as assinaturas. tier "featured" custa mais e aparece
+// no topo da aba Eventos.
+export async function createZumboPayEventPayment(
+  businessId: string,
+  eventTier: EventTier,
+  content: EventContentInput,
+): Promise<{ payment: PaymentRequest; paymentUrl: string }> {
+  if (!SUPABASE_CONFIGURED || !supabase) {
+    throw new Error("Publicação de evento via ZumboPay requer ligação ao Supabase.");
+  }
+  if (!content.title?.trim() || !content.posterUrl?.trim()) {
+    throw new Error("Título e cartaz do evento são obrigatórios.");
+  }
+
+  const { data, error } = await supabase.functions.invoke("create-zumbopay-payment", {
+    body: {
+      businessId,
+      planId: "event",
+      eventTier,
+      contentMetadata: {
+        poster_url: content.posterUrl,
+        title: content.title,
+        ticket_phone: content.ticketPhone ?? null,
+        ticket_link: content.ticketLink ?? null,
+        event_date: content.eventDate ?? null,
+        city: content.city ?? null,
+      },
+    },
+  });
+
+  if (error || !data?.paymentUrl) {
+    throw new Error(
+      (data && data.error) || error?.message || "Falha ao criar o pagamento do evento.",
+    );
+  }
+
+  const payment: PaymentRequest = {
+    id: data.paymentId,
+    businessId,
+    merchantRef: data.merchantRef,
+    planId: "event",
+    eventTier,
+    amount: data.amount,
+    currency: "MZN",
+    method: "zumbopay",
+    status: "pending",
+    createdAt: data.createdAt,
+    expiresAt: data.expiresAt,
+    paymentUrl: data.paymentUrl,
+  };
+
+  localAdd(payment);
+  return { payment, paymentUrl: data.paymentUrl };
+}
+
+// ── Criar pagamento de reserva de Quarto (comissão 10% da estadia) ──
+// Exige sessão autenticada — o utilizador (auth.uid) é lido no servidor
+// a partir do token, nunca confiado a partir do corpo do pedido.
+export async function createZumboPayRoomPayment(
+  businessId: string,
+  input: RoomReservationInput,
+): Promise<{ payment: PaymentRequest; paymentUrl: string }> {
+  if (!SUPABASE_CONFIGURED || !supabase) {
+    throw new Error("Reserva de quarto via ZumboPay requer ligação ao Supabase.");
+  }
+
+  const { data, error } = await supabase.functions.invoke("create-zumbopay-payment", {
+    body: {
+      businessId,
+      planId: "room",
+      roomId: input.roomId,
+      checkIn: input.checkIn,
+      checkOut: input.checkOut,
+      guests: input.guests,
+      specialRequest: input.specialRequest ?? null,
+      clientName: input.clientName,
+      clientPhone: input.clientPhone,
+      clientEmail: input.clientEmail ?? null,
+    },
+  });
+
+  if (error || !data?.paymentUrl) {
+    throw new Error(
+      (data && data.error) || error?.message || "Falha ao criar o pagamento da reserva de quarto.",
+    );
+  }
+
+  const payment: PaymentRequest = {
+    id: data.paymentId,
+    businessId,
+    merchantRef: data.merchantRef,
+    planId: "room",
+    amount: data.amount,
+    currency: "MZN",
+    method: "zumbopay",
+    status: "pending",
+    createdAt: data.createdAt,
+    expiresAt: data.expiresAt,
+    paymentUrl: data.paymentUrl,
+  };
+
+  localAdd(payment);
+  return { payment, paymentUrl: data.paymentUrl };
+}
+
+// ── Criar pagamento de reserva de Mesa (preço fixo, metade/metade) ──
+export async function createZumboPayTablePayment(
+  businessId: string,
+  input: TableReservationInput,
+): Promise<{ payment: PaymentRequest; paymentUrl: string }> {
+  if (!SUPABASE_CONFIGURED || !supabase) {
+    throw new Error("Reserva de mesa via ZumboPay requer ligação ao Supabase.");
+  }
+
+  const { data, error } = await supabase.functions.invoke("create-zumbopay-payment", {
+    body: {
+      businessId,
+      planId: "table",
+      reservationDate: input.reservationDate,
+      timeSlot: input.timeSlot,
+      guests: input.guests,
+      specialRequest: input.specialRequest ?? null,
+      clientName: input.clientName,
+      clientPhone: input.clientPhone,
+      clientEmail: input.clientEmail ?? null,
+      tableTipo: input.tipo ?? "normal",
+    },
+  });
+
+  if (error || !data?.paymentUrl) {
+    throw new Error(
+      (data && data.error) || error?.message || "Falha ao criar o pagamento da reserva de mesa.",
+    );
+  }
+
+  const payment: PaymentRequest = {
+    id: data.paymentId,
+    businessId,
+    merchantRef: data.merchantRef,
+    planId: "table",
     amount: data.amount,
     currency: "MZN",
     method: "zumbopay",

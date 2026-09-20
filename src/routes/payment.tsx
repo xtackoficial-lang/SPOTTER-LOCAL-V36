@@ -39,20 +39,20 @@ export const Route = createFileRoute("/payment")({
 function getMethods(
   tr: (k: string) => string,
 ): { id: PaymentMethod; label: string; color: string; hint: string }[] {
+  // CONSERTO (pedido do Abrão, 2026-09-14): "remove a opção manual e
+  // deixa só os pagamentos online" — M-Pesa/e-Mola/Transferência
+  // manual deixam de aparecer para escolha; só fica o ZumboPay. O
+  // código dos métodos manuais (createPaymentRequest, ecrã de
+  // instruções/comprovativo) continua no ficheiro sem ser chamado —
+  // não foi apagado para não perder histórico de pagamentos antigos
+  // feitos por esses métodos (o admin ainda os lê em "Pagamentos").
+  void tr;
   return [
     {
       id: "zumbopay",
       label: "Pagar online (ZumboPay)",
       color: "bg-emerald-600",
       hint: "M-Pesa, e-Mola, mKesh ou cartão — confirmação automática",
-    },
-    { id: "mpesa", label: "M-Pesa", color: "bg-rose-600", hint: tr("mpesaNumbersHint") },
-    { id: "emola", label: "e-Mola", color: "bg-orange-500", hint: tr("emolaNumbersHint") },
-    {
-      id: "manual",
-      label: tr("bankTransferLabel"),
-      color: "bg-slate-600",
-      hint: tr("bciAccountHint"),
     },
   ];
 }
@@ -103,7 +103,10 @@ function PaymentPage() {
   const { draft, hydrated } = useOnboarding();
   const businessId = draft.business.businessId || "default";
   const [planId, setPlanId] = useState<PaidPlanId>(planFromSubscribe ?? "starter");
-  const [method, setMethod] = useState<PaymentMethod | null>(null);
+  // Só há um método (ZumboPay) desde que os manuais foram removidos da
+  // escolha — já vem pré-seleccionado para não obrigar a tocar num
+  // cartão único.
+  const [method, setMethod] = useState<PaymentMethod | null>("zumbopay");
   const [phone, setPhone] = useState("");
   const [step, setStep] = useState<Step>("select");
   const [req, setReq] = useState<PaymentRequest | null>(null);

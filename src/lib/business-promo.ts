@@ -24,7 +24,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   campos_em_falta: "Preenche o título, a mensagem e a validade da promoção.",
   texto_demasiado_longo: "Título ou mensagem demasiado longos — encurta um pouco.",
   nao_e_dono_deste_negocio: "Esta conta não é dona deste negócio.",
-  limite_diario_atingido: "Só é possível enviar uma promoção a cada 24 horas. Tenta novamente amanhã.",
+  limite_diario_atingido:
+    "Só é possível enviar uma promoção a cada 24 horas. Tenta novamente amanhã.",
   internal_error: "Falha ao enviar. Tenta novamente daqui a pouco.",
 };
 
