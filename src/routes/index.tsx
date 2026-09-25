@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Icon } from "@/components/Icon";
 import { useAuth } from "@/lib/auth-context";
+import { resendConfirmationEmail } from "@/lib/auth";
 import { SUPABASE_CONFIGURED } from "@/lib/supabase";
 import { useScreenAppearance } from "@/lib/theme-storage";
 import { ThemeBackdrop } from "@/components/ThemeBackdrop";
@@ -109,6 +110,11 @@ function Welcome() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [mounted, setMounted] = useState(false);
+  // CRIADO (pedido do Abrão, 2026-09-22): quando "Confirm email" está
+  // ligado no Supabase, o registo não dá sessão logo — mostra este ecrã
+  // em vez de avançar para o onboarding. Ver signUp() em auth.ts.
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  const [resendStatus, setResendStatus] = useState<"idle" | "sending" | "sent">("idle");
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 80);
@@ -158,8 +164,23 @@ function Welcome() {
     if (result.error) {
       setError(result.error);
       setMode("email");
+    } else if ("needsEmailConfirmation" in result && result.needsEmailConfirmation) {
+      setNeedsConfirmation(true);
+      setMode("email");
     } else {
       navigate({ to: "/onboarding" });
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email) return;
+    setResendStatus("sending");
+    const { error: resendError } = await resendConfirmationEmail(email);
+    if (resendError) {
+      setError(resendError);
+      setResendStatus("idle");
+    } else {
+      setResendStatus("sent");
     }
   };
 
@@ -370,12 +391,18 @@ function Welcome() {
             <>
               <div className="flex items-center justify-between">
                 <h2 className="text-[1.1rem] font-bold tracking-tight text-foreground">
-                  {isSignup ? tr("createAccount") : tr("signIn")}
+                  {needsConfirmation
+                    ? tr("confirmEmailTitle")
+                    : isSignup
+                      ? tr("createAccount")
+                      : tr("signIn")}
                 </h2>
                 <button
                   onClick={() => {
                     setMode("choose");
                     setError("");
+                    setNeedsConfirmation(false);
+                    setResendStatus("idle");
                   }}
                   className="press inline-flex items-center gap-1 rounded-lg bg-muted px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground"
                 >
@@ -383,7 +410,38 @@ function Welcome() {
                 </button>
               </div>
 
-              {/* BUG DO ABRÃO (2026-08-19): "contas que iniciaram sessão
+              {needsConfirmation ? (
+                // CRIADO (pedido do Abrão, 2026-09-22): ver comentário no
+                // useState de needsConfirmation, acima.
+                <div className="mt-5 animate-slide-up">
+                  <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card px-5 py-6 text-center">
+                    <Icon name="mail" size={28} className="text-primary" />
+                    <p className="text-sm text-foreground">
+                      {tr("confirmEmailBody").replace("{email}", email)}
+                    </p>
+                  </div>
+                  {error && (
+                    <div className="mt-3 flex items-center gap-2 rounded-xl bg-destructive/10 border border-destructive/20 px-3 py-2.5 text-xs text-destructive animate-slide-up">
+                      <Icon name="x" size={12} /> {error}
+                    </div>
+                  )}
+                  {resendStatus === "sent" ? (
+                    <p className="mt-4 text-center text-xs text-primary">
+                      {tr("confirmEmailResendSuccess")}
+                    </p>
+                  ) : (
+                    <button
+                      className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-primary transition disabled:opacity-50"
+                      disabled={resendStatus === "sending"}
+                      onClick={handleResendConfirmation}
+                    >
+                      {tr("confirmEmailResend")}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* BUG DO ABRÃO (2026-08-19): "contas que iniciaram sessão
                   com Google não têm como iniciar sessão, porque só nesta
                   aba é email e senha". Quem criou conta com Google nunca
                   teve senha — precisa do botão Google, não só email/senha.
@@ -391,95 +449,109 @@ function Welcome() {
                   Google, mas para ninguém ficar preso aqui sem reparar
                   nisso, mostra-se também directamente nesta aba de
                   entrar (sem tirar nada do que já existia — só soma). */}
-              {!isSignup && (
-                <div className="mt-4">
-                  <SocialButton
-                    icon="google"
-                    label={tr("continueWithGoogle")}
-                    onClick={() => handleSocialLogin("google")}
-                  />
-                  <div className="my-3 flex items-center gap-3">
-                    <div className="h-px flex-1 bg-border" />
-                    <span className="text-[11px] text-muted-foreground">{tr("or")}</span>
-                    <div className="h-px flex-1 bg-border" />
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-5 space-y-3">
-                {isSignup && (
-                  <div className="animate-slide-up">
-                    <div className="mb-1 text-xs font-semibold text-foreground">{tr("name")}</div>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder={tr("yourName")}
-                      className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition"
-                    />
-                  </div>
-                )}
-                <div>
-                  <div className="mb-1 text-xs font-semibold text-foreground">Email</div>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder={tr("yourEmail")}
-                    className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition"
-                  />
-                </div>
-                <div>
-                  <div className="mb-1 text-xs font-semibold text-foreground">
-                    {tr("passwordLabel")}
-                  </div>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleContinue()}
-                    placeholder={tr("minSixChars")}
-                    className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition"
-                  />
                   {!isSignup && (
-                    // BUG DO ABRÃO (2026-08-23): quem criou a conta com
-                    // Google nunca teve senha nenhuma — ao tentar entrar
-                    // aqui, o Supabase devolve sempre "email ou senha
-                    // incorrectos" (por segurança, não distingue "conta
-                    // sem senha" de "senha errada"). Sem esta dica, a
-                    // pessoa ficava a tentar adivinhar uma senha que
-                    // nunca existiu.
-                    <p className="mt-1.5 text-[11px] text-muted-foreground">
-                      {tr("createdAccountWithGoogleHint").replace(
-                        "{google}",
-                        tr("continueWithGoogle"),
-                      )}
-                    </p>
+                    <div className="mt-4">
+                      <SocialButton
+                        icon="google"
+                        label={tr("continueWithGoogle")}
+                        onClick={() => handleSocialLogin("google")}
+                      />
+                      <div className="my-3 flex items-center gap-3">
+                        <div className="h-px flex-1 bg-border" />
+                        <span className="text-[11px] text-muted-foreground">{tr("or")}</span>
+                        <div className="h-px flex-1 bg-border" />
+                      </div>
+                    </div>
                   )}
-                </div>
-                {error && (
-                  <div className="flex items-center gap-2 rounded-xl bg-destructive/10 border border-destructive/20 px-3 py-2.5 text-xs text-destructive animate-slide-up">
-                    <Icon name="x" size={12} /> {error}
+
+                  <div className="mt-5 space-y-3">
+                    {isSignup && (
+                      <div className="animate-slide-up">
+                        <div className="mb-1 text-xs font-semibold text-foreground">
+                          {tr("name")}
+                        </div>
+                        <input
+                          type="text"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          placeholder={tr("yourName")}
+                          className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition"
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <div className="mb-1 text-xs font-semibold text-foreground">Email</div>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder={tr("yourEmail")}
+                        className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition"
+                      />
+                    </div>
+                    <div>
+                      <div className="mb-1 text-xs font-semibold text-foreground">
+                        {tr("passwordLabel")}
+                      </div>
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleContinue()}
+                        placeholder={tr("minSixChars")}
+                        className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition"
+                      />
+                      {!isSignup && (
+                        // BUG DO ABRÃO (2026-08-23): quem criou a conta com
+                        // Google nunca teve senha nenhuma — ao tentar entrar
+                        // aqui, o Supabase devolve sempre "email ou senha
+                        // incorrectos" (por segurança, não distingue "conta
+                        // sem senha" de "senha errada"). Sem esta dica, a
+                        // pessoa ficava a tentar adivinhar uma senha que
+                        // nunca existiu.
+                        <p className="mt-1.5 text-[11px] text-muted-foreground">
+                          {tr("createdAccountWithGoogleHint").replace(
+                            "{google}",
+                            tr("continueWithGoogle"),
+                          )}
+                        </p>
+                      )}
+                      {!isSignup && (
+                        <div className="text-right">
+                          <Link
+                            to="/forgot-password"
+                            className="text-xs text-muted-foreground hover:text-primary transition"
+                          >
+                            {tr("forgotPasswordLink")}
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                    {error && (
+                      <div className="flex items-center gap-2 rounded-xl bg-destructive/10 border border-destructive/20 px-3 py-2.5 text-xs text-destructive animate-slide-up">
+                        <Icon name="x" size={12} /> {error}
+                      </div>
+                    )}
+                    <ShimmerButton
+                      className="press ripple h-12 w-full rounded-2xl text-sm font-bold text-primary-foreground disabled:opacity-40 transition hover:opacity-90"
+                      style={{ background: "var(--gradient-primary)" }}
+                      disabled={!email || !password}
+                      onClick={handleContinue}
+                    >
+                      {isSignup ? tr("createAccount") : tr("signIn")}
+                    </ShimmerButton>
+                    <button
+                      className="w-full text-center text-xs text-muted-foreground hover:text-primary transition"
+                      onClick={() => {
+                        setIsSignup((v) => !v);
+                        setError("");
+                      }}
+                    >
+                      {isSignup ? tr("alreadyHaveAccount") : tr("noAccountYet")}
+                    </button>
                   </div>
-                )}
-                <ShimmerButton
-                  className="press ripple h-12 w-full rounded-2xl text-sm font-bold text-primary-foreground disabled:opacity-40 transition hover:opacity-90"
-                  style={{ background: "var(--gradient-primary)" }}
-                  disabled={!email || !password}
-                  onClick={handleContinue}
-                >
-                  {isSignup ? tr("createAccount") : tr("signIn")}
-                </ShimmerButton>
-                <button
-                  className="w-full text-center text-xs text-muted-foreground hover:text-primary transition"
-                  onClick={() => {
-                    setIsSignup((v) => !v);
-                    setError("");
-                  }}
-                >
-                  {isSignup ? tr("alreadyHaveAccount") : tr("noAccountYet")}
-                </button>
-              </div>
+                </>
+              )}
             </>
           )}
         </div>

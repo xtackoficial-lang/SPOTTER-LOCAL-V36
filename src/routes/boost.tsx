@@ -95,6 +95,13 @@ function CopyButton({ value, label }: { value: string; label: string }) {
 
 function BoostPage() {
   const tr = useT();
+  // CONSERTO (pedido do Abrão, 2026-09-22): mesmo ajuste já feito em
+  // payment.tsx a 2026-09-14 — remove M-Pesa/e-Mola/Transferência
+  // manual da escolha, fica só ZumboPay (100% online, sem
+  // comprovativo nem confirmação manual do admin). O código dos
+  // métodos manuais mais abaixo neste ficheiro fica sem ser chamado —
+  // não apagado, para não perder o histórico de boosts antigos pagos
+  // assim (o admin ainda os lê em "Pagamentos").
   const METHODS = [
     {
       id: "zumbopay" as PaymentMethod,
@@ -102,30 +109,15 @@ function BoostPage() {
       color: "bg-emerald-600",
       hint: "M-Pesa, e-Mola, mKesh ou cartão — confirmação automática",
     },
-    {
-      id: "mpesa" as PaymentMethod,
-      label: "M-Pesa",
-      color: "bg-rose-600",
-      hint: tr("mpesaNumbersHint"),
-    },
-    {
-      id: "emola" as PaymentMethod,
-      label: "e-Mola",
-      color: "bg-orange-500",
-      hint: tr("emolaNumbersHint"),
-    },
-    {
-      id: "manual" as PaymentMethod,
-      label: tr("bankTransferLabel"),
-      color: "bg-slate-600",
-      hint: tr("bciAccountHint"),
-    },
   ];
   const navigate = useNavigate();
   const { draft } = useOnboarding();
   const businessId = draft.business.businessId || "default";
   const [pkg, setPkg] = useState<BoostPackageId>("1d");
-  const [method, setMethod] = useState<PaymentMethod | null>(null);
+  // Só há um método (ZumboPay) desde que os manuais foram removidos da
+  // escolha — já vem pré-seleccionado para não obrigar a tocar num
+  // cartão único.
+  const [method, setMethod] = useState<PaymentMethod | null>("zumbopay");
   const [phone, setPhone] = useState("");
   const [step, setStep] = useState<Step>("intro");
   const [req, setReq] = useState<PaymentRequest | null>(null);

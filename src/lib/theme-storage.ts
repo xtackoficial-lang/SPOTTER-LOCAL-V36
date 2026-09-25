@@ -297,6 +297,53 @@ export async function saveTheme(theme: AppTheme): Promise<{ error: string | null
   };
 }
 
+// ── Subscrição Realtime PARTILHADA ─────────────────────────────────
+// CONSERTO (2026-09-20): "Error: cannot add `postgres_changes`
+// callbacks for realtime:app_theme_changes after `subscribe()`" —
+// useAppTheme() é chamado em vários sítios ao mesmo tempo
+// (GlobalThemeColors em __root.tsx, MAIS a página activa via
+// useScreenAppearance em home/index/business/merchant/profile). Cada
+// chamada anterior criava e subscrevia o SEU PRÓPRIO canal com o
+// mesmo nome "app_theme_changes" — como há sempre pelo menos 2
+// instâncias montadas ao mesmo tempo (root + rota actual), isto
+// colidia. Agora existe UM canal só, partilhado por todos os
+// componentes que usam este hook: o primeiro a montar cria a
+// subscrição, os seguintes só se juntam à lista de ouvintes, e só
+// quando o último desmonta é que a subscrição é mesmo fechada.
+type ThemeListener = (theme: AppTheme) => void;
+let sharedThemeChannel: ReturnType<NonNullable<typeof supabase>["channel"]> | null = null;
+const themeListeners = new Set<ThemeListener>();
+
+function ensureSharedThemeSubscription() {
+  if (sharedThemeChannel || !SUPABASE_CONFIGURED || !supabase) return;
+  const client = supabase;
+  sharedThemeChannel = client
+    .channel("app_theme_changes")
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "app_theme", filter: "id=eq.default" },
+      (payload) => {
+        const config = (payload.new as { config?: Partial<AppTheme> })?.config;
+        if (!config) return;
+        const base = defaultTheme();
+        const merged: AppTheme = {
+          ...base,
+          ...config,
+          screens: { ...base.screens, ...(config.screens ?? {}) },
+        };
+        localWrite(merged);
+        themeListeners.forEach((listen) => listen(merged));
+      },
+    )
+    .subscribe();
+}
+
+function teardownSharedThemeSubscriptionIfUnused() {
+  if (themeListeners.size > 0 || !sharedThemeChannel || !supabase) return;
+  supabase.removeChannel(sharedThemeChannel);
+  sharedThemeChannel = null;
+}
+
 // ── Hook reactivo: usado pelas páginas para saber o tema actual ───────
 // Subscreve a mudanças em tempo real — quando o admin grava um novo
 // tema, todos os utilizadores com a app aberta vêem a mudança sem
@@ -319,30 +366,17 @@ export function useAppTheme() {
         cancelled = true;
       };
     }
-    const client = supabase;
-    const channel = client
-      .channel("app_theme_changes")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "app_theme", filter: "id=eq.default" },
-        (payload) => {
-          const config = (payload.new as { config?: Partial<AppTheme> })?.config;
-          if (!config) return;
-          const base = defaultTheme();
-          const merged: AppTheme = {
-            ...base,
-            ...config,
-            screens: { ...base.screens, ...(config.screens ?? {}) },
-          };
-          setTheme(merged);
-          localWrite(merged);
-        },
-      )
-      .subscribe();
+
+    const listener: ThemeListener = (merged) => {
+      if (!cancelled) setTheme(merged);
+    };
+    themeListeners.add(listener);
+    ensureSharedThemeSubscription();
 
     return () => {
       cancelled = true;
-      client.removeChannel(channel);
+      themeListeners.delete(listener);
+      teardownSharedThemeSubscriptionIfUnused();
     };
   }, []);
 

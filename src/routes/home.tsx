@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useOnboarding } from "@/lib/onboarding-storage";
+import { useAuth } from "@/lib/auth-context";
 import { CATEGORY_FILTERS, matchesCategoryFilter } from "@/lib/places-data";
 import { LocationScopeButton, type LocationScope } from "@/components/LocationScopePicker";
 import { useDiscoverPlaces } from "@/lib/businesses-db";
@@ -46,13 +47,20 @@ function Home() {
   const navigate = useNavigate();
   const tr = useT();
   const { draft, hydrated } = useOnboarding();
+  const { user } = useAuth();
   const { ready } = useAccountRecovery();
   const { appearance } = useScreenAppearance("home");
   const isBiz = draft.profileType === "business";
   const profile = isBiz ? draft.business : draft.personal;
   const profileCity = profile.city?.trim();
   const profileProvince = profile.province?.trim();
-  // BUG CORRIGIDO (2026-07-07): a Home só mostrava negócios da cidade/
+  // CORREÇÃO (pedido do Abrão, 2026-09-21): a saudação só mostrava o
+  // nome para contas de negócio (business.businessName) — uma conta
+  // pessoal ficava sempre só com "Olá!", sem nome nenhum. Mesma cadeia
+  // de fallback já usada em profile.tsx: nome guardado no onboarding →
+  // nome da conta (Google/email) → parte antes do @ do e-mail.
+  const personalName =
+    draft.personal.name?.trim() || user?.name?.trim() || draft.personal.email?.split("@")[0];
   // província escolhida no início da criação da conta, sem NENHUMA forma
   // de ver mais além disso — o utilizador ficava preso. Decisão do
   // Abrão: mostrar por omissão a cidade/província de casa, mas nunca
@@ -205,7 +213,13 @@ function Home() {
             <h1 className="mt-2 truncate text-2xl font-bold tracking-tight">
               {appearance.enabled && appearance.heading
                 ? appearance.heading
-                : `${tr("greetingHello")}${isBiz && draft.business.businessName ? `, ${draft.business.businessName}` : ""}!`}
+                : `${tr("greetingHello")}${
+                    isBiz && draft.business.businessName
+                      ? `, ${draft.business.businessName}`
+                      : !isBiz && personalName
+                        ? `, ${personalName}`
+                        : ""
+                  }!`}
             </h1>
             <p className="mt-1 text-xs opacity-80">
               {appearance.enabled && appearance.subtext

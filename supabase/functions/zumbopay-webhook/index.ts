@@ -390,7 +390,7 @@ Deno.serve(async (req: Request) => {
       // Assinatura mensal (starter/pro/premium)
       const renewsAt = new Date();
       renewsAt.setMonth(renewsAt.getMonth() + 1);
-      await supabase
+      const { error: planUpdateError } = await supabase
         .from("businesses")
         .update({
           plan_status: "active",
@@ -399,6 +399,17 @@ Deno.serve(async (req: Request) => {
           plan_renews_at: renewsAt.toISOString(),
         })
         .eq("id", payment.business_id);
+      // CORREÇÃO (2026-09-21): antes, um erro aqui (ex: trigger a
+      // reverter os campos por o service_role não ser reconhecido —
+      // ver 005_fix_service_role_triggers.sql) passava despercebido.
+      // Agora fica sempre no log da função, mesmo que o pagamento em
+      // si já tenha sido confirmado.
+      if (planUpdateError) {
+        console.error(
+          "zumbopay-webhook: pagamento confirmado mas falhou activar o plano",
+          payment.business_id, payment.plan_id, planUpdateError,
+        );
+      }
     }
 
     return new Response(JSON.stringify({ received: true, confirmed: true }), { status: 200 });

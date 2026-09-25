@@ -88,10 +88,12 @@ alter table public.room_reservations enable row level security;
 alter table public.table_reservations enable row level security;
 
 -- Leitura pública de quartos ativos (para o cliente ver ao reservar)
+drop policy if exists "public read active rooms" on public.business_rooms;
 create policy "public read active rooms" on public.business_rooms
   for select using (active = true);
 
 -- Comerciante gere os próprios quartos
+drop policy if exists "owner manage own rooms" on public.business_rooms;
 create policy "owner manage own rooms" on public.business_rooms
   for all using (
     business_id in (select id from public.businesses where owner_id = auth.uid())
@@ -103,6 +105,7 @@ create policy "owner manage own rooms" on public.business_rooms
 -- INSERT nunca acontece por aqui (sempre via Edge Function com service
 -- role, que ignora RLS) — por isso não há política de INSERT para o
 -- cliente, de propósito.
+drop policy if exists "owner manage own room reservations" on public.room_reservations;
 create policy "owner manage own room reservations" on public.room_reservations
   for all using (
     business_id in (select id from public.businesses where owner_id = auth.uid())
@@ -110,9 +113,11 @@ create policy "owner manage own room reservations" on public.room_reservations
     business_id in (select id from public.businesses where owner_id = auth.uid())
   );
 
+drop policy if exists "client reads own room reservations" on public.room_reservations;
 create policy "client reads own room reservations" on public.room_reservations
   for select using (client_user_id = auth.uid());
 
+drop policy if exists "owner manage own table reservations" on public.table_reservations;
 create policy "owner manage own table reservations" on public.table_reservations
   for all using (
     business_id in (select id from public.businesses where owner_id = auth.uid())
@@ -120,10 +125,20 @@ create policy "owner manage own table reservations" on public.table_reservations
     business_id in (select id from public.businesses where owner_id = auth.uid())
   );
 
+drop policy if exists "client reads own table reservations" on public.table_reservations;
 create policy "client reads own table reservations" on public.table_reservations
   for select using (client_user_id = auth.uid());
 
 -- Realtime (para o dashboard e os ecrãs do cliente actualizarem sozinhos)
-alter publication supabase_realtime add table public.room_reservations;
-alter publication supabase_realtime add table public.table_reservations;
-alter publication supabase_realtime add table public.business_rooms;
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'room_reservations') then
+    alter publication supabase_realtime add table public.room_reservations;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'table_reservations') then
+    alter publication supabase_realtime add table public.table_reservations;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'business_rooms') then
+    alter publication supabase_realtime add table public.business_rooms;
+  end if;
+end $$;

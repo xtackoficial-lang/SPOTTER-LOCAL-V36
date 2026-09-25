@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SubscribeRouteImport } from './routes/subscribe'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ReservationsDashboardRouteImport } from './routes/reservations-dashboard'
 import { Route as ReservationSettingsRouteImport } from './routes/reservation-settings'
 import { Route as QrBusinessRouteImport } from './routes/qr-business'
@@ -28,6 +29,7 @@ import { Route as MapRouteImport } from './routes/map'
 import { Route as ManageRoomsRouteImport } from './routes/manage-rooms'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as HistoryRouteImport } from './routes/history'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as EventsRouteImport } from './routes/events'
 import { Route as ChatsRouteImport } from './routes/chats'
 import { Route as BusinessInboxRouteImport } from './routes/business-inbox'
@@ -54,6 +56,11 @@ const SubscribeRoute = SubscribeRouteImport.update({
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
   path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReservationsDashboardRoute = ReservationsDashboardRouteImport.update({
@@ -139,6 +146,11 @@ const HomeRoute = HomeRouteImport.update({
 const HistoryRoute = HistoryRouteImport.update({
   id: '/history',
   path: '/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EventsRoute = EventsRouteImport.update({
@@ -236,6 +248,7 @@ export interface FileRoutesByFullPath {
   '/business-inbox': typeof BusinessInboxRoute
   '/chats': typeof ChatsRoute
   '/events': typeof EventsRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
   '/manage-rooms': typeof ManageRoomsRoute
@@ -253,6 +266,7 @@ export interface FileRoutesByFullPath {
   '/qr-business': typeof QrBusinessRoute
   '/reservation-settings': typeof ReservationSettingsRoute
   '/reservations-dashboard': typeof ReservationsDashboardRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/subscribe': typeof SubscribeRoute
   '/business/coupons': typeof BusinessCouponsRoute
@@ -274,6 +288,7 @@ export interface FileRoutesByTo {
   '/business-inbox': typeof BusinessInboxRoute
   '/chats': typeof ChatsRoute
   '/events': typeof EventsRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
   '/manage-rooms': typeof ManageRoomsRoute
@@ -291,6 +306,7 @@ export interface FileRoutesByTo {
   '/qr-business': typeof QrBusinessRoute
   '/reservation-settings': typeof ReservationSettingsRoute
   '/reservations-dashboard': typeof ReservationsDashboardRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/subscribe': typeof SubscribeRoute
   '/business/coupons': typeof BusinessCouponsRoute
@@ -313,6 +329,7 @@ export interface FileRoutesById {
   '/business-inbox': typeof BusinessInboxRoute
   '/chats': typeof ChatsRoute
   '/events': typeof EventsRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
   '/manage-rooms': typeof ManageRoomsRoute
@@ -330,6 +347,7 @@ export interface FileRoutesById {
   '/qr-business': typeof QrBusinessRoute
   '/reservation-settings': typeof ReservationSettingsRoute
   '/reservations-dashboard': typeof ReservationsDashboardRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/subscribe': typeof SubscribeRoute
   '/business/coupons': typeof BusinessCouponsRoute
@@ -353,6 +371,7 @@ export interface FileRouteTypes {
     | '/business-inbox'
     | '/chats'
     | '/events'
+    | '/forgot-password'
     | '/history'
     | '/home'
     | '/manage-rooms'
@@ -370,6 +389,7 @@ export interface FileRouteTypes {
     | '/qr-business'
     | '/reservation-settings'
     | '/reservations-dashboard'
+    | '/reset-password'
     | '/search'
     | '/subscribe'
     | '/business/coupons'
@@ -391,6 +411,7 @@ export interface FileRouteTypes {
     | '/business-inbox'
     | '/chats'
     | '/events'
+    | '/forgot-password'
     | '/history'
     | '/home'
     | '/manage-rooms'
@@ -408,6 +429,7 @@ export interface FileRouteTypes {
     | '/qr-business'
     | '/reservation-settings'
     | '/reservations-dashboard'
+    | '/reset-password'
     | '/search'
     | '/subscribe'
     | '/business/coupons'
@@ -429,6 +451,7 @@ export interface FileRouteTypes {
     | '/business-inbox'
     | '/chats'
     | '/events'
+    | '/forgot-password'
     | '/history'
     | '/home'
     | '/manage-rooms'
@@ -446,6 +469,7 @@ export interface FileRouteTypes {
     | '/qr-business'
     | '/reservation-settings'
     | '/reservations-dashboard'
+    | '/reset-password'
     | '/search'
     | '/subscribe'
     | '/business/coupons'
@@ -468,6 +492,7 @@ export interface RootRouteChildren {
   BusinessInboxRoute: typeof BusinessInboxRoute
   ChatsRoute: typeof ChatsRoute
   EventsRoute: typeof EventsRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   HistoryRoute: typeof HistoryRoute
   HomeRoute: typeof HomeRoute
   ManageRoomsRoute: typeof ManageRoomsRoute
@@ -485,6 +510,7 @@ export interface RootRouteChildren {
   QrBusinessRoute: typeof QrBusinessRoute
   ReservationSettingsRoute: typeof ReservationSettingsRoute
   ReservationsDashboardRoute: typeof ReservationsDashboardRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SearchRoute: typeof SearchRoute
   SubscribeRoute: typeof SubscribeRoute
   ChatIdRoute: typeof ChatIdRoute
@@ -509,6 +535,13 @@ declare module '@tanstack/react-router' {
       path: '/search'
       fullPath: '/search'
       preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reservations-dashboard': {
@@ -628,6 +661,13 @@ declare module '@tanstack/react-router' {
       path: '/history'
       fullPath: '/history'
       preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/events': {
@@ -777,6 +817,7 @@ const rootRouteChildren: RootRouteChildren = {
   BusinessInboxRoute: BusinessInboxRoute,
   ChatsRoute: ChatsRoute,
   EventsRoute: EventsRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   HistoryRoute: HistoryRoute,
   HomeRoute: HomeRoute,
   ManageRoomsRoute: ManageRoomsRoute,
@@ -794,6 +835,7 @@ const rootRouteChildren: RootRouteChildren = {
   QrBusinessRoute: QrBusinessRoute,
   ReservationSettingsRoute: ReservationSettingsRoute,
   ReservationsDashboardRoute: ReservationsDashboardRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SearchRoute: SearchRoute,
   SubscribeRoute: SubscribeRoute,
   ChatIdRoute: ChatIdRoute,

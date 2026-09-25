@@ -119,7 +119,10 @@ function Profile() {
             <div className="truncate text-xl font-bold tracking-tight">
               {isBiz
                 ? draft.business.businessName || tr("businessLabel")
-                : draft.personal.email?.split("@")[0] || "Olá"}
+                : draft.personal.name?.trim() ||
+                  user?.name?.trim() ||
+                  draft.personal.email?.split("@")[0] ||
+                  "Olá"}
             </div>
             <div className="inline-flex items-center gap-1.5 text-xs opacity-90">
               <Icon name="pin" size={11} /> {profile.city || "—"}, {profile.country || "—"}

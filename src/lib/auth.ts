@@ -232,16 +232,29 @@ export async function signUp(
   email: string,
   password: string,
   name?: string,
-): Promise<{ user: AuthUser | null; error: string | null }> {
+): Promise<{ user: AuthUser | null; error: string | null; needsEmailConfirmation?: boolean }> {
   if (SUPABASE_CONFIGURED && supabase) {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { name } },
+        options: { data: { name }, emailRedirectTo: `${window.location.origin}/` },
       });
       if (error) return { user: null, error: translateAuthError(error.message) };
       if (!data.user) return { user: null, error: "Erro ao criar conta" };
+      // CORREÇÃO (pedido do Abrão, 2026-09-22): quando "Confirm email" está
+      // ligado no Supabase, signUp() devolve data.user preenchido mas
+      // data.session vazio — a conta existe, mas ainda não pode ser usada
+      // até a pessoa clicar no link enviado por email. Antes, este código
+      // ignorava isso e devolvia como se já estivesse tudo pronto, o que
+      // empurrava a pessoa para o onboarding sem sessão real por trás
+      // (falhas silenciosas mais à frente, sem explicação). Agora sinaliza
+      // isso separadamente, para o ecrã mostrar "confirma o teu email" em
+      // vez de avançar. Quando "Confirm email" está desligado (como está
+      // hoje), data.session já vem preenchido e nada muda no fluxo actual.
+      if (!data.session) {
+        return { user: null, error: null, needsEmailConfirmation: true };
+      }
       const u: AuthUser = {
         id: data.user.id,
         email: data.user.email,
@@ -497,4 +510,77 @@ export function onAuthChange(callback: (user: AuthUser | null) => void) {
     return () => data.subscription.unsubscribe();
   }
   return () => {};
+}
+
+// ============================================================
+// Recuperação de senha ("Esqueci a senha")
+// ------------------------------------------------------------
+// Pedido do Abrão (2026-09-22): esta funcionalidade não existia —
+// quem esquecesse a senha ficava sem hipótese de recuperar a conta.
+// Fluxo: pede o email → Supabase manda um link → a pessoa toca no
+// link → volta para /reset-password já com uma sessão temporária de
+// recuperação (o Supabase trata isso sozinho, via URL) → escreve a
+// senha nova → updateUser().
+// ============================================================
+
+// Sem domínio próprio ainda: usa sempre window.location.origin, que
+// aponta para onde a app está a correr no momento (localhost em
+// desenvolvimento, o domínio .vercel.app depois de publicado, ou um
+// domínio próprio no futuro) — não precisa de nada fixo no código.
+// Mesmo padrão já usado em signInWithOAuth() acima.
+export async function sendPasswordReset(email: string): Promise<{ error: string | null }> {
+  if (!SUPABASE_CONFIGURED || !supabase) {
+    return { error: "Recuperação de senha só está disponível com o Supabase ligado." };
+  }
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) return { error: translateAuthError(error.message) };
+    return { error: null };
+  } catch (err) {
+    console.warn("sendPasswordReset: falha de rede ao contactar Supabase.", err);
+    return { error: "Sem ligação à internet. Verifique a sua ligação e tente novamente." };
+  }
+}
+
+// Chamado na página /reset-password, depois de a pessoa ter clicado no
+// link do email — a essa altura já existe uma sessão temporária de
+// recuperação (o Supabase estabelece-a sozinho ao abrir o link), por
+// isso updateUser() já basta, sem pedir a senha antiga.
+export async function updatePasswordAfterReset(
+  newPassword: string,
+): Promise<{ error: string | null }> {
+  if (!SUPABASE_CONFIGURED || !supabase) {
+    return { error: "Recuperação de senha só está disponível com o Supabase ligado." };
+  }
+  try {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) return { error: translateAuthError(error.message) };
+    return { error: null };
+  } catch (err) {
+    console.warn("updatePasswordAfterReset: falha de rede ao contactar Supabase.", err);
+    return { error: "Sem ligação à internet. Verifique a sua ligação e tente novamente." };
+  }
+}
+
+// Reenvia o email de confirmação de conta (usado quando "Confirm
+// email" está ligado no Supabase e a pessoa não recebeu ou perdeu o
+// primeiro email, enviado automaticamente em signUp()).
+export async function resendConfirmationEmail(email: string): Promise<{ error: string | null }> {
+  if (!SUPABASE_CONFIGURED || !supabase) {
+    return { error: "Confirmação de email só está disponível com o Supabase ligado." };
+  }
+  try {
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: email.trim(),
+      options: { emailRedirectTo: `${window.location.origin}/` },
+    });
+    if (error) return { error: translateAuthError(error.message) };
+    return { error: null };
+  } catch (err) {
+    console.warn("resendConfirmationEmail: falha de rede ao contactar Supabase.", err);
+    return { error: "Sem ligação à internet. Verifique a sua ligação e tente novamente." };
+  }
 }
