@@ -401,12 +401,12 @@ function Home() {
           {cat === "online" && (
             <p className="mb-4 text-xs text-muted-foreground">{tr("onlineServicesDescription")}</p>
           )}
-          <div className="space-y-4 stagger">
+          <div className="grid grid-cols-1 gap-4 stagger md:grid-cols-2 lg:grid-cols-3">
             {places.map((p) => (
               <PlaceCard key={p.id} place={p} />
             ))}
             {places.length === 0 && (
-              <div className="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-border bg-card p-10 text-center animate-pop-in">
+              <div className="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-border bg-card p-10 text-center animate-pop-in md:col-span-2 lg:col-span-3">
                 {cat === "online" ? (
                   <>
                     <Icon name="delivery" size={28} className="text-violet-400" />

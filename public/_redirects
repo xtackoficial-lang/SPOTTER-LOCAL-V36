@@ -1,0 +1,7 @@
+# CRIADO (pedido do Abrão, 2026-09-22): necessário só se hospedares na
+# Cloudflare Pages (a Vercel já trata disto sozinha, sem precisar deste
+# ficheiro). Manda qualquer rota do SPA (ex: /reservas, /chat/123) para
+# o index.html, para o TanStack Router assumir o resto do lado do
+# browser — sem isto, recarregar a página numa rota que não seja "/"
+# dava erro 404 na Cloudflare.
+/*    /index.html   200

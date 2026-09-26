@@ -22,6 +22,7 @@ export function BottomNav() {
             <Link
               key={t.to}
               to={t.to}
+              replace
               className={`relative flex flex-col items-center gap-1 rounded-xl px-3 py-1.5 text-[10px] font-medium transition press ${
                 active ? "text-primary" : "text-muted-foreground hover:text-foreground"
               }`}

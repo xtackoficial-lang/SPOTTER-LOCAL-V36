@@ -83,58 +83,43 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <GlobalThemeColors />
-      {/* CONSERTO (pedido do Abrão, 2026-09-04, revisto 2026-09-14):
-          "em telas grandes (PC, ecrã rodado/paisagem) a app fica
-          esticada e feia" — mas a moldura fixa de 480px que resolvia
-          isso ficava sempre do tamanho de um telemóvel, mesmo em
-          monitores grandes, e sem preencher bem a altura do ecrã.
-          Cada ecrã interno continua desenhado para uma coluna única
-          (~380-430px) — mudar isso exigiria reescrever todas as
-          páginas para grelhas de várias colunas, o que fica fora
-          desta correcção. O que muda aqui é a moldura em si passar a
-          escalar por breakpoint em vez de ter um único tamanho fixo,
-          para parecer proporcional ao ecrã (telemóvel, tablet, PC) em
-          vez de sempre do mesmo tamanho pequeno centrado num fundo
-          escuro. Em telemóvel normal (retrato, <640px) não muda nada,
-          fica exactamente como antes.
-          O transform: translateZ(0) é o que faz os elementos
-          "position: fixed" desta app (barra de baixo, cabeçalhos fixos,
-          toasts) ficarem presos dentro da moldura em vez de ficarem
-          soltos no ecrã inteiro do PC — mas só a partir de sm: (a
-          moldura só tem altura fixa + scroll próprio a partir daí). Em
-          telemóvel normal a app cresce mais alto que o ecrã (rola a
-          página toda), por isso aplicar isto sempre partia a barra de
-          baixo fixa (ficava presa ao fundo do CONTENTOR, não do ecrã
-          visível, e desaparecia ao rolar). Por isso o transform é só
-          sm:, nunca por omissão. */}
-      <div className="min-h-screen w-full bg-background sm:flex sm:min-h-screen sm:items-center sm:justify-center sm:bg-[#16151d] sm:p-4 md:p-6 lg:p-10">
-        <div className="relative mx-auto w-full bg-background sm:h-[calc(100vh-2rem)] sm:max-w-[480px] md:h-[calc(100vh-3rem)] md:max-w-[540px] lg:h-[calc(100vh-4rem)] lg:max-w-[600px] xl:max-w-[640px] sm:overflow-y-auto sm:overflow-x-hidden sm:rounded-[2.25rem] sm:border sm:border-white/10 sm:shadow-2xl sm:[transform:translateZ(0)]">
-          <Outlet />
-          {toast && (
-            <div
-              role="status"
-              onClick={dismiss}
-              className="fixed inset-x-4 top-4 z-50 animate-slide-up cursor-pointer rounded-2xl border border-border bg-card/95 p-4 shadow-[var(--shadow-lift)] backdrop-blur-xl"
-            >
-              <div className="flex items-start gap-3">
-                <div
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-primary-foreground"
-                  style={{ background: "var(--gradient-primary)" }}
-                >
-                  <Icon name="bell" size={16} />
+      {/* CONSERTO (pedido do Abrão, 2026-09-27): a moldura fixa de
+          telemóvel (fundo escuro + borda + sombra + largura sempre à
+          volta de 480-640px) fazia a app parecer sempre "um telemóvel
+          dentro de um monitor" em PC e em telemóvel rodado (paisagem).
+          Passa a ser uma coluna central sem moldura/decoração, que
+          cresce em largura conforme o ecrã (até um limite legível em
+          monitores muito largos), como um site normal — sem escurecer
+          o resto do ecrã nem desenhar bordas à volta. O scroll volta a
+          ser o da janela toda (deixou de haver um contentor com scroll
+          próprio), por isso os cabeçalhos "sticky" de cada página
+          continuam a colar-se ao topo normalmente. */}
+      <div className="mx-auto min-h-screen w-full max-w-xl bg-background md:max-w-2xl lg:max-w-3xl xl:max-w-4xl">
+        <Outlet />
+        {toast && (
+          <div
+            role="status"
+            onClick={dismiss}
+            className="fixed inset-x-4 top-4 z-50 mx-auto max-w-xl animate-slide-up cursor-pointer rounded-2xl border border-border bg-card/95 p-4 shadow-[var(--shadow-lift)] backdrop-blur-xl md:max-w-2xl lg:max-w-3xl xl:max-w-4xl"
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-primary-foreground"
+                style={{ background: "var(--gradient-primary)" }}
+              >
+                <Icon name="bell" size={16} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold text-foreground">
+                  {toast.title}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold text-foreground">
-                    {toast.title}
-                  </div>
-                  <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                    {toast.body}
-                  </div>
+                <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                  {toast.body}
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </QueryClientProvider>
   );
