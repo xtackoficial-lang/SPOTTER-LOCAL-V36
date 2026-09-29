@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /merchant
+Disallow: /business
+Disallow: /payment
+Disallow: /subscribe
+Disallow: /boost
+Disallow: /profile
+Disallow: /chat
+Disallow: /reset-password
+Disallow: /forgot-password
+
+Sitemap: https://spotter-local.xtackoficial.workers.dev/sitemap.xml

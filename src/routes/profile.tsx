@@ -101,6 +101,7 @@ function Profile() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
+      <h1 className="sr-only">O meu perfil</h1>
       <header
         className={`relative overflow-hidden px-5 pb-7 pt-12 text-primary-foreground ${appearance.enabled ? "" : "gradient-pan"}`}
         style={

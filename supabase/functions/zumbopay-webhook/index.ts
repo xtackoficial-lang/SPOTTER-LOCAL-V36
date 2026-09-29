@@ -14,9 +14,10 @@
 //                             a ZumboPay deve mostrar isto ao criar o webhook)
 //
 // AJUSTAR CONFORME A DOC OFICIAL:
-//   - nome exacto do header de assinatura (assume-se "X-Zumbopay-Signature")
-//   - algoritmo exacto (assume-se HMAC-SHA256 sobre o corpo em bruto)
-//   - nomes dos campos do payload (assume-se { event, reference, status, id })
+// Confirmado na doc oficial: header x-zumbopay-signature = HMAC-SHA256 (hex) do
+// corpo bruto com o webhook secret; eventos payment.succeeded / payment.failed.
+// O identificador do pagamento vem como "reference" (ZP_...), guardado em
+// payments.zumbopay_payment_id pelo create-zumbopay-payment.
 // ============================================================
 
 // @ts-nocheck — ambiente Deno (Supabase Edge Functions).
@@ -84,9 +85,12 @@ Deno.serve(async (req: Request) => {
     }
     // AJUSTAR conforme o payload real da ZumboPay.
     const eventType: string | undefined = payload.event ?? payload.type;
-    const reference: string | undefined = payload.reference ?? payload.data?.reference;
+    const d = payload.data ?? payload;
+    const reference: string | undefined =
+      d.reference ?? d.payment_reference ?? payload.reference;
+    const slug: string | undefined = d.slug ?? d.payment_slug;
     const status: string | undefined = payload.status ?? payload.data?.status;
-    const zumbopayPaymentId: string | undefined = payload.id ?? payload.data?.id;
+    const zumbopayPaymentId: string | undefined = d.payment_id ?? d.id ?? payload.id;
 
     // Se a ZumboPay reutilizar o mesmo endpoint para outros produtos/eventos
     // (ex: payouts, refunds), ignora tudo o que não for confirmação de
@@ -95,7 +99,7 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ received: true, ignored: eventType }), { status: 200 });
     }
 
-    if (!reference && !zumbopayPaymentId) {
+    if (!reference && !zumbopayPaymentId && !slug) {
       return new Response(JSON.stringify({ error: "reference/id em falta no payload" }), {
         status: 400,
       });
@@ -113,11 +117,22 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
       payment = data;
     }
-    if (!payment && zumbopayPaymentId) {
+    // Fallbacks: a referência da ZumboPay (ZP_...) fica em zumbopay_payment_id;
+    // também tenta o id devolvido e o slug (presente no payment_url).
+    for (const candidate of [reference, zumbopayPaymentId]) {
+      if (payment || !candidate) continue;
       const { data } = await supabase
         .from("payments")
         .select("*")
-        .eq("zumbopay_payment_id", zumbopayPaymentId)
+        .eq("zumbopay_payment_id", candidate)
+        .maybeSingle();
+      payment = data;
+    }
+    if (!payment && slug) {
+      const { data } = await supabase
+        .from("payments")
+        .select("*")
+        .ilike("payment_url", `%/pay/${slug}`)
         .maybeSingle();
       payment = data;
     }

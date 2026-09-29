@@ -115,7 +115,7 @@ function RoomForm({
         className="press flex h-36 w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-border bg-background"
       >
         {photoPreview ? (
-          <img src={photoPreview} alt="" className="h-full w-full object-cover" />
+          <img loading="lazy" decoding="async" src={photoPreview} alt="" className="h-full w-full object-cover" />
         ) : (
           <div className="flex flex-col items-center gap-1 text-muted-foreground">
             <Icon name="image" size={22} />
@@ -197,7 +197,7 @@ function RoomCard({ room, onChanged }: { room: BusinessRoom; onChanged: () => vo
       <div className="flex gap-3">
         <div className="h-16 w-16 flex-none overflow-hidden rounded-xl bg-background">
           {room.photoUrl && (
-            <img src={room.photoUrl} alt="" className="h-full w-full object-cover" />
+            <img loading="lazy" decoding="async" src={room.photoUrl} alt="" className="h-full w-full object-cover" />
           )}
         </div>
         <div className="flex-1">

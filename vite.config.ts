@@ -10,6 +10,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 export default defineConfig(({ mode }) => ({
   plugins: [
     TanStackRouterVite({
+      autoCodeSplitting: true,
       routesDirectory: "src/routes",
       generatedRouteTree: "src/routeTree.gen.ts",
     }),

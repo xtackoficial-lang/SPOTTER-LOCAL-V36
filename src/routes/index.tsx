@@ -204,10 +204,10 @@ function Welcome() {
     <div className="relative flex min-h-screen flex-col overflow-hidden bg-background">
       {/* Hero gradient — animado por omissão, ou controlado pelo tema sazonal activo no admin */}
       {appearance.enabled ? (
-        <ThemeBackdrop appearance={appearance} className="absolute inset-x-0 top-0 h-[65vh]" />
+        <ThemeBackdrop appearance={appearance} className="absolute inset-x-0 top-0 h-[65vh] lg:h-full" />
       ) : (
         <div
-          className="absolute inset-x-0 top-0 h-[65vh] gradient-pan"
+          className="absolute inset-x-0 top-0 h-[65vh] gradient-pan lg:h-full"
           style={{ background: "var(--gradient-hero)" }}
         />
       )}
@@ -233,7 +233,8 @@ function Welcome() {
         ))}
       </div>
 
-      <div className="relative z-10 flex flex-1 flex-col px-6 pb-8 pt-14">
+      <div className="relative z-10 flex flex-1 flex-col px-6 pb-8 pt-14 lg:flex-row lg:items-center lg:justify-between lg:gap-16 lg:px-16 lg:py-12 xl:px-28">
+        <div className="lg:max-w-2xl lg:flex-1">
         {/* Logo */}
         <div
           className={`flex items-center gap-3 text-primary-foreground transition-all duration-700 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
@@ -267,7 +268,7 @@ function Welcome() {
           // contraste em qualquer combinação de cores do tema.
           style={appearance.enabled ? { textShadow: "0 2px 16px rgba(0,0,0,0.45)" } : undefined}
         >
-          <h1 className="text-[2.8rem] font-bold leading-[1.03] tracking-tight">
+          <h1 className="text-[2.8rem] font-bold leading-[1.03] tracking-tight lg:text-7xl">
             {appearance.enabled && appearance.heading ? (
               appearance.heading
             ) : (
@@ -278,7 +279,7 @@ function Welcome() {
               </>
             )}
           </h1>
-          <p className="mt-4 max-w-xs text-sm leading-relaxed opacity-85">
+          <p className="mt-4 max-w-xs text-sm leading-relaxed opacity-85 lg:max-w-lg lg:text-lg">
             {appearance.enabled && appearance.subtext ? appearance.subtext : tr("heroSubtext")}
           </p>
 
@@ -302,9 +303,11 @@ function Welcome() {
           </div>
         </div>
 
+        </div>
+
         {/* Card de autenticação */}
         <div
-          className={`mt-auto rounded-[28px] border border-white/30 bg-card/96 p-6 shadow-[var(--shadow-lift)] backdrop-blur-2xl transition-all duration-700 delay-200 animate-auth-card-enter ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
+          className={`mt-auto rounded-[28px] lg:mt-0 lg:w-[460px] lg:shrink-0 border border-white/30 bg-card/96 p-6 shadow-[var(--shadow-lift)] backdrop-blur-2xl transition-all duration-700 delay-200 animate-auth-card-enter ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
         >
           {mode === "loading" ? (
             <div className="py-6">

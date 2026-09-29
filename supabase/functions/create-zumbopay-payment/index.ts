@@ -23,13 +23,13 @@
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (já existem por omissão)
 //   ZUMBOPAY_API_KEY        — chave secreta da ZumboPay (nunca no .env do Vite)
 //   ZUMBOPAY_MERCHANT_ID    — ex: MCH_543CDD49F2
+//   ZUMBOPAY_WALLET_ID      — wallet_id da carteira de destino (obrigatório)
 //   ZUMBOPAY_WEBHOOK_URL    — URL pública desta function:
 //                             https://<project-ref>.supabase.co/functions/v1/zumbopay-webhook
 //
-// AJUSTAR CONFORME A DOCUMENTAÇÃO OFICIAL DA ZUMBOPAY:
-//   - o endpoint exacto (assume-se POST /v1/payments)
-//   - os nomes dos campos do payload (amount/reference/webhook_url)
-//   - o formato da resposta (assume-se { id, payment_url })
+// Formato oficial (doc ZumboPay, 2026-09):
+//   POST {BASE}/payments  →  201 { data: { id, reference, slug, checkout_url, ... } }
+//   O webhook é configurado no painel ZumboPay (não vai no corpo do pedido).
 // ============================================================
 
 // @ts-nocheck — ambiente Deno (Supabase Edge Functions).
@@ -40,7 +40,12 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ZUMBOPAY_API_KEY = Deno.env.get("ZUMBOPAY_API_KEY")!;
 const ZUMBOPAY_MERCHANT_ID = Deno.env.get("ZUMBOPAY_MERCHANT_ID")!;
 const ZUMBOPAY_WEBHOOK_URL = Deno.env.get("ZUMBOPAY_WEBHOOK_URL") ?? "";
-const ZUMBOPAY_BASE_URL = "https://api.zumbopay.com/v1"; // confirmar na doc oficial
+// Confirmado na documentação oficial (https://zumbopay.com/documentacao):
+// URL base = https://zumbopay.com/api/public/v1 (o domínio api.zumbopay.com NÃO existe).
+const ZUMBOPAY_BASE_URL = "https://zumbopay.com/api/public/v1";
+// UUID (ou wallet_code de 6 dígitos) da carteira onde o valor cai — obrigatório
+// em POST /payments. Ver Painel ZumboPay → Carteiras (ou GET /wallets).
+const ZUMBOPAY_WALLET_ID = Deno.env.get("ZUMBOPAY_WALLET_ID") ?? "";
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -371,21 +376,56 @@ Deno.serve(async (req: Request) => {
               ? `Spotter Local — Reserva de mesa (${(tableReservationMeta as any)?.tipo ?? "normal"})`
               : `Spotter Local — Plano ${planId}`;
 
-    const zumboRes = await fetch(`${ZUMBOPAY_BASE_URL}/payments`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${ZUMBOPAY_API_KEY}`,
-        "X-Merchant-Id": ZUMBOPAY_MERCHANT_ID,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        amount,
-        currency: "MZN",
-        reference: merchantRef,
-        description,
-        webhook_url: ZUMBOPAY_WEBHOOK_URL || undefined,
-      }),
-    });
+    if (!ZUMBOPAY_API_KEY || !ZUMBOPAY_MERCHANT_ID || !ZUMBOPAY_WALLET_ID) {
+      console.error("create-zumbopay-payment: faltam secrets", {
+        api_key: !!ZUMBOPAY_API_KEY,
+        merchant_id: !!ZUMBOPAY_MERCHANT_ID,
+        wallet_id: !!ZUMBOPAY_WALLET_ID,
+      });
+      await supabase
+        .from("payments")
+        .update({ status: "failed", fail_reason: "Configuração ZumboPay incompleta" })
+        .eq("id", paymentRow.id);
+      return new Response(JSON.stringify({ error: "Pagamento online indisponível de momento" }), {
+        status: 500,
+        headers: CORS_HEADERS,
+      });
+    }
+
+    // Checkout hospedado: aceita M-Pesa, e-Mola e cartão. O cliente é
+    // redireccionado para data.checkout_url. Expira em 10 min (igual ao fluxo manual).
+    let zumboRes: Response;
+    try {
+      zumboRes = await fetch(`${ZUMBOPAY_BASE_URL}/payments`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${ZUMBOPAY_API_KEY}`,
+          "X-Merchant-Id": ZUMBOPAY_MERCHANT_ID,
+          "Content-Type": "application/json",
+          "Idempotency-Key": merchantRef,
+        },
+        body: JSON.stringify({
+          title: description.slice(0, 120),
+          description: `${description} · ref ${merchantRef}`,
+          amount,
+          currency: "MZN",
+          channels: ["mpesa", "emola", "card"],
+          wallet_id: ZUMBOPAY_WALLET_ID,
+          max_uses: 1,
+          expires_at: expiresAt.toISOString(),
+        }),
+      });
+    } catch (netErr) {
+      console.error("create-zumbopay-payment: falha de rede ao chamar a ZumboPay", netErr);
+      await supabase
+        .from("payments")
+        .update({ status: "failed", fail_reason: "ZumboPay inacessível" })
+        .eq("id", paymentRow.id);
+      return new Response(JSON.stringify({ error: "Não foi possível contactar a ZumboPay" }), {
+        status: 502,
+        headers: CORS_HEADERS,
+      });
+    }
 
     if (!zumboRes.ok) {
       const errBody = await zumboRes.text();
@@ -393,7 +433,7 @@ Deno.serve(async (req: Request) => {
       // Marca a linha como failed para não ficar "pending" órfã.
       await supabase
         .from("payments")
-        .update({ status: "failed", fail_reason: `ZumboPay ${zumboRes.status}` })
+        .update({ status: "failed", fail_reason: `ZumboPay ${zumboRes.status}: ${errBody.slice(0, 200)}` })
         .eq("id", paymentRow.id);
       return new Response(JSON.stringify({ error: "Falha ao criar pagamento na ZumboPay" }), {
         status: 502,
@@ -401,18 +441,32 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const zumboData = await zumboRes.json();
-    // AJUSTAR: nomes de campo assumidos (id / payment_url) — confirmar na doc.
-    const paymentUrl = zumboData.payment_url ?? zumboData.url ?? zumboData.link;
-    const zumbopayPaymentId = zumboData.id ?? zumboData.payment_id;
+    const zumboJson = await zumboRes.json();
+    const zumboData = zumboJson?.data ?? zumboJson;
+    const paymentUrl = zumboData.checkout_url ?? zumboData.payment_url ?? zumboData.url;
+    // "reference" (ZP_...) é o identificador estável que a ZumboPay usa nos
+    // webhooks e em GET /payments/:ref; guardamo-lo em zumbopay_payment_id.
+    const zumbopayPaymentId = zumboData.reference ?? zumboData.id ?? null;
+
+    if (!paymentUrl) {
+      console.error("create-zumbopay-payment: resposta sem checkout_url", zumboJson);
+      await supabase
+        .from("payments")
+        .update({ status: "failed", fail_reason: "ZumboPay sem checkout_url" })
+        .eq("id", paymentRow.id);
+      return new Response(JSON.stringify({ error: "Resposta inesperada da ZumboPay" }), {
+        status: 502,
+        headers: CORS_HEADERS,
+      });
+    }
 
     // 3) Guarda a referência devolvida pela ZumboPay na mesma linha
     await supabase
       .from("payments")
       .update({
         zumbopay_reference: merchantRef,
-        zumbopay_payment_id: zumbopayPaymentId ?? null,
-        payment_url: paymentUrl ?? null,
+        zumbopay_payment_id: zumbopayPaymentId,
+        payment_url: paymentUrl,
       })
       .eq("id", paymentRow.id);
 

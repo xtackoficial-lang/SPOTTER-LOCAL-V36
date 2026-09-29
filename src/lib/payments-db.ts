@@ -194,6 +194,27 @@ export async function createPaymentRequest(
 // de pagamento hospedado pela própria ZumboPay. A confirmação acontece
 // sozinha via webhook (ver supabase/functions/zumbopay-webhook), sem
 // precisar do admin confirmar manualmente.
+// supabase.functions.invoke devolve data=null quando a function responde 4xx/5xx
+// e esconde a mensagem real dentro de error.context (um Response). Sem isto o
+// utilizador só via "Edge Function returned a non-2xx status code".
+async function invokeErrorMessage(
+  data: { error?: string } | null | undefined,
+  error: { message?: string; context?: unknown } | null | undefined,
+  fallback: string,
+): Promise<string> {
+  if (data?.error) return data.error;
+  try {
+    const ctx = error?.context as Response | undefined;
+    if (ctx && typeof ctx.json === "function") {
+      const body = await ctx.json();
+      if (body?.error) return String(body.error);
+    }
+  } catch {
+    /* corpo não era JSON — usa o fallback */
+  }
+  return fallback;
+}
+
 export async function createZumboPayPayment(
   businessId: string,
   planId: PaymentPlanId,
@@ -212,7 +233,7 @@ export async function createZumboPayPayment(
 
   if (error || !data?.paymentUrl) {
     throw new Error(
-      (data && data.error) || error?.message || "Falha ao criar o pagamento na ZumboPay.",
+      await invokeErrorMessage(data, error, "Falha ao criar o pagamento na ZumboPay."),
     );
   }
 
@@ -263,7 +284,7 @@ export async function createZumboPayPostPayment(
 
   if (error || !data?.paymentUrl) {
     throw new Error(
-      (data && data.error) || error?.message || "Falha ao criar o pagamento da publicação.",
+      await invokeErrorMessage(data, error, "Falha ao criar o pagamento da publicação."),
     );
   }
 
@@ -320,7 +341,7 @@ export async function createZumboPayEventPayment(
 
   if (error || !data?.paymentUrl) {
     throw new Error(
-      (data && data.error) || error?.message || "Falha ao criar o pagamento do evento.",
+      await invokeErrorMessage(data, error, "Falha ao criar o pagamento do evento."),
     );
   }
 
@@ -371,7 +392,7 @@ export async function createZumboPayRoomPayment(
 
   if (error || !data?.paymentUrl) {
     throw new Error(
-      (data && data.error) || error?.message || "Falha ao criar o pagamento da reserva de quarto.",
+      await invokeErrorMessage(data, error, "Falha ao criar o pagamento da reserva de quarto."),
     );
   }
 
@@ -419,7 +440,7 @@ export async function createZumboPayTablePayment(
 
   if (error || !data?.paymentUrl) {
     throw new Error(
-      (data && data.error) || error?.message || "Falha ao criar o pagamento da reserva de mesa.",
+      await invokeErrorMessage(data, error, "Falha ao criar o pagamento da reserva de mesa."),
     );
   }
 

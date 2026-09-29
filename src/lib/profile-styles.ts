@@ -531,22 +531,17 @@ export function getGalleryImageMeta(backgroundId?: string): GalleryImage | null 
   return BACKGROUND_GALLERY.find((b) => b.id === backgroundId) ?? null;
 }
 
-// Carrega a imagem em si (base64) sob demanda — ver explicação acima.
-// Devolve null se o backgroundId não existir ou se o módulo de imagens
-// não carregar por algum motivo (ex: rede lenta) — quem chama deve
-// tratar isso como "sem imagem, usa só a cor do Tema", nunca como erro
-// fatal de carregamento da página.
+// URL da imagem de fundo. CONSERTO (2026-09-30): as 28 imagens deixaram de
+// viver dentro de um módulo TypeScript de 8,3 MB em base64 (que era
+// descarregado por inteiro ao abrir QUALQUER perfil). Agora são ficheiros
+// WebP em /public/backgrounds/ (~30-150 KB cada), servidos pelo CDN, com
+// cache do browser, e só a imagem escolhida é descarregada.
+// Mantém-se async/Promise para não mudar quem já chama esta função.
 export async function getGalleryImageUrl(backgroundId?: string): Promise<string | null> {
   if (!backgroundId) return null;
   const meta = getGalleryImageMeta(backgroundId);
   if (!meta) return null;
-  try {
-    const mod = await import("./profile-backgrounds-data");
-    return (mod as unknown as Record<string, string | undefined>)[backgroundId] ?? null;
-  } catch (err) {
-    console.warn("getGalleryImageUrl: falha ao carregar imagens de fundo.", err);
-    return null;
-  }
+  return `/backgrounds/${backgroundId}.webp`;
 }
 
 // Estilo do fundo da página: se houver uma imagem escolhida, fica fixa

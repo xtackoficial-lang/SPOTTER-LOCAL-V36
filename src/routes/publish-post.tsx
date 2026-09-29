@@ -180,7 +180,7 @@ function PublishPostPage() {
                 className="press flex h-48 w-full items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-border bg-card"
               >
                 {photoPreview ? (
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={photoPreview}
                     alt="Pré-visualização"
                     className="h-full w-full object-cover"

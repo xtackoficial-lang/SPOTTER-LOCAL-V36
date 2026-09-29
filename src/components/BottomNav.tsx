@@ -15,7 +15,7 @@ export function BottomNav() {
   const tr = useT();
   return (
     <nav className="sticky bottom-0 z-20 border-t border-border bg-card/95 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-md items-center justify-around">
+      <div className="mx-auto flex max-w-md items-center justify-around md:max-w-xl">
         {tabs.map((t) => {
           const active = pathname === t.to || (t.to === "/home" && pathname === "/home");
           return (

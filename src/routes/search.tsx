@@ -262,7 +262,7 @@ function SearchPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-3 stagger md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 stagger md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {results.map((p) => (
             <PlaceCard key={p.id} place={p} />
           ))}

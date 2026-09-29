@@ -401,7 +401,7 @@ function Home() {
           {cat === "online" && (
             <p className="mb-4 text-xs text-muted-foreground">{tr("onlineServicesDescription")}</p>
           )}
-          <div className="grid grid-cols-1 gap-4 stagger md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 stagger md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {places.map((p) => (
               <PlaceCard key={p.id} place={p} />
             ))}

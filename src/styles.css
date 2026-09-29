@@ -676,3 +676,8 @@
   0%,100% { transform: scale(1);    opacity: 0.7; }
   50%      { transform: scale(1.20); opacity: 1;   }
 }
+
+
+/* CONSERTO (2026-09-30): fundo do ecrã segue o tema em vez do #0d0d0d do
+   splash — evita faixas escuras à volta do conteúdo em monitores largos. */
+html, body, #root { background: var(--background); min-height: 100%; }

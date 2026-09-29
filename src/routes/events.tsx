@@ -82,7 +82,7 @@ function EventsPage() {
                 DESTAQUE
               </div>
             )}
-            <img src={ev.posterUrl} alt={ev.title} className="h-56 w-full object-cover" />
+            <img loading="lazy" decoding="async" src={ev.posterUrl} alt={ev.title} className="h-56 w-full object-cover" />
             <div className="space-y-2 p-4">
               <h2 className="text-base font-bold text-foreground">{ev.title}</h2>
               <p className="text-xs text-muted-foreground">

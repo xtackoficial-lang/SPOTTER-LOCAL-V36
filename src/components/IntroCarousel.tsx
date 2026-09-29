@@ -11,7 +11,7 @@
 // segue o scroll automaticamente via IntersectionObserver.
 //
 // PARA TROCAR AS IMAGENS PELAS FOTOS REAIS DO ABRÃO: substituir os 3
-// ficheiros em /public/onboarding-intro/s1.png, s2.png, s3.png — não é
+// ficheiros em /public/onboarding-intro/s1.webp, s2.png, s3.png — não é
 // preciso mexer neste componente.
 // ============================================================
 import { useEffect, useRef, useState } from "react";
@@ -37,17 +37,17 @@ function markIntroSeen() {
 
 const SLIDES = [
   {
-    image: "/onboarding-intro/s1.png",
+    image: "/onboarding-intro/s1.webp",
     titleKey: "introTitle1",
     subtitleKey: "introSubtitle1",
   },
   {
-    image: "/onboarding-intro/s2.png",
+    image: "/onboarding-intro/s2.webp",
     titleKey: "introTitle2",
     subtitleKey: "introSubtitle2",
   },
   {
-    image: "/onboarding-intro/s3.png",
+    image: "/onboarding-intro/s3.webp",
     titleKey: "introTitle3",
     subtitleKey: "introSubtitle3",
   },

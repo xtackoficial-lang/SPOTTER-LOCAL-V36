@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt" dir="ltr">
+<html lang="pt-MZ" dir="ltr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -22,15 +22,58 @@
 
     <!-- SEO -->
     <title>Spotter Local — Negócios de Moçambique</title>
-    <meta name="description" content="Descobre restaurantes, hotéis, farmácias e serviços abertos perto de ti em Moçambique." />
-    <meta name="keywords" content="moçambique, maputo, inhambane, restaurantes, hotéis, negócios locais" />
-    <meta name="robots" content="index, follow" />
+    <meta name="description" content="Descobre restaurantes, hotéis, farmácias e serviços abertos perto de ti em Moçambique. Reserva mesa ou quarto e fala directamente com o negócio." />
+    <meta name="keywords" content="moçambique, maputo, inhambane, restaurantes, hotéis, farmácias, negócios locais, reservas" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <link rel="canonical" href="https://spotter-local.xtackoficial.workers.dev/" />
+    <meta name="author" content="XTACK" />
+    <meta name="geo.region" content="MZ" />
 
-    <!-- Open Graph -->
+    <!-- Open Graph / Twitter (og:image tem de ser URL absoluto, 1200x630) -->
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Spotter Local" />
+    <meta property="og:locale" content="pt_MZ" />
+    <meta property="og:url" content="https://spotter-local.xtackoficial.workers.dev/" />
     <meta property="og:title" content="Spotter Local — Negócios de Moçambique" />
-    <meta property="og:description" content="Descobre negócios locais perto de ti." />
-    <meta property="og:image" content="/icon-512.png" />
+    <meta property="og:description" content="Descobre negócios locais abertos perto de ti: restaurantes, hotéis, farmácias e serviços." />
+    <meta property="og:image" content="https://spotter-local.xtackoficial.workers.dev/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Spotter Local — descobre negócios perto de ti em Moçambique" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Spotter Local — Negócios de Moçambique" />
+    <meta name="twitter:description" content="Descobre negócios locais abertos perto de ti." />
+    <meta name="twitter:image" content="https://spotter-local.xtackoficial.workers.dev/og-image.jpg" />
+
+    <!-- Dados estruturados (schema.org) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "name": "XTACK",
+            "url": "https://spotter-local.xtackoficial.workers.dev/",
+            "logo": "https://spotter-local.xtackoficial.workers.dev/icon-512.png",
+            "email": "xtackoficial@gmail.com",
+            "areaServed": "MZ"
+          },
+          {
+            "@type": "WebSite",
+            "name": "Spotter Local",
+            "url": "https://spotter-local.xtackoficial.workers.dev/",
+            "inLanguage": "pt-MZ"
+          },
+          {
+            "@type": "WebApplication",
+            "name": "Spotter Local",
+            "applicationCategory": "TravelApplication",
+            "operatingSystem": "Android, iOS, Windows, Web",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "MZN" }
+          }
+        ]
+      }
+    </script>
 
     <!-- Ícone -->
     <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
@@ -279,6 +322,10 @@
     </style>
   </head>
   <body>
+    <noscript>
+      <h1>Spotter Local — Negócios de Moçambique</h1>
+      <p>Descobre restaurantes, hotéis, farmácias e serviços abertos perto de ti em Moçambique. Activa o JavaScript para usar a aplicação.</p>
+    </noscript>
     <!-- Splash nativo — desaparece quando React montar -->
     <div id="splash">
       <!-- Blobs de vidro (fundo) -->

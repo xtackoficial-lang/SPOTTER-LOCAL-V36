@@ -777,6 +777,7 @@ function MerchantPanel() {
   // ── render ──
   return (
     <div className="flex min-h-screen flex-col bg-background">
+      <h1 className="sr-only">Painel do comerciante</h1>
       {/* header */}
       <header
         className="relative overflow-hidden px-5 pb-6 pt-12"
@@ -802,7 +803,7 @@ function MerchantPanel() {
               onClick={() => coverRef.current?.click()}
             >
               {cover ? (
-                <img src={cover} alt="capa" className="h-full w-full object-cover" />
+                <img loading="lazy" decoding="async" src={cover} alt="capa" className="h-full w-full object-cover" />
               ) : (
                 <Icon name="camera" size={24} className="text-white/70" />
               )}
@@ -1527,7 +1528,7 @@ function MerchantPanel() {
               >
                 {cover ? (
                   <>
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={cover}
                       alt={tr("coverAltLabel")}
                       className="h-full w-full object-cover"
@@ -1637,7 +1638,7 @@ function MerchantPanel() {
                           idx >= GALLERY_LIMIT ? "opacity-50" : ""
                         }`}
                       >
-                        <img
+                        <img loading="lazy" decoding="async"
                           src={img}
                           alt=""
                           className="h-full w-full object-cover pointer-events-none"
@@ -1776,7 +1777,7 @@ function MerchantPanel() {
                     className="row-hover flex cursor-pointer items-center gap-3 rounded-2xl border border-border bg-card p-3 shadow-[var(--shadow-soft)]"
                   >
                     {p.imageUrl ? (
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={p.imageUrl}
                         alt=""
                         className="h-14 w-14 rounded-xl object-cover flex-shrink-0"
@@ -1979,7 +1980,7 @@ function MerchantPanel() {
             >
               {pImage ? (
                 <>
-                  <img src={pImage} alt="" className="h-full w-full object-cover" />
+                  <img loading="lazy" decoding="async" src={pImage} alt="" className="h-full w-full object-cover" />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Icon name="camera" size={22} className="text-white" />
                   </div>

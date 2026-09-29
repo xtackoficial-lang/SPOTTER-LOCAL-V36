@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Outlet, Link, createRootRouteWithContext, useRouter } from "@tanstack/react-router";
+import {
+  Outlet,
+  Link,
+  createRootRouteWithContext,
+  useRouter,
+  useLocation,
+} from "@tanstack/react-router";
 import { useEffect } from "react";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { usePushAutoRegister, useForegroundPushToast } from "../lib/push-storage";
@@ -72,8 +78,33 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+// Rotas "largas": ocupam o ecrã todo (login, descobrir, pesquisa, mapa, painéis).
+// As restantes (formulários, pagamento, reservas, perfil...) ficam numa coluna
+// central legível em PC, sem moldura — um formulário esticado a 1900px é
+// pior de usar do que uma coluna de ~768px.
+const WIDE_ROUTES = [
+  "/home",
+  "/search",
+  "/map",
+  "/events",
+  "/place",
+  "/chats",
+  "/admin",
+  "/analytics",
+  "/business",
+  "/merchant",
+  "/reservations-dashboard",
+];
+
+function isWideRoute(pathname: string): boolean {
+  if (pathname === "/") return true;
+  return WIDE_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/") || pathname.startsWith(r + "."));
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const { pathname } = useLocation();
+  const wide = isWideRoute(pathname);
   // Re-regista silenciosamente o token push se a permissão já tiver sido
   // concedida antes (não interrompe quem ainda não decidiu).
   usePushAutoRegister();
@@ -83,24 +114,25 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <GlobalThemeColors />
-      {/* CONSERTO (pedido do Abrão, 2026-09-27): a moldura fixa de
-          telemóvel (fundo escuro + borda + sombra + largura sempre à
-          volta de 480-640px) fazia a app parecer sempre "um telemóvel
-          dentro de um monitor" em PC e em telemóvel rodado (paisagem).
-          Passa a ser uma coluna central sem moldura/decoração, que
-          cresce em largura conforme o ecrã (até um limite legível em
-          monitores muito largos), como um site normal — sem escurecer
-          o resto do ecrã nem desenhar bordas à volta. O scroll volta a
-          ser o da janela toda (deixou de haver um contentor com scroll
-          próprio), por isso os cabeçalhos "sticky" de cada página
-          continuam a colar-se ao topo normalmente. */}
-      <div className="mx-auto min-h-screen w-full max-w-xl bg-background md:max-w-2xl lg:max-w-3xl xl:max-w-4xl">
+      {/* CONSERTO (pedido do Abrão, 2026-09-30): a app tem de ocupar o
+          ecrã TODO no computador. Antes ficava presa numa coluna de
+          ~900px com o resto do ecrã vazio. Agora as rotas "largas" usam
+          100% da largura e as de formulário ficam numa coluna central
+          legível (sem moldura). O scroll continua a ser o da janela, por
+          isso os cabeçalhos "sticky" continuam a colar ao topo. */}
+      <div
+        className={
+          wide
+            ? "min-h-screen w-full bg-background"
+            : "mx-auto min-h-screen w-full max-w-xl bg-background md:max-w-2xl lg:max-w-3xl"
+        }
+      >
         <Outlet />
         {toast && (
           <div
             role="status"
             onClick={dismiss}
-            className="fixed inset-x-4 top-4 z-50 mx-auto max-w-xl animate-slide-up cursor-pointer rounded-2xl border border-border bg-card/95 p-4 shadow-[var(--shadow-lift)] backdrop-blur-xl md:max-w-2xl lg:max-w-3xl xl:max-w-4xl"
+            className="fixed inset-x-4 top-4 z-50 mx-auto max-w-xl animate-slide-up cursor-pointer rounded-2xl border border-border bg-card/95 p-4 shadow-[var(--shadow-lift)] backdrop-blur-xl md:max-w-2xl"
           >
             <div className="flex items-start gap-3">
               <div

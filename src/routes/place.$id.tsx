@@ -221,6 +221,40 @@ function PlaceDetail() {
       : structure.blocks
     : [];
 
+
+  // SEO (2026-09-30): título, descrição e dados estruturados (schema.org
+  // LocalBusiness) por negócio. A app é SPA — o Google executa o JS, por
+  // isso isto é lido depois de o negócio carregar.
+  useEffect(() => {
+    if (!place) return;
+    const prevTitle = document.title;
+    document.title = `${place.name} — ${place.categoryLabel || "Negócio"} | Spotter Local`;
+    const desc = `${place.name}${place.address ? ` — ${place.address}` : ""}. Vê horário, contactos e reserva no Spotter Local.`;
+    let metaDesc = document.querySelector('meta[name="description"]');
+    const prevDesc = metaDesc?.getAttribute("content") ?? null;
+    metaDesc?.setAttribute("content", desc);
+    const ld = document.createElement("script");
+    ld.type = "application/ld+json";
+    ld.id = "place-jsonld";
+    ld.text = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      name: place.name,
+      address: place.address || undefined,
+      telephone: place.phone || undefined,
+      geo:
+        typeof place.lat === "number" && typeof place.lng === "number"
+          ? { "@type": "GeoCoordinates", latitude: place.lat, longitude: place.lng }
+          : undefined,
+    });
+    document.head.appendChild(ld);
+    return () => {
+      document.title = prevTitle;
+      if (metaDesc && prevDesc !== null) metaDesc.setAttribute("content", prevDesc);
+      ld.remove();
+    };
+  }, [place]);
+
   if (place === undefined) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -296,6 +330,7 @@ function PlaceDetail() {
 
   return (
     <div className="min-h-screen pb-32" style={themeBackgroundStyle(theme, backgroundUrl)}>
+      <h1 className="sr-only">{place.name}</h1>
       {isOwnerPreview && (
         <div className="sticky top-0 z-50 flex items-center justify-between gap-2 bg-foreground px-4 py-2.5 text-background">
           <span className="flex items-center gap-1.5 text-xs font-semibold">
