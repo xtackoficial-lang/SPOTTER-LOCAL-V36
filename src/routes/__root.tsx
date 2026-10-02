@@ -98,7 +98,9 @@ const WIDE_ROUTES = [
 
 function isWideRoute(pathname: string): boolean {
   if (pathname === "/") return true;
-  return WIDE_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/") || pathname.startsWith(r + "."));
+  return WIDE_ROUTES.some(
+    (r) => pathname === r || pathname.startsWith(r + "/") || pathname.startsWith(r + "."),
+  );
 }
 
 function RootComponent() {
@@ -142,9 +144,7 @@ function RootComponent() {
                 <Icon name="bell" size={16} />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-semibold text-foreground">
-                  {toast.title}
-                </div>
+                <div className="truncate text-sm font-semibold text-foreground">{toast.title}</div>
                 <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
                   {toast.body}
                 </div>

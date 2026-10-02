@@ -1,7 +1,7 @@
 // ============================================================
 // SPOTTER — Reservas (quartos de hotel e mesas de restaurante)
 // ============================================================
-import { supabase, SUPABASE_CONFIGURED } from "./supabase";
+import { supabase, SUPABASE_CONFIGURED, isUuid } from "./supabase";
 
 export interface BusinessRoom {
   id: string;
@@ -38,6 +38,12 @@ export interface RoomReservation {
   nights: number;
   totalPrice: number;
   commissionAmount: number;
+  /** "full" = pagou 100% · "deposit" = sinal de 20% */
+  paymentOption: "full" | "deposit";
+  amountPaid: number;
+  balanceDue: number;
+  /** Até quando o hotel deve responder (ISO). */
+  responseDeadline: string | null;
   status: RoomReservationStatus;
   rejectionReason: string | null;
   refunded: boolean;
@@ -103,6 +109,10 @@ interface RoomReservationRow {
   nights: number;
   total_price: number;
   commission_amount: number;
+  payment_option: "full" | "deposit" | null;
+  amount_paid: number | null;
+  balance_due: number | null;
+  response_deadline: string | null;
   status: RoomReservationStatus;
   rejection_reason: string | null;
   refunded: boolean;
@@ -160,6 +170,10 @@ function mapRoomReservation(row: RoomReservationRow): RoomReservation {
     nights: row.nights,
     totalPrice: row.total_price,
     commissionAmount: row.commission_amount,
+    paymentOption: row.payment_option ?? "deposit",
+    amountPaid: row.amount_paid ?? row.commission_amount,
+    balanceDue: row.balance_due ?? Math.max(row.total_price - row.commission_amount, 0),
+    responseDeadline: row.response_deadline ?? null,
     status: row.status,
     rejectionReason: row.rejection_reason ?? null,
     refunded: row.refunded,
@@ -347,8 +361,16 @@ export async function fetchMyTableReservations(userId: string): Promise<TableRes
   return data.map(mapTableReservation);
 }
 
+import { canOfferRoomReservations, canOfferTableReservations } from "./reservation-eligibility";
+
 // ---------- Definições de reserva por negócio ----------
 export interface BusinessReservationSettings {
+  /** Categoria do negócio — decide se pode ter reservas de quarto/mesa. */
+  category: string | null;
+  /** true se a categoria PERMITE reservas de quarto (independente do interruptor). */
+  roomEligible: boolean;
+  /** true se a categoria PERMITE reservas de mesa. */
+  tableEligible: boolean;
   acceptsRoomReservation: boolean;
   acceptsTableReservation: boolean;
   whatsappReservas: string | null;
@@ -360,18 +382,26 @@ export interface BusinessReservationSettings {
 export async function fetchReservationSettings(
   businessId: string,
 ): Promise<BusinessReservationSettings | null> {
-  if (!SUPABASE_CONFIGURED || !supabase) return null;
+  if (!SUPABASE_CONFIGURED || !supabase || !isUuid(businessId)) return null;
   const { data, error } = await supabase
     .from("businesses")
     .select(
-      "accepts_room_reservation, accepts_table_reservation, whatsapp_reservas, numero_repasse, mesa_preco_normal, mesa_preco_evento",
+      "category, accepts_room_reservation, accepts_table_reservation, whatsapp_reservas, numero_repasse, mesa_preco_normal, mesa_preco_evento",
     )
     .eq("id", businessId)
     .maybeSingle();
   if (error || !data) return null;
+  const roomEligible = canOfferRoomReservations(data.category);
+  const tableEligible = canOfferTableReservations(data.category);
   return {
-    acceptsRoomReservation: data.accepts_room_reservation,
-    acceptsTableReservation: data.accepts_table_reservation,
+    category: data.category ?? null,
+    roomEligible,
+    tableEligible,
+    // Mesmo que o interruptor esteja ligado na BD (ex: negócio antigo),
+    // só conta se a categoria for elegível — assim um táxi nunca mostra
+    // "Reservar quarto" no perfil nem "Gerir quartos" no painel.
+    acceptsRoomReservation: !!data.accepts_room_reservation && roomEligible,
+    acceptsTableReservation: !!data.accepts_table_reservation && tableEligible,
     whatsappReservas: data.whatsapp_reservas ?? null,
     numeroRepasse: data.numero_repasse ?? null,
     mesaPrecoNormal: data.mesa_preco_normal,
@@ -408,4 +438,16 @@ export function buildPostPaymentWhatsAppLink(
       ? `Olá! Acabei de reservar ${details} através do Spotter Local. Gostava de confirmar preferências e receber mais detalhes. Aguardo a vossa resposta!`
       : `Olá! Acabei de reservar uma mesa (${details}) através do Spotter Local. Aguardo a vossa confirmação!`;
   return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+}
+
+// Formata o prazo de resposta do hotel (hora de Maputo).
+export function formatResponseDeadline(iso: string | null): string | null {
+  if (!iso) return null;
+  return new Date(iso).toLocaleString("pt-PT", {
+    timeZone: "Africa/Maputo",
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }

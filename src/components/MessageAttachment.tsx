@@ -57,7 +57,9 @@ export function MessageAttachment({ attachment }: { attachment: AttachmentLike }
           onClick={() => setExpanded(true)}
           className="press block overflow-hidden rounded-xl"
         >
-          <img loading="lazy" decoding="async"
+          <img
+            loading="lazy"
+            decoding="async"
             src={url}
             alt={attachment.attachment_name}
             className="max-h-56 w-full max-w-[220px] object-cover"
@@ -68,7 +70,9 @@ export function MessageAttachment({ attachment }: { attachment: AttachmentLike }
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-pop-in"
             onClick={() => setExpanded(false)}
           >
-            <img loading="lazy" decoding="async"
+            <img
+              loading="lazy"
+              decoding="async"
               src={url}
               alt={attachment.attachment_name}
               className="max-h-full max-w-full rounded-lg"

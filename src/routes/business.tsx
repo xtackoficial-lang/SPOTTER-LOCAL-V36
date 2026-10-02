@@ -403,12 +403,14 @@ function BusinessDash() {
                 <Icon name="calendar-check" size={15} /> Reservas
               </button>
             )}
-            <button
-              onClick={() => navigate({ to: "/reservation-settings" })}
-              className="press mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-dashed border-border text-sm font-semibold text-muted-foreground"
-            >
-              <Icon name="info" size={15} /> Definições de reserva
-            </button>
+            {(reservationSettings?.roomEligible || reservationSettings?.tableEligible) && (
+              <button
+                onClick={() => navigate({ to: "/reservation-settings" })}
+                className="press mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-dashed border-border text-sm font-semibold text-muted-foreground"
+              >
+                <Icon name="info" size={15} /> Definições de reserva
+              </button>
+            )}
           </div>
         </section>
       </main>

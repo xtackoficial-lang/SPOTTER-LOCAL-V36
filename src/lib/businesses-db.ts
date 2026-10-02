@@ -2,7 +2,7 @@
 // XTACK SPOTTER — Negócios online (Supabase) com fallback local
 // ============================================================
 import { useState, useEffect, useCallback } from "react";
-import { supabase, SUPABASE_CONFIGURED } from "./supabase";
+import { supabase, SUPABASE_CONFIGURED, isUuid } from "./supabase";
 import { PLACES, type Place } from "./places-data";
 import { BUSINESS_CATEGORIES } from "./onboarding-storage";
 import { getPlanById } from "./subscription-storage";
@@ -139,7 +139,10 @@ export function businessToPlace(b: BusinessDB): Place {
     lng: b.lng,
     openNow: b.always_open || isWithinHours(b.hours_open, b.hours_close, b.open_days),
     hours: hoursText,
-    phone: b.phone,
+    // CONSERTO (teste de navegação 2026-10-01): negócios novos podem ter phone
+    // NULL na BD; sem isto o perfil público rebentava com "Cannot read
+    // properties of null (reading 'replace')".
+    phone: b.phone ?? "",
     website: b.website || undefined,
     description: b.description || "",
     tags: b.tags ?? [],
@@ -299,7 +302,7 @@ export async function fetchBusinessById(id: string): Promise<BusinessDB | null> 
 // a view sem owner_name/email, para essas colunas nunca chegarem a um
 // visitante ou cliente que não é o dono.
 export async function fetchBusinessPublicById(id: string): Promise<BusinessDB | null> {
-  if (SUPABASE_CONFIGURED && supabase) {
+  if (SUPABASE_CONFIGURED && supabase && isUuid(id)) {
     try {
       // CONSERTO (2026-09-14): "clico no perfil e diz que não está
       // disponível" — para um negócio real, criado depois dos dados de
@@ -446,7 +449,7 @@ export interface ProductDB {
 }
 
 export async function fetchProducts(businessId: string): Promise<ProductDB[]> {
-  if (SUPABASE_CONFIGURED && supabase) {
+  if (SUPABASE_CONFIGURED && supabase && isUuid(businessId)) {
     try {
       const { data, error } = await supabase
         .from("products")

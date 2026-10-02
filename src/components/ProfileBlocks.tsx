@@ -57,7 +57,13 @@ export function BlockCover({ ctx }: { ctx: BlockContext }) {
   const { place, theme, fav, onBack, onToggleFavorite } = ctx;
   return (
     <div className="relative h-64 w-full overflow-hidden" style={{ background: theme.card }}>
-      <img loading="lazy" decoding="async" src={place.cover} alt={place.name} className="h-full w-full object-cover" />
+      <img
+        loading="lazy"
+        decoding="async"
+        src={place.cover}
+        alt={place.name}
+        className="h-full w-full object-cover"
+      />
       <div
         className="absolute inset-0"
         style={{ background: `linear-gradient(180deg, rgba(0,0,0,0.05) 0%, ${theme.bg}E6 92%)` }}
@@ -381,7 +387,9 @@ export function BlockGallery({ ctx }: { ctx: BlockContext }) {
     <div className="px-4 pb-3">
       <div className="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {place.gallery.map((src, i) => (
-          <img loading="lazy" decoding="async"
+          <img
+            loading="lazy"
+            decoding="async"
             key={i}
             src={src}
             alt={`${place.name} — foto ${i + 1}`}
@@ -428,7 +436,13 @@ function BlockProductList({
           >
             <div className="h-20 w-full overflow-hidden" style={{ background: theme.bg }}>
               {p.image_url ? (
-                <img loading="lazy" decoding="async" src={p.image_url} alt={p.name} className="h-full w-full object-cover" />
+                <img
+                  loading="lazy"
+                  decoding="async"
+                  src={p.image_url}
+                  alt={p.name}
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <div
                   className="flex h-full items-center justify-center"

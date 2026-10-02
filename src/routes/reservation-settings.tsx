@@ -116,78 +116,95 @@ function ReservationSettingsPage() {
       </div>
 
       <div className="mx-auto max-w-md px-4 py-6 space-y-4">
-        <Toggle
-          checked={settings.acceptsRoomReservation}
-          onChange={(v) => setSettings({ ...settings, acceptsRoomReservation: v })}
-          label="Aceitar reservas de quarto"
-          description="Mostra o botão de reserva de quarto no teu perfil e activa a aba Reservas."
-        />
-        <Toggle
-          checked={settings.acceptsTableReservation}
-          onChange={(v) => setSettings({ ...settings, acceptsTableReservation: v })}
-          label="Aceitar reservas de mesa"
-          description="Mostra o botão de reserva de mesa no teu perfil — confirma-se automaticamente."
-        />
-
-        <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-          <div>
-            <p className="mb-1.5 text-xs font-semibold text-muted-foreground">
-              WhatsApp de reservas (só contacta o cliente depois de pagar)
+        {!settings.roomEligible && !settings.tableEligible ? (
+          <div className="rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">
+            <p className="font-semibold text-foreground">Reservas online não disponíveis</p>
+            <p className="mt-1.5 leading-relaxed">
+              As reservas com pagamento online são só para hotéis, hotéis + restaurantes,
+              restaurantes, lanchonetes e parques / sítios turísticos. O teu tipo de negócio
+              continua a aparecer no Spotter Local e os clientes podem contactar-te directamente.
             </p>
-            <input
-              value={whatsapp}
-              onChange={(e) => setWhatsapp(e.target.value)}
-              placeholder="84xxxxxxx"
-              className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
-            />
           </div>
-          <div>
-            <p className="mb-1.5 text-xs font-semibold text-muted-foreground">
-              Número de M-Pesa/e-Mola para repasse (usado no e-mail de aviso)
-            </p>
-            <input
-              value={numeroRepasse}
-              onChange={(e) => setNumeroRepasse(e.target.value)}
-              placeholder="84xxxxxxx"
-              className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
-            />
-          </div>
-        </div>
+        ) : (
+          <>
+            {settings.roomEligible && (
+              <Toggle
+                checked={settings.acceptsRoomReservation}
+                onChange={(v) => setSettings({ ...settings, acceptsRoomReservation: v })}
+                label="Aceitar reservas de quarto"
+                description="Mostra o botão de reserva de quarto no teu perfil e activa a aba Reservas."
+              />
+            )}
+            {settings.tableEligible && (
+              <Toggle
+                checked={settings.acceptsTableReservation}
+                onChange={(v) => setSettings({ ...settings, acceptsTableReservation: v })}
+                label="Aceitar reservas de mesa"
+                description="Mostra o botão de reserva de mesa no teu perfil — confirma-se automaticamente."
+              />
+            )}
 
-        {settings.acceptsTableReservation && (
-          <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-            <p className="text-xs font-semibold text-foreground">Preços da reserva de mesa</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
               <div>
-                <p className="mb-1.5 text-xs text-muted-foreground">Normal (MT)</p>
+                <p className="mb-1.5 text-xs font-semibold text-muted-foreground">
+                  WhatsApp de reservas (só contacta o cliente depois de pagar)
+                </p>
                 <input
-                  value={precoNormal}
-                  onChange={(e) => setPrecoNormal(e.target.value.replace(/\D/g, ""))}
-                  inputMode="numeric"
+                  value={whatsapp}
+                  onChange={(e) => setWhatsapp(e.target.value)}
+                  placeholder="84xxxxxxx"
                   className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
                 />
               </div>
               <div>
-                <p className="mb-1.5 text-xs text-muted-foreground">Evento (MT)</p>
+                <p className="mb-1.5 text-xs font-semibold text-muted-foreground">
+                  Número de M-Pesa/e-Mola para repasse (usado no e-mail de aviso)
+                </p>
                 <input
-                  value={precoEvento}
-                  onChange={(e) => setPrecoEvento(e.target.value.replace(/\D/g, ""))}
-                  inputMode="numeric"
+                  value={numeroRepasse}
+                  onChange={(e) => setNumeroRepasse(e.target.value)}
+                  placeholder="84xxxxxxx"
                   className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
                 />
               </div>
             </div>
-          </div>
-        )}
 
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="press h-12 w-full rounded-full text-sm font-semibold text-primary-foreground disabled:opacity-60"
-          style={{ background: "var(--gradient-primary)" }}
-        >
-          {saving ? "A guardar…" : saved ? "✓ Guardado" : "Guardar definições"}
-        </button>
+            {settings.acceptsTableReservation && (
+              <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+                <p className="text-xs font-semibold text-foreground">Preços da reserva de mesa</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="mb-1.5 text-xs text-muted-foreground">Normal (MT)</p>
+                    <input
+                      value={precoNormal}
+                      onChange={(e) => setPrecoNormal(e.target.value.replace(/\D/g, ""))}
+                      inputMode="numeric"
+                      className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-xs text-muted-foreground">Evento (MT)</p>
+                    <input
+                      value={precoEvento}
+                      onChange={(e) => setPrecoEvento(e.target.value.replace(/\D/g, ""))}
+                      inputMode="numeric"
+                      className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="press h-12 w-full rounded-full text-sm font-semibold text-primary-foreground disabled:opacity-60"
+              style={{ background: "var(--gradient-primary)" }}
+            >
+              {saving ? "A guardar…" : saved ? "✓ Guardado" : "Guardar definições"}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

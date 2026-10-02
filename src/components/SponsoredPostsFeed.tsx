@@ -27,7 +27,9 @@ export function SponsoredPostsFeed({ city }: { city?: string }) {
             params={{ id: post.businessId }}
             className="press relative h-40 w-32 flex-shrink-0 overflow-hidden rounded-2xl block"
           >
-            <img loading="lazy" decoding="async"
+            <img
+              loading="lazy"
+              decoding="async"
               src={post.photoUrl}
               alt={post.caption ?? post.businessName}
               className="h-full w-full object-cover"

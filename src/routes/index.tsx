@@ -204,7 +204,10 @@ function Welcome() {
     <div className="relative flex min-h-screen flex-col overflow-hidden bg-background">
       {/* Hero gradient — animado por omissão, ou controlado pelo tema sazonal activo no admin */}
       {appearance.enabled ? (
-        <ThemeBackdrop appearance={appearance} className="absolute inset-x-0 top-0 h-[65vh] lg:h-full" />
+        <ThemeBackdrop
+          appearance={appearance}
+          className="absolute inset-x-0 top-0 h-[65vh] lg:h-full"
+        />
       ) : (
         <div
           className="absolute inset-x-0 top-0 h-[65vh] gradient-pan lg:h-full"
@@ -235,74 +238,75 @@ function Welcome() {
 
       <div className="relative z-10 flex flex-1 flex-col px-6 pb-8 pt-14 lg:flex-row lg:items-center lg:justify-between lg:gap-16 lg:px-16 lg:py-12 xl:px-28">
         <div className="lg:max-w-2xl lg:flex-1">
-        {/* Logo */}
-        <div
-          className={`flex items-center gap-3 text-primary-foreground transition-all duration-700 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-          style={appearance.enabled ? { textShadow: "0 2px 12px rgba(0,0,0,0.4)" } : undefined}
-        >
-          <div className="relative grid h-12 w-12 place-items-center rounded-2xl bg-primary-foreground/20 backdrop-blur-xl ring-1 ring-white/20">
-            <Icon name="pin" size={22} />
-            <span className="absolute -right-1 -top-1 flex h-3 w-3">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/60 opacity-75" />
-              <span className="relative inline-flex h-3 w-3 rounded-full bg-white/80" />
-            </span>
-          </div>
-          <div>
-            <div className="text-lg font-bold leading-none tracking-tight">Spotter Local</div>
-            <div className="text-[10px] uppercase tracking-[0.18em] opacity-80">
-              {tr("byXtack")}
+          {/* Logo */}
+          <div
+            className={`flex items-center gap-3 text-primary-foreground transition-all duration-700 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+            style={appearance.enabled ? { textShadow: "0 2px 12px rgba(0,0,0,0.4)" } : undefined}
+          >
+            {/* Logo REAL da app (public/icon-192.png — o mesmo ícone do telemóvel).
+                Antes era um quadrado translúcido com um pin genérico. */}
+            <img
+              src="/icon-192.png"
+              alt="Spotter Local"
+              width={52}
+              height={52}
+              className="h-[52px] w-[52px] shrink-0 rounded-[14px] shadow-lg shadow-black/25 ring-1 ring-white/30 lg:h-16 lg:w-16 lg:rounded-[18px]"
+            />
+            <div>
+              <div className="text-lg font-bold leading-none tracking-tight">Spotter Local</div>
+              <div className="text-[10px] uppercase tracking-[0.18em] opacity-80">
+                {tr("byXtack")}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Hero text */}
-        <div
-          className={`mt-10 text-primary-foreground transition-all duration-700 delay-100 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-          // BUG DO ABRÃO (2026-08-30, print confirmado): "na página de
-          // login desaparecem as escrituras por causa do clima
-          // natalício". O texto do hero usa sempre a mesma cor fixa
-          // (--primary-foreground), pensada para o gradiente por
-          // omissão — mas um tema sazonal escolhido no admin pode ter
-          // qualquer cor/gradiente, incluindo zonas onde essa cor fixa
-          // quase não se distingue do fundo. Esta sombra garante
-          // contraste em qualquer combinação de cores do tema.
-          style={appearance.enabled ? { textShadow: "0 2px 16px rgba(0,0,0,0.45)" } : undefined}
-        >
-          <h1 className="text-[2.8rem] font-bold leading-[1.03] tracking-tight lg:text-7xl">
-            {appearance.enabled && appearance.heading ? (
-              appearance.heading
-            ) : (
-              <>
-                {tr("heroTitleLine1")}
-                <br />
-                <span className="shine-text">{tr("heroTitleLine2")}</span>
-              </>
-            )}
-          </h1>
-          <p className="mt-4 max-w-xs text-sm leading-relaxed opacity-85 lg:max-w-lg lg:text-lg">
-            {appearance.enabled && appearance.subtext ? appearance.subtext : tr("heroSubtext")}
-          </p>
+          {/* Hero text */}
+          <div
+            className={`mt-10 text-primary-foreground transition-all duration-700 delay-100 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+            // BUG DO ABRÃO (2026-08-30, print confirmado): "na página de
+            // login desaparecem as escrituras por causa do clima
+            // natalício". O texto do hero usa sempre a mesma cor fixa
+            // (--primary-foreground), pensada para o gradiente por
+            // omissão — mas um tema sazonal escolhido no admin pode ter
+            // qualquer cor/gradiente, incluindo zonas onde essa cor fixa
+            // quase não se distingue do fundo. Esta sombra garante
+            // contraste em qualquer combinação de cores do tema.
+            style={appearance.enabled ? { textShadow: "0 2px 16px rgba(0,0,0,0.45)" } : undefined}
+          >
+            <h1 className="text-[2.8rem] font-bold leading-[1.03] tracking-tight lg:text-7xl">
+              {appearance.enabled && appearance.heading ? (
+                appearance.heading
+              ) : (
+                <>
+                  {tr("heroTitleLine1")}
+                  <br />
+                  <span className="shine-text">{tr("heroTitleLine2")}</span>
+                </>
+              )}
+            </h1>
+            <p className="mt-4 max-w-xs text-sm leading-relaxed opacity-85 lg:max-w-lg lg:text-lg">
+              {appearance.enabled && appearance.subtext ? appearance.subtext : tr("heroSubtext")}
+            </p>
 
-          {/* Feature badges */}
-          <div className="mt-5 flex flex-wrap gap-2">
-            {[
-              { icon: "restaurant", label: tr("badgeRestaurants") },
-              { icon: "pharmacy", label: tr("badgePharmacies") },
-              { icon: "hotel", label: tr("badgeHotels") },
-              { icon: "search", label: tr("badgeLocalSearch") },
-            ].map((f, i) => (
-              <span
-                key={f.label}
-                className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-medium text-white/90 backdrop-blur-sm ring-1 ring-white/10 animate-slide-up"
-                style={{ animationDelay: `${0.3 + i * 0.06}s` }}
-              >
-                <Icon name={f.icon} size={11} />
-                {f.label}
-              </span>
-            ))}
+            {/* Feature badges */}
+            <div className="mt-5 flex flex-wrap gap-2">
+              {[
+                { icon: "restaurant", label: tr("badgeRestaurants") },
+                { icon: "pharmacy", label: tr("badgePharmacies") },
+                { icon: "hotel", label: tr("badgeHotels") },
+                { icon: "search", label: tr("badgeLocalSearch") },
+              ].map((f, i) => (
+                <span
+                  key={f.label}
+                  className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-medium text-white/90 backdrop-blur-sm ring-1 ring-white/10 animate-slide-up"
+                  style={{ animationDelay: `${0.3 + i * 0.06}s` }}
+                >
+                  <Icon name={f.icon} size={11} />
+                  {f.label}
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
-
         </div>
 
         {/* Card de autenticação */}

@@ -27,6 +27,8 @@ import {
   sendReservationPush,
   sendReservationAdminEmail,
   buildReservationEmailHtml,
+  responseDeadlineFrom,
+  formatDeadline,
 } from "../_shared/reservation-notify.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -258,9 +260,10 @@ Deno.serve(async (req: Request) => {
       });
     } else if (payment.plan_id === "room") {
       // Reserva de quarto: cria a linha já "pending_approval" — o
-      // comerciante ainda tem de aceitar ou recusar. A comissão (10%
-      // do valor total da estadia) já foi cobrada; o resto (90%) o
-      // cliente paga directo no hotel, fora do app.
+      // comerciante ainda tem de aceitar ou recusar, dentro do prazo
+      // (RESPONSE_DEADLINE_HOURS). O cliente pagou 100% ou um sinal de
+      // 20% (meta.paymentOption); o restante (meta.balanceDue) paga-se
+      // directamente no hotel, fora da app.
       const meta = (payment.content_metadata ?? {}) as Record<string, unknown>;
 
       const { data: room } = await supabase
@@ -274,6 +277,8 @@ Deno.serve(async (req: Request) => {
         .eq("id", payment.business_id)
         .maybeSingle();
 
+      const deadline = responseDeadlineFrom();
+      const isFull = meta.paymentOption === "full";
       const { data: reservation } = await supabase
         .from("room_reservations")
         .insert({
@@ -290,6 +295,10 @@ Deno.serve(async (req: Request) => {
           nights: meta.nights,
           total_price: meta.totalPrice,
           commission_amount: meta.commissionAmount,
+          payment_option: meta.paymentOption ?? "deposit",
+          amount_paid: meta.amountPaid ?? payment.amount,
+          balance_due: meta.balanceDue ?? 0,
+          response_deadline: deadline.toISOString(),
           payment_id: payment.id,
           status: "pending_approval",
         })
@@ -303,7 +312,7 @@ Deno.serve(async (req: Request) => {
         await sendReservationChatMessage(
           payment.business_id,
           meta.clientUserId as string,
-          `Recebemos o seu pedido de reserva — ${meta.roomName}, ${meta.checkIn} a ${meta.checkOut}, ${meta.guests} hóspede(s). Estamos a aguardar confirmação de ${businessName}.`,
+          `Recebemos o seu pedido de reserva — ${meta.roomName}, ${meta.checkIn} a ${meta.checkOut}, ${meta.guests} hóspede(s). Pagou ${meta.amountPaid} MT (${isFull ? "valor total" : "sinal de 20%"}). ${businessName} responde até ${formatDeadline(deadline)}.`,
         );
         await sendReservationPush(
           meta.clientUserId as string,
@@ -316,7 +325,7 @@ Deno.serve(async (req: Request) => {
         await sendReservationPush(
           biz.owner_id,
           "Nova reserva de quarto pendente",
-          `${meta.roomName} — ${meta.checkIn} a ${meta.checkOut} — aceite ou recuse no dashboard.`,
+          `${meta.roomName} — ${meta.checkIn} a ${meta.checkOut} — responda até ${formatDeadline(deadline)}.`,
         );
       }
       // E-mail para xtackoficial@gmail.com
@@ -330,9 +339,13 @@ Deno.serve(async (req: Request) => {
           ["Cliente", `${meta.clientName} — ${meta.clientPhone}`],
           ["E-mail do cliente", String(meta.clientEmail ?? "—")],
           ["Valor total da estadia", `${meta.totalPrice} MT`],
-          ["Comissão cobrada agora", `${meta.commissionAmount} MT`],
+          ["Opção de pagamento", isFull ? "Pagamento total (100%)" : "Sinal de 20%"],
+          ["Pago agora", `${meta.amountPaid} MT`],
+          ["Restante a pagar no hotel", `${meta.balanceDue} MT`],
+          ["Comissão Spotter (10% do total)", `${meta.commissionAmount} MT`],
+          ["A repassar ao hotel", `${Math.round((Number(meta.amountPaid) - Number(meta.commissionAmount)) * 100) / 100} MT`],
           ["Pedido especial", String(meta.specialRequest ?? "—")],
-          ["Estado", "Pendente de aprovação pelo comerciante"],
+          ["Estado", `Pendente — hotel responde até ${formatDeadline(deadline)}`],
         ]),
       );
     } else if (payment.plan_id === "table") {

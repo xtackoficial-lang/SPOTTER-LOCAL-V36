@@ -9,7 +9,7 @@
 // O que faz:
 //   1. Valida o plano e calcula o preço:
 //        - boost/post/event/plano: valor fixo (tabelas PLAN_PRICES etc.)
-//        - room: 10% do preço/noite × nº de noites do quarto (busca na BD)
+//        - room: 100% ou sinal de 20% do preço/noite × nº de noites (busca na BD)
 //        - table: valor fixo do negócio (mesa_preco_normal/evento)
 //   2. Cria a linha em "payments" (status pending) — igual ao fluxo
 //      manual existente, para tudo continuar visível em /admin.
@@ -92,6 +92,13 @@ const EVENT_PRICES: Record<string, number> = { standard: 100, featured: 250 };
 //   quarto: 10% do valor total da estadia (preço/noite × nº de noites)
 //   mesa: valor fixo (200 normal / 500 evento, configurável por negócio),
 //         metade fica de comissão, a outra metade é repassada manualmente
+// Quarto — o cliente escolhe (pedido do Abrão, 2026-09-30):
+//   "full"    → paga 100% do valor da estadia agora
+//   "deposit" → paga um sinal de 20% para garantir a reserva; o resto
+//               paga-se no hotel. (A antiga opção de 10% foi removida.)
+// A comissão da plataforma continua a ser 10% do valor total da estadia e
+// sai do que o cliente pagou; o que sobra é repassado ao hotel (manual).
+const ROOM_DEPOSIT_PCT = 0.20;
 const ROOM_COMMISSION_PCT = 0.10;
 
 const CORS_HEADERS = {
@@ -99,6 +106,11 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Content-Type": "application/json",
 };
+
+// Categorias que podem receber reservas online — TEM de ficar igual a
+// src/lib/reservation-eligibility.ts e à migração 009.
+const ROOM_CATEGORIES = ["hotel", "hotel_restaurant"];
+const TABLE_CATEGORIES = ["hotel", "hotel_restaurant", "restaurant", "snack_bar", "tourism_site"];
 
 function makeRef(businessId: string, planId: string): string {
   const ts = Date.now().toString(36).toUpperCase();
@@ -149,7 +161,7 @@ Deno.serve(async (req: Request) => {
 
   const {
     businessId, planId, boostPackageId, postPackageId, eventTier, contentMetadata,
-    roomId, checkIn, checkOut, guests, specialRequest, clientName, clientPhone, clientEmail,
+    roomId, paymentOption, checkIn, checkOut, guests, specialRequest, clientName, clientPhone, clientEmail,
     reservationDate, timeSlot, tableTipo,
   } = body;
 
@@ -206,6 +218,20 @@ Deno.serve(async (req: Request) => {
         .eq("business_id", businessId)
         .maybeSingle();
 
+      // A categoria do negócio tem de poder receber reservas de quarto
+      // (um táxi ou uma farmácia nunca podem, mesmo com dados forçados).
+      const { data: roomBiz } = await supabase
+        .from("businesses")
+        .select("category, accepts_room_reservation")
+        .eq("id", businessId)
+        .maybeSingle();
+      if (!roomBiz || !ROOM_CATEGORIES.includes(roomBiz.category) || !roomBiz.accepts_room_reservation) {
+        return new Response(
+          JSON.stringify({ error: "Este negócio não aceita reservas de quarto" }),
+          { status: 400, headers: CORS_HEADERS },
+        );
+      }
+
       if (roomErr || !room || !room.active) {
         return new Response(
           JSON.stringify({ error: "Quarto não encontrado ou indisponível" }),
@@ -224,7 +250,18 @@ Deno.serve(async (req: Request) => {
       }
 
       const totalPrice = room.price_per_night * nights;
-      amount = Math.round(totalPrice * ROOM_COMMISSION_PCT * 100) / 100; // comissão de 10%, cobrada agora
+      const option = paymentOption === "full" ? "full" : paymentOption === "deposit" || paymentOption == null ? "deposit" : null;
+      if (!option) {
+        return new Response(
+          JSON.stringify({ error: "Opção de pagamento inválida (full ou deposit)" }),
+          { status: 400, headers: CORS_HEADERS },
+        );
+      }
+      // O servidor é quem calcula o valor — o cliente só escolhe a opção.
+      amount = option === "full"
+        ? Math.round(totalPrice * 100) / 100
+        : Math.round(totalPrice * ROOM_DEPOSIT_PCT * 100) / 100;
+      const commissionAmount = Math.round(totalPrice * ROOM_COMMISSION_PCT * 100) / 100;
 
       roomReservationMeta = {
         roomId: room.id,
@@ -240,16 +277,19 @@ Deno.serve(async (req: Request) => {
         clientEmail: clientEmail ?? null,
         pricePerNight: room.price_per_night,
         totalPrice,
-        commissionAmount: amount,
+        paymentOption: option,
+        amountPaid: amount,
+        balanceDue: Math.round((totalPrice - amount) * 100) / 100,
+        commissionAmount,
       };
     } else if (isTable) {
       const { data: biz, error: bizErr } = await supabase
         .from("businesses")
-        .select("id, mesa_preco_normal, mesa_preco_evento, accepts_table_reservation")
+        .select("id, category, mesa_preco_normal, mesa_preco_evento, accepts_table_reservation")
         .eq("id", businessId)
         .maybeSingle();
 
-      if (bizErr || !biz || !biz.accepts_table_reservation) {
+      if (bizErr || !biz || !biz.accepts_table_reservation || !TABLE_CATEGORIES.includes(biz.category)) {
         return new Response(
           JSON.stringify({ error: "Este negócio não aceita reservas de mesa" }),
           { status: 400, headers: CORS_HEADERS },
@@ -286,21 +326,32 @@ Deno.serve(async (req: Request) => {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 10 * 60 * 1000); // 10 min, igual ao fluxo manual
 
-    // Idempotência: se já existe um pedido "pending" via ZumboPay para
-    // este negócio+plano criado há menos de 10 min (ainda não expirou),
-    // reaproveita-o em vez de criar outro — evita clique duplo a gerar
-    // dois Payment Links diferentes para a mesma assinatura.
-    const { data: existing } = await supabase
-      .from("payments")
-      .select("*")
-      .eq("business_id", businessId)
-      .eq("plan_id", planId)
-      .eq("method", "zumbopay")
-      .eq("status", "pending")
-      .gt("expires_at", now.toISOString())
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // Idempotência (só para ASSINATURAS): se já existe um pedido "pending"
+    // via ZumboPay para este negócio+plano+valor criado há menos de 10 min,
+    // reaproveita-o em vez de criar outro — evita clique duplo a gerar dois
+    // Payment Links para a mesma assinatura.
+    // IMPORTANTE (bug encontrado nos testes de 2026-10-01): isto NÃO pode
+    // valer para quarto/mesa/post/evento/boost, porque cada pedido tem dados
+    // próprios (cliente, datas, opção 20%/100%, valor). Antes, um 2.º cliente
+    // a reservar no mesmo hotel nos 10 min seguintes recebia o link e os
+    // dados do 1.º cliente. Esses tipos criam SEMPRE um pagamento novo.
+    const isSubscription = !isBoost && !isPost && !isEvent && !isRoom && !isTable;
+    let existing: any = null;
+    if (isSubscription) {
+      const { data } = await supabase
+        .from("payments")
+        .select("*")
+        .eq("business_id", businessId)
+        .eq("plan_id", planId)
+        .eq("method", "zumbopay")
+        .eq("status", "pending")
+        .eq("amount", amount)
+        .gt("expires_at", now.toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      existing = data;
+    }
     if (existing?.payment_url) {
       return new Response(
         JSON.stringify({
@@ -371,7 +422,7 @@ Deno.serve(async (req: Request) => {
         : isEvent
           ? `Spotter Local — Evento (${eventTier ?? "standard"})`
           : isRoom
-            ? `Spotter Local — Reserva de quarto (comissão 10%)`
+            ? `Spotter Local — Reserva de quarto (${(roomReservationMeta as any)?.paymentOption === "full" ? "pagamento total" : "sinal de 20%"})`
             : isTable
               ? `Spotter Local — Reserva de mesa (${(tableReservationMeta as any)?.tipo ?? "normal"})`
               : `Spotter Local — Plano ${planId}`;

@@ -64,7 +64,11 @@ function ReserveRoomPage() {
       ? Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86_400_000)
       : 0;
   const totalPrice = room && nights > 0 ? room.pricePerNight * nights : 0;
-  const commission = Math.round(totalPrice * 0.1 * 100) / 100;
+  // Duas opções (pedido do Abrão, 2026-09-30): 100% agora ou sinal de 20%.
+  const [paymentOption, setPaymentOption] = useState<"full" | "deposit">("deposit");
+  const depositAmount = Math.round(totalPrice * 0.2 * 100) / 100;
+  const payNow = paymentOption === "full" ? totalPrice : depositAmount;
+  const balance = Math.round((totalPrice - payNow) * 100) / 100;
 
   const handleSubmit = async () => {
     if (!room) return;
@@ -81,6 +85,7 @@ function ReserveRoomPage() {
     try {
       const { payment, paymentUrl } = await createZumboPayRoomPayment(room.businessId, {
         roomId: room.id,
+        paymentOption,
         checkIn,
         checkOut,
         guests: Number(guests),
@@ -144,7 +149,7 @@ function ReserveRoomPage() {
           Precisas de ter sessão iniciada na app para fazer uma reserva.
         </p>
         <button
-          onClick={() => navigate({ to: "/login" })}
+          onClick={() => navigate({ to: "/" })}
           className="press h-11 rounded-full px-6 text-sm font-semibold text-primary-foreground"
           style={{ background: "var(--gradient-primary)" }}
         >
@@ -243,13 +248,47 @@ function ReserveRoomPage() {
                   </span>
                   <span className="font-semibold text-foreground">{totalPrice} MT</span>
                 </div>
-                <div className="mt-1 flex justify-between">
-                  <span className="text-muted-foreground">A pagar agora (comissão 10%)</span>
-                  <span className="font-bold text-foreground">{commission} MT</span>
+                <p className="mb-2 mt-3 text-xs font-semibold text-muted-foreground">
+                  Como queres pagar?
+                </p>
+                <div className="space-y-2">
+                  {(
+                    [
+                      [
+                        "deposit",
+                        "Sinal de 20%",
+                        `${depositAmount} MT agora · o resto (${Math.round((totalPrice - depositAmount) * 100) / 100} MT) no hotel`,
+                      ],
+                      [
+                        "full",
+                        "Pagar tudo (100%)",
+                        `${totalPrice} MT agora · nada a pagar no check-in`,
+                      ],
+                    ] as const
+                  ).map(([id, title, sub]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setPaymentOption(id)}
+                      className={`press w-full rounded-xl border p-3 text-left ${paymentOption === id ? "border-primary bg-primary/5" : "border-border bg-background"}`}
+                    >
+                      <span className="block text-sm font-semibold text-foreground">{title}</span>
+                      <span className="block text-xs text-muted-foreground">{sub}</span>
+                    </button>
+                  ))}
                 </div>
+                <div className="mt-3 flex justify-between">
+                  <span className="text-muted-foreground">A pagar agora</span>
+                  <span className="font-bold text-foreground">{payNow} MT</span>
+                </div>
+                {balance > 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Restante: {balance} MT, paga-se directamente no check-in.
+                  </p>
+                )}
                 <p className="mt-2 text-xs text-muted-foreground">
-                  O restante ({Math.round((totalPrice - commission) * 100) / 100} MT) paga-se
-                  directamente no check-in.
+                  Depois de pagares, o hotel tem 24 horas para aceitar o teu pedido. Se recusar, o
+                  valor pago é reembolsado.
                 </p>
               </div>
             )}
@@ -262,7 +301,7 @@ function ReserveRoomPage() {
               className="press h-12 w-full rounded-full text-sm font-semibold text-primary-foreground disabled:opacity-60"
               style={{ background: "var(--gradient-primary)" }}
             >
-              {loading ? "A processar…" : `Pagar ${commission} MT e reservar`}
+              {loading ? "A processar…" : `Pagar ${payNow} MT e reservar`}
             </button>
           </>
         ) : step === "waiting" ? (

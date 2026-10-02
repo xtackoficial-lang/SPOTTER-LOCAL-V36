@@ -18,7 +18,10 @@ import {
   buildPostPaymentWhatsAppLink,
   type RoomReservation,
   type TableReservation,
+  formatResponseDeadline,
 } from "@/lib/reservations-db";
+import { matchesQuery } from "@/lib/reservation-filters";
+import { SearchBox, StatusChips } from "@/components/ReservationFilters";
 
 export const Route = createFileRoute("/my-reservations")({
   head: () => ({ meta: [{ title: "As minhas reservas — Spotter Local" }] }),
@@ -70,6 +73,18 @@ function RoomCard({ r }: { r: RoomReservation }) {
           {badge.text}
         </span>
       </div>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Pagaste <b className="text-foreground">{r.amountPaid} MT</b> (
+        {r.paymentOption === "full" ? "valor total" : "sinal de 20%"})
+        {r.balanceDue > 0
+          ? ` · restam ${r.balanceDue} MT no check-in`
+          : " · nada a pagar no check-in"}
+      </p>
+      {r.status === "pending_approval" && r.responseDeadline && (
+        <p className="mt-1 text-xs font-semibold text-amber-700">
+          O hotel responde até {formatResponseDeadline(r.responseDeadline)}
+        </p>
+      )}
       {r.status === "rejected" && r.rejectionReason && (
         <p className="mt-2 text-xs text-red-600">
           Motivo: {r.rejectionReason} — o valor pago será reembolsado.
@@ -185,12 +200,35 @@ function MyReservationsPage() {
     };
   }, [user]);
 
+  // Filtros do cliente (pedido do Abrão, 2026-10-01): pesquisa por negócio/quarto/ref.
+  // e estado. Os números nos chips mostram quantas há de cada.
+  const [search, setSearch] = useState("");
+  const [statusF, setStatusF] = useState<"all" | "pending" | "confirmed" | "rejected">("all");
+  const roomMatches = (r: RoomReservation) =>
+    (statusF === "all" ||
+      (statusF === "pending" && r.status === "pending_approval") ||
+      (statusF === "confirmed" && r.status === "confirmed") ||
+      (statusF === "rejected" && r.status === "rejected")) &&
+    matchesQuery(
+      [r.roomName, r.specialRequest, r.checkIn, r.checkOut, r.id.slice(0, 8)],
+      "",
+      search,
+    );
+  const tableMatches = (t: TableReservation) =>
+    (statusF === "all" ||
+      (statusF === "confirmed" && t.status === "confirmed") ||
+      (statusF === "rejected" && t.status === "cancelled")) &&
+    matchesQuery([t.reservationDate, t.timeSlot, t.specialRequest, t.id.slice(0, 8)], "", search);
+  const shownRooms = rooms.filter(roomMatches);
+  const shownTables = tables.filter(tableMatches);
+  const roomPending = rooms.filter((r) => r.status === "pending_approval").length;
+
   if (!authLoading && !user) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-6 text-center">
         <p className="text-sm text-muted-foreground">Inicia sessão para ver as tuas reservas.</p>
         <button
-          onClick={() => navigate({ to: "/login" })}
+          onClick={() => navigate({ to: "/" })}
           className="press h-11 rounded-full px-6 text-sm font-semibold text-primary-foreground"
           style={{ background: "var(--gradient-primary)" }}
         >
@@ -209,7 +247,7 @@ function MyReservationsPage() {
         <h1 className="text-lg font-bold text-foreground">As minhas reservas</h1>
       </div>
 
-      <div className="mx-auto max-w-md px-4 py-4">
+      <div className="mx-auto max-w-md px-4 py-4 md:max-w-2xl">
         <div className="flex gap-2 rounded-full bg-muted p-1">
           <button
             onClick={() => setTab("quartos")}
@@ -229,6 +267,46 @@ function MyReservationsPage() {
           </button>
         </div>
 
+        {!loading && (rooms.length > 0 || tables.length > 0) && (
+          <div className="mt-4 space-y-3">
+            <SearchBox
+              value={search}
+              onChange={setSearch}
+              placeholder="Pesquisar quarto, data ou ref."
+            />
+            <StatusChips
+              value={statusF}
+              onChange={setStatusF}
+              options={[
+                {
+                  id: "all",
+                  label: "Todas",
+                  count: tab === "quartos" ? rooms.length : tables.length,
+                },
+                ...(tab === "quartos"
+                  ? [{ id: "pending" as const, label: "À espera do hotel", count: roomPending }]
+                  : []),
+                {
+                  id: "confirmed",
+                  label: "Confirmadas",
+                  count:
+                    tab === "quartos"
+                      ? rooms.filter((r) => r.status === "confirmed").length
+                      : tables.filter((t) => t.status === "confirmed").length,
+                },
+                {
+                  id: "rejected",
+                  label: tab === "quartos" ? "Recusadas" : "Canceladas",
+                  count:
+                    tab === "quartos"
+                      ? rooms.filter((r) => r.status === "rejected").length
+                      : tables.filter((t) => t.status === "cancelled").length,
+                },
+              ]}
+            />
+          </div>
+        )}
+
         <div className="mt-4 space-y-3">
           {loading ? (
             <p className="text-center text-sm text-muted-foreground">A carregar…</p>
@@ -237,13 +315,21 @@ function MyReservationsPage() {
               <p className="text-center text-sm text-muted-foreground">
                 Ainda sem reservas de quarto.
               </p>
+            ) : shownRooms.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground">
+                Nenhuma reserva com estes filtros.
+              </p>
             ) : (
-              rooms.map((r) => <RoomCard key={r.id} r={r} />)
+              shownRooms.map((r) => <RoomCard key={r.id} r={r} />)
             )
           ) : tables.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground">Ainda sem reservas de mesa.</p>
+          ) : shownTables.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground">
+              Nenhuma reserva com estes filtros.
+            </p>
           ) : (
-            tables.map((t) => <TableCard key={t.id} r={t} />)
+            shownTables.map((t) => <TableCard key={t.id} r={t} />)
           )}
         </div>
       </div>

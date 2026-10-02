@@ -17,7 +17,33 @@ import {
   ROOM_REJECTION_REASONS,
   type RoomReservation,
   type TableReservation,
+  formatResponseDeadline,
 } from "@/lib/reservations-db";
+import {
+  EMPTY_ROOM_FILTERS,
+  EMPTY_TABLE_FILTERS,
+  countRoomStatuses,
+  countTableStatuses,
+  filterRoomReservations,
+  filterTableReservations,
+  roomFiltersActive,
+  roomReservationsToCsv,
+  summarizeRooms,
+  summarizeTables,
+  tableFiltersActive,
+  tableReservationsToCsv,
+  type RoomFilters,
+  type TableFilters,
+} from "@/lib/reservation-filters";
+import {
+  AdvancedPanel,
+  DateRange,
+  SearchBox,
+  SelectField,
+  StatusChips,
+  SummaryStrip,
+  downloadCsv,
+} from "@/components/ReservationFilters";
 import { useOnboarding } from "@/lib/onboarding-storage";
 import { supabase, SUPABASE_CONFIGURED } from "@/lib/supabase";
 import { RequireBusiness } from "@/components/RequireBusiness";
@@ -97,9 +123,27 @@ function RoomReservationCard({
         </p>
         {reservation.specialRequest && <p>Pedido: {reservation.specialRequest}</p>}
         <p>
-          Valor total: <b className="text-foreground">{reservation.totalPrice} MT</b> · Comissão
-          cobrada: {reservation.commissionAmount} MT
+          Valor total: <b className="text-foreground">{reservation.totalPrice} MT</b> · Cliente
+          pagou {reservation.amountPaid} MT (
+          {reservation.paymentOption === "full" ? "valor total" : "sinal de 20%"})
         </p>
+        <p>
+          Restante a receber no check-in:{" "}
+          <b className="text-foreground">{reservation.balanceDue} MT</b>
+        </p>
+        {reservation.status === "pending_approval" && reservation.responseDeadline && (
+          <p
+            className={
+              new Date(reservation.responseDeadline).getTime() < Date.now()
+                ? "font-semibold text-red-600"
+                : "font-semibold text-amber-700"
+            }
+          >
+            {new Date(reservation.responseDeadline).getTime() < Date.now()
+              ? "Prazo de resposta excedido — responde já"
+              : `Responder até ${formatResponseDeadline(reservation.responseDeadline)}`}
+          </p>
+        )}
         {reservation.status === "rejected" && reservation.rejectionReason && (
           <p className="text-red-600">Motivo: {reservation.rejectionReason}</p>
         )}
@@ -281,12 +325,18 @@ function ReservationsDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [businessId]);
 
-  // Pendentes primeiro, como no resto do desenho combinado.
-  const sortedRooms = [...rooms].sort((a, b) => {
-    if (a.status === "pending_approval" && b.status !== "pending_approval") return -1;
-    if (b.status === "pending_approval" && a.status !== "pending_approval") return 1;
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
+  // Filtros (pedido do Abrão, 2026-10-01): pesquisa por nome/telefone/quarto,
+  // estado com contagem, datas, opção de pagamento e ordenação. O padrão
+  // continua a ser "pendentes primeiro".
+  const [roomFilters, setRoomFilters] = useState<RoomFilters>(EMPTY_ROOM_FILTERS);
+  const [tableFilters, setTableFilters] = useState<TableFilters>(EMPTY_TABLE_FILTERS);
+  const roomCounts = countRoomStatuses(rooms);
+  const tableCounts = countTableStatuses(tables);
+  const shownRooms = filterRoomReservations(rooms, roomFilters);
+  const shownTables = filterTableReservations(tables, tableFilters);
+  const roomSummary = summarizeRooms(shownRooms);
+  const tableSummary = summarizeTables(shownTables);
+  const mt = (n: number) => `${Math.round(n * 100) / 100} MT`;
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -297,8 +347,8 @@ function ReservationsDashboardPage() {
         <h1 className="text-lg font-bold text-foreground">Reservas</h1>
       </div>
 
-      <div className="mx-auto max-w-md px-4 py-4">
-        <div className="flex gap-2 rounded-full bg-muted p-1">
+      <div className="mx-auto max-w-md px-4 py-4 md:max-w-3xl lg:max-w-5xl">
+        <div className="flex gap-2 rounded-full bg-muted p-1 md:max-w-md">
           <button
             onClick={() => setTab("quartos")}
             className={`press h-9 flex-1 rounded-full text-sm font-semibold ${
@@ -319,23 +369,226 @@ function ReservationsDashboardPage() {
           </button>
         </div>
 
-        <div className="mt-4 space-y-3">
+        {!loading && tab === "quartos" && rooms.length > 0 && (
+          <div className="mt-4 space-y-3">
+            <SearchBox
+              value={roomFilters.search}
+              onChange={(search) => setRoomFilters({ ...roomFilters, search })}
+              placeholder="Pesquisar nome, telefone, quarto ou ref."
+            />
+            <StatusChips
+              value={roomFilters.status}
+              onChange={(status) => setRoomFilters({ ...roomFilters, status })}
+              options={[
+                { id: "all", label: "Todas", count: roomCounts.all },
+                { id: "pending", label: "Pendentes", count: roomCounts.pending },
+                { id: "overdue", label: "Prazo excedido", count: roomCounts.overdue, urgent: true },
+                { id: "confirmed", label: "Confirmadas", count: roomCounts.confirmed },
+                { id: "rejected", label: "Recusadas", count: roomCounts.rejected },
+                {
+                  id: "refund_todo",
+                  label: "Reembolso por fazer",
+                  count: roomCounts.refund_todo,
+                  urgent: true,
+                },
+              ]}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <AdvancedPanel
+                activeCount={
+                  (roomFilters.payment !== "all" ? 1 : 0) +
+                  (roomFilters.from || roomFilters.to ? 1 : 0) +
+                  (roomFilters.sort !== "pending" ? 1 : 0)
+                }
+              >
+                <SelectField
+                  label="Pagamento"
+                  value={roomFilters.payment}
+                  onChange={(payment) => setRoomFilters({ ...roomFilters, payment })}
+                  options={[
+                    { id: "all", label: "Todos" },
+                    { id: "deposit", label: "Sinal de 20%" },
+                    { id: "full", label: "Pago a 100%" },
+                  ]}
+                />
+                <SelectField
+                  label="Ordenar por"
+                  value={roomFilters.sort}
+                  onChange={(sort) => setRoomFilters({ ...roomFilters, sort })}
+                  options={[
+                    { id: "pending", label: "Pendentes primeiro" },
+                    { id: "recent", label: "Mais recentes" },
+                    { id: "checkin", label: "Check-in mais próximo" },
+                    { id: "amount", label: "Maior valor" },
+                  ]}
+                />
+                <DateRange
+                  label="Data de check-in"
+                  from={roomFilters.from}
+                  to={roomFilters.to}
+                  onChange={(from, to) => setRoomFilters({ ...roomFilters, from, to })}
+                />
+              </AdvancedPanel>
+              {roomFiltersActive(roomFilters) && (
+                <button
+                  type="button"
+                  onClick={() => setRoomFilters(EMPTY_ROOM_FILTERS)}
+                  className="press h-9 rounded-full px-3 text-xs font-semibold text-primary"
+                >
+                  Limpar filtros
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={shownRooms.length === 0}
+                onClick={() =>
+                  downloadCsv(
+                    `reservas-quartos-${new Date().toISOString().slice(0, 10)}.csv`,
+                    roomReservationsToCsv(shownRooms),
+                  )
+                }
+                className="press ml-auto inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 text-xs font-semibold text-foreground disabled:opacity-40"
+              >
+                <Icon name="download" size={13} /> Exportar ({shownRooms.length})
+              </button>
+            </div>
+            <SummaryStrip
+              items={[
+                { label: "Reservas", value: String(roomSummary.count) },
+                { label: "Pago pelos clientes", value: mt(roomSummary.paid) },
+                { label: "A cobrar no check-in", value: mt(roomSummary.balance) },
+                {
+                  label: "A reembolsar",
+                  value: mt(roomSummary.toRefund),
+                  warn: roomSummary.toRefund > 0,
+                },
+              ]}
+            />
+          </div>
+        )}
+
+        {!loading && tab === "mesas" && tables.length > 0 && (
+          <div className="mt-4 space-y-3">
+            <SearchBox
+              value={tableFilters.search}
+              onChange={(search) => setTableFilters({ ...tableFilters, search })}
+              placeholder="Pesquisar nome, telefone, hora ou ref."
+            />
+            <StatusChips
+              value={tableFilters.status}
+              onChange={(status) => setTableFilters({ ...tableFilters, status })}
+              options={[
+                { id: "all", label: "Todas", count: tableCounts.all },
+                { id: "confirmed", label: "Confirmadas", count: tableCounts.confirmed },
+                {
+                  id: "payout_todo",
+                  label: "Repasse por fazer",
+                  count: tableCounts.payout_todo,
+                  urgent: true,
+                },
+                { id: "cancelled", label: "Canceladas", count: tableCounts.cancelled },
+              ]}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <AdvancedPanel
+                activeCount={
+                  (tableFilters.tipo !== "all" ? 1 : 0) +
+                  (tableFilters.from || tableFilters.to ? 1 : 0) +
+                  (tableFilters.sort !== "recent" ? 1 : 0)
+                }
+              >
+                <SelectField
+                  label="Tipo"
+                  value={tableFilters.tipo}
+                  onChange={(tipo) => setTableFilters({ ...tableFilters, tipo })}
+                  options={[
+                    { id: "all", label: "Todos" },
+                    { id: "normal", label: "Normal" },
+                    { id: "evento", label: "Evento" },
+                  ]}
+                />
+                <SelectField
+                  label="Ordenar por"
+                  value={tableFilters.sort}
+                  onChange={(sort) => setTableFilters({ ...tableFilters, sort })}
+                  options={[
+                    { id: "recent", label: "Mais recentes" },
+                    { id: "date", label: "Data da reserva" },
+                    { id: "amount", label: "Maior valor" },
+                  ]}
+                />
+                <DateRange
+                  label="Data da reserva"
+                  from={tableFilters.from}
+                  to={tableFilters.to}
+                  onChange={(from, to) => setTableFilters({ ...tableFilters, from, to })}
+                />
+              </AdvancedPanel>
+              {tableFiltersActive(tableFilters) && (
+                <button
+                  type="button"
+                  onClick={() => setTableFilters(EMPTY_TABLE_FILTERS)}
+                  className="press h-9 rounded-full px-3 text-xs font-semibold text-primary"
+                >
+                  Limpar filtros
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={shownTables.length === 0}
+                onClick={() =>
+                  downloadCsv(
+                    `reservas-mesas-${new Date().toISOString().slice(0, 10)}.csv`,
+                    tableReservationsToCsv(shownTables),
+                  )
+                }
+                className="press ml-auto inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 text-xs font-semibold text-foreground disabled:opacity-40"
+              >
+                <Icon name="download" size={13} /> Exportar ({shownTables.length})
+              </button>
+            </div>
+            <SummaryStrip
+              items={[
+                { label: "Reservas", value: String(tableSummary.count) },
+                { label: "Pessoas", value: String(tableSummary.guests) },
+                { label: "Pago pelos clientes", value: mt(tableSummary.paid) },
+                {
+                  label: "A receber (repasse)",
+                  value: mt(tableSummary.toReceive),
+                  warn: tableSummary.toReceive > 0,
+                },
+              ]}
+            />
+          </div>
+        )}
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
           {loading ? (
-            <p className="text-center text-sm text-muted-foreground">A carregar…</p>
+            <p className="text-center text-sm text-muted-foreground lg:col-span-2">A carregar…</p>
           ) : tab === "quartos" ? (
-            sortedRooms.length === 0 ? (
-              <p className="text-center text-sm text-muted-foreground">
+            rooms.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground lg:col-span-2">
                 Ainda sem pedidos de quarto.
               </p>
+            ) : shownRooms.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground lg:col-span-2">
+                Nenhuma reserva com estes filtros.
+              </p>
             ) : (
-              sortedRooms.map((r) => (
+              shownRooms.map((r) => (
                 <RoomReservationCard key={r.id} reservation={r} onChanged={reload} />
               ))
             )
           ) : tables.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground">Ainda sem reservas de mesa.</p>
+            <p className="text-center text-sm text-muted-foreground lg:col-span-2">
+              Ainda sem reservas de mesa.
+            </p>
+          ) : shownTables.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground lg:col-span-2">
+              Nenhuma reserva com estes filtros.
+            </p>
           ) : (
-            tables.map((t) => (
+            shownTables.map((t) => (
               <TableReservationCard key={t.id} reservation={t} onChanged={reload} />
             ))
           )}

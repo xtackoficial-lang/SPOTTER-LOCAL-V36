@@ -348,7 +348,7 @@ export const CATEGORY_FILTERS = [
 // olhos do cliente — usado por matchesCategoryFilter() em vez da
 // comparação exacta, tanto na Home como na Busca.
 const CATEGORY_FILTER_GROUPS: Record<string, string[]> = {
-  restaurant: ["restaurant", "hotel_restaurant", "bar"],
+  restaurant: ["restaurant", "hotel_restaurant", "bar", "snack_bar"],
 };
 
 export function matchesCategoryFilter(placeCategory: string, filterId: string): boolean {

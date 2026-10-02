@@ -221,7 +221,6 @@ function PlaceDetail() {
       : structure.blocks
     : [];
 
-
   // SEO (2026-09-30): título, descrição e dados estruturados (schema.org
   // LocalBusiness) por negócio. A app é SPA — o Google executa o JS, por
   // isso isto é lido depois de o negócio carregar.
@@ -230,7 +229,7 @@ function PlaceDetail() {
     const prevTitle = document.title;
     document.title = `${place.name} — ${place.categoryLabel || "Negócio"} | Spotter Local`;
     const desc = `${place.name}${place.address ? ` — ${place.address}` : ""}. Vê horário, contactos e reserva no Spotter Local.`;
-    let metaDesc = document.querySelector('meta[name="description"]');
+    const metaDesc = document.querySelector('meta[name="description"]');
     const prevDesc = metaDesc?.getAttribute("content") ?? null;
     metaDesc?.setAttribute("content", desc);
     const ld = document.createElement("script");
@@ -296,7 +295,7 @@ function PlaceDetail() {
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
         place.name + " " + place.address,
       )}`;
-  const whatsappHref = `https://wa.me/${place.phone.replace(/\D/g, "")}?text=${encodeURIComponent(
+  const whatsappHref = `https://wa.me/${(place.phone ?? "").replace(/\D/g, "")}?text=${encodeURIComponent(
     tr("whatsappGreeting"),
   )}`;
 

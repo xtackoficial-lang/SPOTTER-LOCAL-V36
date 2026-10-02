@@ -122,7 +122,7 @@ function ReserveTablePage() {
           Precisas de ter sessão iniciada na app para fazer uma reserva.
         </p>
         <button
-          onClick={() => navigate({ to: "/login" })}
+          onClick={() => navigate({ to: "/" })}
           className="press h-11 rounded-full px-6 text-sm font-semibold text-primary-foreground"
           style={{ background: "var(--gradient-primary)" }}
         >

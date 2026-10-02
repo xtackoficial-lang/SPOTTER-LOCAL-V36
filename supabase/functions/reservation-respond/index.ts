@@ -137,7 +137,12 @@ Deno.serve(async (req: Request) => {
       await sendReservationChatMessage(
         reservation.business_id,
         reservation.client_user_id,
-        `${businessName} confirmou a sua reserva. Restam ${Math.round((reservation.total_price - reservation.commission_amount) * 100) / 100} MT a pagar no check-in.`,
+        (() => {
+          const balance = reservation.balance_due ?? Math.round((reservation.total_price - (reservation.amount_paid ?? reservation.commission_amount)) * 100) / 100;
+          return balance > 0
+            ? `${businessName} confirmou a sua reserva. Restam ${balance} MT a pagar no check-in.`
+            : `${businessName} confirmou a sua reserva. O pagamento total já foi feito — nada a pagar no check-in.`;
+        })(),
       );
       await sendReservationPush(
         reservation.client_user_id,
@@ -191,7 +196,7 @@ Deno.serve(async (req: Request) => {
           ["Cliente", reservation.client_name],
           ["Telefone (para reembolso)", reservation.client_phone],
           ["Motivo da recusa", reason ?? ""],
-          ["Valor a reembolsar", `${reservation.commission_amount} MT`],
+          ["Valor a reembolsar", `${reservation.amount_paid ?? reservation.commission_amount} MT`],
           ["Reembolso feito?", "NÃO — marcar manualmente no dashboard depois de enviar"],
         ]),
       );

@@ -1,4 +1,5 @@
 import {
+  SlidersHorizontal,
   MapPin,
   Search,
   MessageCircle,
@@ -100,6 +101,7 @@ const MAP: Record<string, LucideIcon> = {
   // brand / nav
   pin: MapPin,
   search: Search,
+  filter: SlidersHorizontal,
   chat: MessageCircle,
   user: User,
   compass: Compass,

@@ -77,7 +77,9 @@ function RoomsListPage() {
                 <div className="flex gap-3">
                   <div className="h-20 w-20 flex-none overflow-hidden rounded-xl bg-background">
                     {room.photoUrl && (
-                      <img loading="lazy" decoding="async"
+                      <img
+                        loading="lazy"
+                        decoding="async"
                         src={room.photoUrl}
                         alt={room.name}
                         className="h-full w-full object-cover"

@@ -3,7 +3,7 @@
 // Parte 3
 // ============================================================
 
-import { supabase, SUPABASE_CONFIGURED } from "./supabase";
+import { supabase, SUPABASE_CONFIGURED, isUuid } from "./supabase";
 
 // BUG CORRIGIDO (pedido do Abrão, 2026-09-09): markHelpful() incrementava
 // "helpful" sem qualquer limite — a mesma pessoa (com ou sem conta) podia
@@ -144,7 +144,9 @@ function isDemoBusinessId(businessId: string): boolean {
 
 // ── Obter reviews de um negócio ─────────────────────────────
 export async function getBusinessReviews(businessId: string): Promise<Review[]> {
-  if (SUPABASE_CONFIGURED && supabase) {
+  // Os negócios de exemplo (p1, p2…) não são UUIDs: perguntar à BD dava um
+  // 400 ("invalid input syntax for type uuid") em cada perfil de exemplo.
+  if (SUPABASE_CONFIGURED && supabase && isUuid(businessId)) {
     // Falha de rede/RLS aqui não pode travar a tela — cai para
     // os dados locais/demo em vez de deixar a promise rejeitar.
     try {

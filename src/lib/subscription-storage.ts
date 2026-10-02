@@ -1,6 +1,6 @@
 // Sistema de Mensalidade — Comerciantes
 import { useEffect, useState } from "react";
-import { supabase, SUPABASE_CONFIGURED } from "./supabase";
+import { supabase, SUPABASE_CONFIGURED, isUuid } from "./supabase";
 
 // "free" é um plano real e permanente (não expira, não entra no ciclo
 // de cobrança trial→overdue→blocked) — ver FREE_PLAN abaixo.
@@ -272,7 +272,7 @@ export function useSubscription(businessId?: string) {
   }, []);
 
   useEffect(() => {
-    if (!businessId || !SUPABASE_CONFIGURED || !supabase) return;
+    if (!businessId || !isUuid(businessId) || !SUPABASE_CONFIGURED || !supabase) return;
     let cancelled = false;
     (async () => {
       try {

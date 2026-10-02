@@ -239,6 +239,7 @@ export const BUSINESS_CATEGORIES = [
   { id: "restaurant", label: "Restaurante", icon: "restaurant" },
   { id: "hotel", label: "Hotel", icon: "hotel" },
   { id: "hotel_restaurant", label: "Hotel + Restaurante", icon: "hotel_restaurant" },
+  { id: "snack_bar", label: "Lanchonete", icon: "restaurant" },
   { id: "rental", label: "Casa de aluguer", icon: "rental" },
   { id: "pharmacy", label: "Farmácia", icon: "pharmacy" },
   { id: "clinic", label: "Clínica", icon: "clinic" },

@@ -21,6 +21,8 @@ export type PaymentPlanId = PlanId | "boost" | "post" | "event" | "room" | "tabl
 
 export interface RoomReservationInput {
   roomId: string;
+  /** "full" = 100% agora · "deposit" = sinal de 20% para garantir a reserva */
+  paymentOption: "full" | "deposit";
   checkIn: string; // "YYYY-MM-DD"
   checkOut: string; // "YYYY-MM-DD"
   guests: number;
@@ -340,9 +342,7 @@ export async function createZumboPayEventPayment(
   });
 
   if (error || !data?.paymentUrl) {
-    throw new Error(
-      await invokeErrorMessage(data, error, "Falha ao criar o pagamento do evento."),
-    );
+    throw new Error(await invokeErrorMessage(data, error, "Falha ao criar o pagamento do evento."));
   }
 
   const payment: PaymentRequest = {
@@ -380,6 +380,7 @@ export async function createZumboPayRoomPayment(
       businessId,
       planId: "room",
       roomId: input.roomId,
+      paymentOption: input.paymentOption,
       checkIn: input.checkIn,
       checkOut: input.checkOut,
       guests: input.guests,

@@ -291,7 +291,9 @@ function ChatThread() {
         <div className="flex items-center gap-2 border-t border-border bg-card/95 px-3 pt-2 backdrop-blur-xl animate-slide-up">
           <div className="flex flex-1 items-center gap-2 rounded-xl bg-muted px-3 py-2">
             {pendingAttachment.type === "image" ? (
-              <img loading="lazy" decoding="async"
+              <img
+                loading="lazy"
+                decoding="async"
                 src={`data:${pendingAttachment.mime};base64,${pendingAttachment.data}`}
                 alt={pendingAttachment.name}
                 className="h-10 w-10 rounded-lg object-cover"

@@ -1797,7 +1797,9 @@ function AppearanceTab() {
                 <label className="press flex h-28 w-full cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/20 text-xs text-muted-foreground overflow-hidden">
                   {screen.backgroundValue?.startsWith("data:") ||
                   screen.backgroundValue?.startsWith("http") ? (
-                    <img loading="lazy" decoding="async"
+                    <img
+                      loading="lazy"
+                      decoding="async"
                       src={screen.backgroundValue}
                       alt=""
                       className="h-full w-full object-cover"

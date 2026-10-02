@@ -1,17 +1,10 @@
-.env
-.env.local
-.env.*.local
-.env.production
-
-*.pem
-*.key
-*serviceAccount*.json
-*credentials*.json
-
-node_modules/
-dist/
-build/
-.tanstack/
-
+node_modules
+dist
+.wrangler
+.vercel
 .DS_Store
 *.log
+*.zip
+# NOTA: .env fica no repositório de propósito — só tem chaves PÚBLICAS do
+# browser (VITE_SUPABASE_*, VITE_FIREBASE_*) e o build da Vercel/Cloudflare
+# precisa delas. NUNCA ponhas aqui a service_role key nem segredos da ZumboPay.

@@ -165,3 +165,10 @@ create policy "Todos podem actualizar o tema (protegido na app)" on public.app_t
   for all using (true) with check (true);
 alter publication supabase_realtime add table public.app_theme;
 */
+
+// Id válido de linha do Supabase (UUID). Os dados de exemplo ("p1") e o id
+// provisório "default" (antes de o rascunho carregar) NÃO são UUIDs: enviá-los
+// à BD gerava um pedido 400 ("invalid input syntax for type uuid") em cada
+// abertura de página — ruído nos logs e um erro no consola (teste 2026-10-01).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const isUuid = (v: string | null | undefined): v is string => !!v && UUID_RE.test(v);

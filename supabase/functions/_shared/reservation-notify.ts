@@ -168,3 +168,22 @@ export function buildReservationEmailHtml(rows: Array<[string, string]>): string
     .join("");
   return `<table style="font-family:sans-serif;border-collapse:collapse;">${items}</table>`;
 }
+
+
+// ---------- Prazo de resposta do hotel (pedido do Abrão, 2026-09-30) ----------
+// Depois de o cliente pagar, o hotel tem este tempo para aceitar/recusar.
+export const RESPONSE_DEADLINE_HOURS = 24;
+
+export function responseDeadlineFrom(now = new Date()): Date {
+  return new Date(now.getTime() + RESPONSE_DEADLINE_HOURS * 3600 * 1000);
+}
+
+export function formatDeadline(d: Date): string {
+  return d.toLocaleString("pt-PT", {
+    timeZone: "Africa/Maputo",
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}

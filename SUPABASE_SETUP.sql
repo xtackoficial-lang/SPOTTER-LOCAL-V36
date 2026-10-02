@@ -1,4 +1,28 @@
 -- ============================================================
+-- CONSERTO v37 (auditoria 2026-09-30): ADMIN PRIMEIRO
+-- public.is_admin() era usada em políticas desde a linha ~443 mas só era
+-- criada na linha ~1004. Numa base nova, essas políticas falhavam com
+-- "function public.is_admin() does not exist" e as tabelas de admin
+-- (planos, comprovativos, etc.) ficavam sem nenhuma política. Agora a
+-- tabela admins e a função nascem logo aqui, antes de tudo o resto.
+-- (As definições originais mais abaixo são idempotentes e ficam como estão.)
+-- ============================================================
+create table if not exists public.admins (
+  id uuid primary key references auth.users(id) on delete cascade,
+  created_at timestamptz default now()
+);
+alter table public.admins enable row level security;
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists(select 1 from public.admins where id = auth.uid());
+$$;
+
+-- ============================================================
 -- SPOTTER LOCAL — Script SQL completo (v2.9)
 -- Executa no Supabase: SQL Editor → New Query → Cola tudo → Run
 --
@@ -1083,16 +1107,20 @@ create extension if not exists pg_net;
 -- supabase/functions/run-billing-engine/index.ts), a service_role
 -- key deixa de ser aceite aqui — troca pelo mesmo valor que puseste
 -- em Edge Functions → Secrets → FUNCTION_SECRET.
-select cron.schedule(
-  'motor-de-cobranca-diario',
-  '0 6 * * *',
-  $$
-  select net.http_post(
-    url := 'https://<o-teu-project-ref>.supabase.co/functions/v1/run-billing-engine',
-    headers := '{"Authorization": "Bearer <o-teu-FUNCTION_SECRET>"}'::jsonb
-  );
-  $$
-);
+-- CONSERTO v37: esta linha estava ACTIVA com os marcadores <o-teu-...>, o que criava
+-- um agendamento diário que chamava um URL inválido (o motor de cobrança nunca
+-- corria). Agora está comentada: troca os 2 marcadores pelos teus valores reais,
+-- tira os "-- " e corre só este bloco.
+-- select cron.schedule(
+--   'motor-de-cobranca-diario',
+--   '0 6 * * *',
+--   $$
+--   select net.http_post(
+--     url := 'https://<o-teu-project-ref>.supabase.co/functions/v1/run-billing-engine',
+--     headers := '{"Authorization": "Bearer <o-teu-FUNCTION_SECRET>"}'::jsonb
+--   );
+--   $$
+-- );
 
 -- Substitui <o-teu-project-ref> pela referência do teu projecto e
 -- <o-teu-FUNCTION_SECRET> pelo mesmo segredo configurado em

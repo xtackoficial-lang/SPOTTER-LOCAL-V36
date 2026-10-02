@@ -189,7 +189,9 @@ function PublishEventPage() {
                 className="press flex h-56 w-full items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-border bg-card"
               >
                 {posterPreview ? (
-                  <img loading="lazy" decoding="async"
+                  <img
+                    loading="lazy"
+                    decoding="async"
                     src={posterPreview}
                     alt="Pré-visualização do cartaz"
                     className="h-full w-full object-cover"
