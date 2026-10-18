@@ -8,7 +8,8 @@ export interface BusinessRoom {
   businessId: string;
   name: string;
   capacity: number;
-  pricePerNight: number;
+  pricePerNight: number; // por dia/noite (0 = não se vende por dia)
+  pricePerHour: number | null; // só Pensão (null = não se vende por hora)
   photoUrl: string | null;
   active: boolean;
   occupiedUntil: string | null; // "YYYY-MM-DD" ou null (disponível)
@@ -36,6 +37,10 @@ export interface RoomReservation {
   guests: number;
   specialRequest: string | null;
   nights: number;
+  /** "night" = por dia/noites · "hour" = por horas (Pensão) */
+  bookingUnit: "night" | "hour";
+  hours: number | null;
+  startTime: string | null; // "HH:MM" (só por hora)
   totalPrice: number;
   commissionAmount: number;
   /** "full" = pagou 100% · "deposit" = sinal de 20% */
@@ -87,6 +92,7 @@ interface BusinessRoomRow {
   name: string;
   capacity: number;
   price_per_night: number;
+  price_per_hour?: number | null;
   photo_url: string | null;
   active: boolean;
   occupied_until: string | null;
@@ -107,6 +113,9 @@ interface RoomReservationRow {
   guests: number;
   special_request: string | null;
   nights: number;
+  booking_unit?: "night" | "hour" | null;
+  hours?: number | null;
+  start_time?: string | null;
   total_price: number;
   commission_amount: number;
   payment_option: "full" | "deposit" | null;
@@ -146,6 +155,7 @@ function mapRoom(row: BusinessRoomRow): BusinessRoom {
     name: row.name,
     capacity: row.capacity,
     pricePerNight: row.price_per_night,
+    pricePerHour: row.price_per_hour ?? null,
     photoUrl: row.photo_url ?? null,
     active: row.active,
     occupiedUntil: row.occupied_until ?? null,
@@ -168,6 +178,9 @@ function mapRoomReservation(row: RoomReservationRow): RoomReservation {
     guests: row.guests,
     specialRequest: row.special_request ?? null,
     nights: row.nights,
+    bookingUnit: row.booking_unit === "hour" ? "hour" : "night",
+    hours: row.hours ?? null,
+    startTime: row.start_time ?? null,
     totalPrice: row.total_price,
     commissionAmount: row.commission_amount,
     paymentOption: row.payment_option ?? "deposit",
@@ -230,7 +243,13 @@ export async function fetchAllRoomsForBusiness(businessId: string): Promise<Busi
 
 export async function createRoom(
   businessId: string,
-  room: { name: string; capacity: number; pricePerNight: number; photoUrl?: string | null },
+  room: {
+    name: string;
+    capacity: number;
+    pricePerNight: number;
+    pricePerHour?: number | null;
+    photoUrl?: string | null;
+  },
 ): Promise<BusinessRoom | null> {
   if (!SUPABASE_CONFIGURED || !supabase) return null;
   const { data, error } = await supabase
@@ -240,6 +259,7 @@ export async function createRoom(
       name: room.name,
       capacity: room.capacity,
       price_per_night: room.pricePerNight,
+      price_per_hour: room.pricePerHour ?? null,
       photo_url: room.photoUrl ?? null,
     })
     .select()
@@ -254,6 +274,7 @@ export async function updateRoom(
     name: string;
     capacity: number;
     pricePerNight: number;
+    pricePerHour: number | null;
     photoUrl: string | null;
   }>,
 ): Promise<void> {
@@ -262,6 +283,7 @@ export async function updateRoom(
   if (patch.name !== undefined) dbPatch.name = patch.name;
   if (patch.capacity !== undefined) dbPatch.capacity = patch.capacity;
   if (patch.pricePerNight !== undefined) dbPatch.price_per_night = patch.pricePerNight;
+  if (patch.pricePerHour !== undefined) dbPatch.price_per_hour = patch.pricePerHour;
   if (patch.photoUrl !== undefined) dbPatch.photo_url = patch.photoUrl;
   await supabase.from("business_rooms").update(dbPatch).eq("id", roomId);
 }
@@ -450,4 +472,26 @@ export function formatResponseDeadline(iso: string | null): string | null {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+// ---------- Textos de preço / estadia (Pensão: hora e/ou dia) ----------
+/** Ex.: "300 MT/dia · 80 MT/hora". Quartos com preço por hora dizem "dia". */
+export function roomPriceText(room: Pick<BusinessRoom, "pricePerNight" | "pricePerHour">): string {
+  const hasHour = (room.pricePerHour ?? 0) > 0;
+  const parts: string[] = [];
+  if (room.pricePerNight > 0) parts.push(`${room.pricePerNight} MT/${hasHour ? "dia" : "noite"}`);
+  if (hasHour) parts.push(`${room.pricePerHour} MT/hora`);
+  return parts.join(" · ");
+}
+
+/** Ex.: "2026-10-12 → 2026-10-14 (2 noites)" ou "2026-10-12 às 14:00 (3h)". */
+export function reservationStayText(
+  r: Pick<
+    RoomReservation,
+    "bookingUnit" | "checkIn" | "checkOut" | "nights" | "hours" | "startTime"
+  >,
+): string {
+  if (r.bookingUnit === "hour")
+    return `${r.checkIn} às ${r.startTime ?? "--:--"} (${r.hours ?? 0}h)`;
+  return `${r.checkIn} → ${r.checkOut} (${r.nights} noites)`;
 }

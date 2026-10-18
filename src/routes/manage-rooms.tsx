@@ -16,6 +16,7 @@ import {
   setRoomActive,
   setRoomOccupiedUntil,
   type BusinessRoom,
+  roomPriceText,
 } from "@/lib/reservations-db";
 import { uploadMedia } from "@/lib/storage-upload";
 import { useAuth } from "@/lib/auth-context";
@@ -44,7 +45,15 @@ function RoomForm({
 }) {
   const [name, setName] = useState(existing?.name ?? "");
   const [capacity, setCapacity] = useState(String(existing?.capacity ?? "2"));
-  const [price, setPrice] = useState(String(existing?.pricePerNight ?? ""));
+  const [price, setPrice] = useState(
+    existing && existing.pricePerNight > 0 ? String(existing.pricePerNight) : "",
+  );
+  const { draft } = useOnboarding();
+  // Pensão: o comerciante pode cobrar por hora e/ou por dia (v38).
+  const isPension = draft.business.category === "pension" || existing?.pricePerHour != null;
+  const [priceHour, setPriceHour] = useState(
+    existing?.pricePerHour ? String(existing.pricePerHour) : "",
+  );
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(existing?.photoUrl ?? null);
   const [saving, setSaving] = useState(false);
@@ -60,8 +69,12 @@ function RoomForm({
   };
 
   const handleSave = async () => {
-    if (!name.trim() || !capacity || !price) {
-      setError("Preenche o nome, a capacidade e o preço.");
+    if (!name.trim() || !capacity || (!price && !(isPension && priceHour))) {
+      setError(
+        isPension
+          ? "Preenche o nome, a capacidade e pelo menos um preço (por dia ou por hora)."
+          : "Preenche o nome, a capacidade e o preço.",
+      );
       return;
     }
     if (!user) {
@@ -82,14 +95,16 @@ function RoomForm({
         await updateRoom(existing.id, {
           name: name.trim(),
           capacity: Number(capacity),
-          pricePerNight: Number(price),
+          pricePerNight: price ? Number(price) : 0,
+          pricePerHour: isPension && priceHour ? Number(priceHour) : null,
           photoUrl,
         });
       } else {
         await createRoom(businessId, {
           name: name.trim(),
           capacity: Number(capacity),
-          pricePerNight: Number(price),
+          pricePerNight: price ? Number(price) : 0,
+          pricePerHour: isPension && priceHour ? Number(priceHour) : null,
           photoUrl,
         });
       }
@@ -148,10 +163,25 @@ function RoomForm({
           value={price}
           onChange={(e) => setPrice(e.target.value.replace(/[^\d.]/g, ""))}
           inputMode="decimal"
-          placeholder="Preço/noite (MT)"
+          placeholder={isPension ? "Preço/dia (MT)" : "Preço/noite (MT)"}
           className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
         />
       </div>
+      {isPension && (
+        <>
+          <input
+            value={priceHour}
+            onChange={(e) => setPriceHour(e.target.value.replace(/[^\d.]/g, ""))}
+            inputMode="decimal"
+            placeholder="Preço/hora (MT)"
+            className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
+          />
+          <p className="text-xs text-muted-foreground">
+            O cliente escolhe se reserva por horas ou por dia. Deixa em branco o preço que não
+            queres vender (ex.: só por hora).
+          </p>
+        </>
+      )}
 
       {error && <p className="text-xs text-red-600">{error}</p>}
 
@@ -230,7 +260,7 @@ function RoomCard({ room, onChanged }: { room: BusinessRoom; onChanged: () => vo
             </button>
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {room.capacity} pessoas · {room.pricePerNight} MT/noite
+            {room.capacity} pessoas · {roomPriceText(room)}
           </p>
           {isOccupied && (
             <p className="mt-1 text-xs font-semibold text-amber-600">

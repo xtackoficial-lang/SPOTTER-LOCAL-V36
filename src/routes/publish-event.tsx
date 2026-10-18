@@ -9,13 +9,20 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { Icon } from "@/components/Icon";
 import { ShimmerButton } from "@/components/ShimmerButton";
-import { createZumboPayEventPayment, type EventTier, type PaymentRequest } from "@/lib/payments-db";
+import { createZumboPayEventPayment, type PaymentRequest } from "@/lib/payments-db";
 import { uploadMedia } from "@/lib/storage-upload";
 import { PROVINCES_MZ, citiesForProvince } from "@/lib/mozambique-locations";
 import { useOnboarding } from "@/lib/onboarding-storage";
 import { useAuth } from "@/lib/auth-context";
 import { RequireBusiness } from "@/components/RequireBusiness";
 import { supabase, SUPABASE_CONFIGURED } from "@/lib/supabase";
+import {
+  deleteMyEvent,
+  fetchMyEvents,
+  formatEventDates,
+  todayLocalISO,
+  type MyEvent,
+} from "@/lib/posts-events-db";
 
 export const Route = createFileRoute("/publish-event")({
   head: () => ({ meta: [{ title: "Publicar evento — Spotter Local" }] }),
@@ -26,15 +33,10 @@ export const Route = createFileRoute("/publish-event")({
   ),
 });
 
-const TIERS: { id: EventTier; label: string; hint: string; price: number }[] = [
-  {
-    id: "standard",
-    label: "Listagem simples",
-    hint: "Aparece na aba Eventos, ordem normal",
-    price: 100,
-  },
-  { id: "featured", label: "Destaque", hint: "Aparece no topo da aba Eventos", price: 250 },
-];
+// v38 — o evento paga-se por DIA: 50 MZN por dia, de 1 a 30 dias.
+const PRICE_PER_DAY = 50;
+const MAX_DAYS = 30;
+const QUICK_DAYS = [1, 3, 7, 14, 30];
 
 type Step = "form" | "waiting" | "done" | "failed";
 
@@ -51,9 +53,13 @@ function PublishEventPage() {
   const [ticketPhone, setTicketPhone] = useState("");
   const [ticketLink, setTicketLink] = useState("");
   const [eventDate, setEventDate] = useState("");
+  const [eventEndDate, setEventEndDate] = useState("");
+  const [existingPosterUrl, setExistingPosterUrl] = useState<string | null>(null);
+  const [myEvents, setMyEvents] = useState<MyEvent[]>([]);
+  const [reloadTick, setReloadTick] = useState(0);
   const [province, setProvince] = useState("");
   const [city, setCity] = useState("");
-  const [tier, setTier] = useState<EventTier>("standard");
+  const [days, setDays] = useState(3);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,17 +67,76 @@ function PublishEventPage() {
   const [zumboPopupBlocked, setZumboPopupBlocked] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const selectedTier = TIERS.find((t) => t.id === tier)!;
+  const totalPrice = days * PRICE_PER_DAY;
+  const today = todayLocalISO();
+  const visibleUntil = new Date(Date.now() + days * 86_400_000).toLocaleDateString("pt-MZ");
+  // Dias necessários para a publicação cobrir o evento até ao fim (hoje conta como dia 1).
+  const lastEventDay = eventEndDate || eventDate;
+  const daysToCover =
+    lastEventDay && lastEventDay >= today
+      ? Math.min(
+          MAX_DAYS,
+          Math.max(1, Math.round((Date.parse(lastEventDay) - Date.parse(today)) / 86_400_000) + 1),
+        )
+      : null;
+  const eventEndsAfterListing = daysToCover !== null && days < daysToCover;
+
+  useEffect(() => {
+    if (step !== "form") return;
+    let cancelled = false;
+    fetchMyEvents(businessId).then((list) => {
+      if (!cancelled) setMyEvents(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [step, businessId, reloadTick]);
+
+  const repeatEvent = (ev: MyEvent) => {
+    setTitle(ev.title);
+    setTicketPhone(ev.ticketPhone ?? "");
+    setTicketLink(ev.ticketLink ?? "");
+    setEventDate("");
+    setEventEndDate("");
+    setPosterFile(null);
+    setExistingPosterUrl(ev.posterUrl);
+    setPosterPreview(ev.posterUrl);
+    setError(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const removeEvent = async (ev: MyEvent) => {
+    if (!window.confirm(`Remover o evento "${ev.title}"? Deixa de aparecer na aba Eventos.`))
+      return;
+    if (await deleteMyEvent(ev.id)) setReloadTick((n) => n + 1);
+    else setError("Não foi possível remover o evento.");
+  };
+
+  const eventStatusText = (ev: MyEvent): string => {
+    if (ev.status === "pending") return "A aguardar pagamento";
+    const lastDay = ev.eventEndDate ?? ev.eventDate;
+    const ended =
+      ev.status === "expired" ||
+      (ev.expiresAt && Date.parse(ev.expiresAt) <= Date.now()) ||
+      (lastDay && lastDay < today);
+    if (ended) return "Terminado";
+    if (ev.expiresAt) {
+      const left = Math.max(1, Math.ceil((Date.parse(ev.expiresAt) - Date.now()) / 86_400_000));
+      return `Visível · faltam ${left} ${left === 1 ? "dia" : "dias"}`;
+    }
+    return "Visível";
+  };
 
   const handlePickPoster = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setPosterFile(file);
+    setExistingPosterUrl(null);
     setPosterPreview(URL.createObjectURL(file));
   };
 
   const handleSubmit = async () => {
-    if (!posterFile) {
+    if (!posterFile && !existingPosterUrl) {
       setError("Escolhe o cartaz do evento.");
       return;
     }
@@ -81,6 +146,18 @@ function PublishEventPage() {
     }
     if (!ticketPhone.trim() && !ticketLink.trim()) {
       setError("Indica pelo menos um contacto ou link para bilhetes.");
+      return;
+    }
+    if (eventDate && eventDate < today) {
+      setError("A data de início do evento já passou.");
+      return;
+    }
+    if (eventEndDate && !eventDate) {
+      setError("Indica primeiro a data de início do evento.");
+      return;
+    }
+    if (eventEndDate && eventEndDate < eventDate) {
+      setError("A data de fim não pode ser antes da data de início.");
       return;
     }
     if (!user) {
@@ -94,15 +171,19 @@ function PublishEventPage() {
       // CORREÇÃO (varredura 2026-09-19): ver o mesmo comentário em
       // publish-post.tsx — businessId ≠ auth.uid(), a política de
       // Storage rejeitava isto em silêncio.
-      const posterUrl = await uploadMedia(posterFile, "event", user.id);
+      const posterUrl = posterFile
+        ? await uploadMedia(posterFile, "event", user.id)
+        : (existingPosterUrl as string);
       setUploading(false);
 
-      const { payment, paymentUrl } = await createZumboPayEventPayment(businessId, tier, {
+      const { payment, paymentUrl } = await createZumboPayEventPayment(businessId, "standard", {
+        days,
         posterUrl,
         title: title.trim(),
         ticketPhone: ticketPhone.trim() || undefined,
         ticketLink: ticketLink.trim() || undefined,
         eventDate: eventDate || undefined,
+        eventEndDate: eventEndDate || undefined,
         city: city || undefined,
       });
       setReq(payment);
@@ -171,10 +252,19 @@ function PublishEventPage() {
       <div className="mx-auto max-w-md px-4 py-6 space-y-6">
         {step === "form" && (
           <>
-            <p className="text-sm text-muted-foreground">
-              Cartaz, contacto de bilhetes e data — o evento aparece na aba Eventos para quem
-              procurar na cidade escolhida.
-            </p>
+            <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm">
+              <div className="mb-1 font-bold text-foreground">Para que serve?</div>
+              <p className="text-muted-foreground">
+                Divulga uma festa, concerto, inauguração, feira ou promoção a todos os clientes da
+                tua cidade. O evento aparece na aba Eventos com o cartaz, a data e o contacto ou
+                link para comprarem bilhetes.
+              </p>
+              <p className="mt-2 text-muted-foreground">
+                <span className="font-semibold text-foreground">Quanto custa:</span> {PRICE_PER_DAY}{" "}
+                MZN por dia. Escolhes quantos dias queres que apareça; passados esses dias sai
+                sozinho da aba.
+              </p>
+            </div>
 
             <div>
               <input
@@ -212,12 +302,37 @@ function PublishEventPage() {
               className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm text-foreground outline-none"
             />
 
-            <input
-              type="date"
-              value={eventDate}
-              onChange={(e) => setEventDate(e.target.value)}
-              className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm text-foreground outline-none"
-            />
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-muted-foreground">
+                  Data de início
+                </span>
+                <input
+                  type="date"
+                  min={today}
+                  value={eventDate}
+                  onChange={(e) => {
+                    setEventDate(e.target.value);
+                    if (eventEndDate && e.target.value && eventEndDate < e.target.value) {
+                      setEventEndDate("");
+                    }
+                  }}
+                  className="w-full rounded-2xl border border-border bg-card px-3 py-3 text-sm text-foreground outline-none"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-muted-foreground">
+                  Data de fim (opcional)
+                </span>
+                <input
+                  type="date"
+                  min={eventDate || today}
+                  value={eventEndDate}
+                  onChange={(e) => setEventEndDate(e.target.value)}
+                  className="w-full rounded-2xl border border-border bg-card px-3 py-3 text-sm text-foreground outline-none"
+                />
+              </label>
+            </div>
 
             <input
               value={ticketPhone}
@@ -265,29 +380,83 @@ function PublishEventPage() {
             </div>
 
             <div className="space-y-2">
-              <div className="text-sm font-semibold text-foreground">Tipo de listagem</div>
-              {TIERS.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setTier(t.id)}
-                  className={`press flex w-full flex-col items-start gap-0.5 rounded-2xl border px-4 py-3 text-left ${
-                    tier === t.id ? "border-primary bg-primary/10" : "border-border bg-card"
-                  }`}
-                >
-                  <div className="flex w-full items-center justify-between">
-                    <span className="text-sm font-medium text-foreground">{t.label}</span>
-                    <span className="text-sm font-bold text-primary">{t.price} MZN</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground">{t.hint}</span>
-                </button>
-              ))}
+              <div className="text-sm font-semibold text-foreground">
+                Quantos dias fica publicado?
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {QUICK_DAYS.map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setDays(d)}
+                    className={`press rounded-full border px-4 py-2 text-sm font-medium ${
+                      days === d
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-card text-foreground"
+                    }`}
+                  >
+                    {d} {d === 1 ? "dia" : "dias"}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3">
+                <span className="text-sm text-muted-foreground">Outro número de dias</span>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setDays((d) => Math.max(1, d - 1))}
+                    className="press h-9 w-9 rounded-full border border-border text-lg font-bold text-foreground"
+                    aria-label="Menos um dia"
+                  >
+                    −
+                  </button>
+                  <span className="w-8 text-center text-base font-bold text-foreground">
+                    {days}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setDays((d) => Math.min(MAX_DAYS, d + 1))}
+                    className="press h-9 w-9 rounded-full border border-border text-lg font-bold text-foreground"
+                    aria-label="Mais um dia"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center justify-between rounded-2xl bg-card px-4 py-3">
+                <span className="text-sm text-muted-foreground">
+                  {days} {days === 1 ? "dia" : "dias"} × {PRICE_PER_DAY} MZN
+                </span>
+                <span className="text-base font-bold text-primary">{totalPrice} MZN</span>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-card px-4 py-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Visível na aba Eventos até</span>
+                <span className="font-semibold text-foreground">{visibleUntil}</span>
+              </div>
+              {eventEndsAfterListing && daysToCover !== null && (
+                <div className="mt-2 rounded-xl bg-amber-500/10 p-3 text-xs text-amber-700">
+                  O evento acaba depois de a publicação terminar. Para o mostrares até ao fim
+                  precisas de {daysToCover} {daysToCover === 1 ? "dia" : "dias"}.
+                  <button
+                    type="button"
+                    onClick={() => setDays(daysToCover)}
+                    className="press mt-2 block w-full rounded-lg bg-amber-500/20 px-3 py-2 text-center font-semibold text-amber-800"
+                  >
+                    Usar {daysToCover} {daysToCover === 1 ? "dia" : "dias"} (
+                    {daysToCover * PRICE_PER_DAY} MZN)
+                  </button>
+                </div>
+              )}
             </div>
 
             {error && <p className="text-xs text-destructive">{error}</p>}
 
             <ShimmerButton
               onClick={handleSubmit}
-              disabled={loading || !posterFile}
+              disabled={loading || (!posterFile && !existingPosterUrl)}
               className="press h-14 w-full rounded-2xl text-base font-bold text-primary-foreground disabled:opacity-50"
               style={{ background: "var(--gradient-primary)" }}
             >
@@ -295,9 +464,52 @@ function PublishEventPage() {
                 ? "A enviar cartaz…"
                 : loading
                   ? "A criar pagamento…"
-                  : `Pagar ${selectedTier.price} MZN e publicar`}
+                  : `Pagar ${totalPrice} MZN e publicar`}
             </ShimmerButton>
           </>
+        )}
+
+        {step === "form" && myEvents.length > 0 && (
+          <div className="space-y-3 border-t border-border pt-6">
+            <div className="text-sm font-semibold text-foreground">Os teus eventos</div>
+            {myEvents.map((ev) => (
+              <div
+                key={ev.id}
+                className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3"
+              >
+                <img
+                  loading="lazy"
+                  decoding="async"
+                  src={ev.posterUrl}
+                  alt=""
+                  className="h-14 w-14 shrink-0 rounded-xl object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold text-foreground">{ev.title}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {formatEventDates(ev.eventDate, ev.eventEndDate) || "Sem data"}
+                  </div>
+                  <div className="text-xs font-medium text-primary">{eventStatusText(ev)}</div>
+                </div>
+                <div className="flex shrink-0 flex-col gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => repeatEvent(ev)}
+                    className="press rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-foreground"
+                  >
+                    Repetir
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeEvent(ev)}
+                    className="press rounded-lg border border-destructive/40 px-2.5 py-1 text-xs font-semibold text-destructive"
+                  >
+                    Remover
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
 
         {step === "waiting" && (
@@ -332,7 +544,7 @@ function PublishEventPage() {
             <Icon name="check-circle" size={48} className="text-emerald-600" />
             <h2 className="text-lg font-bold text-foreground">Evento publicado!</h2>
             <p className="text-sm text-muted-foreground">
-              Já está visível na aba Eventos{selectedTier.id === "featured" ? ", em destaque" : ""}.
+              Já está visível na aba Eventos até {visibleUntil}.
             </p>
             <ShimmerButton
               onClick={() => navigate({ to: "/merchant" })}

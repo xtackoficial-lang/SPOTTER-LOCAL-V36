@@ -375,17 +375,15 @@ function BusinessDash() {
                 : `${tr("boostFromPrice")} ${BOOST_PRICE_PER_DAY_MZN} ${tr("perDaySuffix")}`}
             </button>
             <button
-              onClick={() => navigate({ to: "/publish-post" })}
-              className="press mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-card text-sm font-semibold text-foreground"
-            >
-              <Icon name="image" size={15} /> Publicar foto no feed — desde 50 MZN
-            </button>
-            <button
               onClick={() => navigate({ to: "/publish-event" })}
               className="press mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-card text-sm font-semibold text-foreground"
             >
-              <Icon name="calendar" size={15} /> Publicar evento — desde 100 MZN
+              <Icon name="calendar" size={15} /> Publicar evento — 50 MZN/dia
             </button>
+            <p className="mt-1.5 px-3 text-center text-[11px] leading-snug text-muted-foreground">
+              Divulga a tua festa, concerto, inauguração ou promoção na aba Eventos, com cartaz e
+              contacto para bilhetes. Pagas só pelos dias que quiseres.
+            </p>
             {reservationSettings?.acceptsRoomReservation && (
               <button
                 onClick={() => navigate({ to: "/manage-rooms" })}

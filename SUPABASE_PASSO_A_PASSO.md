@@ -1,4 +1,4 @@
-# Spotter Local v37 — TUDO o que tens de correr e conectar no Supabase
+# Spotter Local v41 — TUDO o que tens de correr e conectar no Supabase
 
 Faz por esta ordem. Cada passo diz onde clicar e o que deves ver no fim.
 Ficheiros SQL: pasta `supabase/` do zip (`1_RUN_NO_SUPABASE.sql`, `2_CRON_AGENDAMENTOS.sql`, `VERIFICAR_BD.sql`).
@@ -21,9 +21,9 @@ Cola `supabase/VERIFICAR_BD.sql` → Run. Cada linha "FALTA" diz o que corrigir.
 - Se faltarem **tabelas base** (businesses, payments, room_reservations…): corre primeiro `SUPABASE_SETUP.sql` e depois `supabase/migrations/002` … `007` por ordem.
 - Se só faltarem coisas dos pagamentos/reservas → passo 1.2.
 
-### 1.2 Correções da v37 (OBRIGATÓRIO)
-Cola **`supabase/1_RUN_NO_SUPABASE.sql`** → Run. (Junta as migrações 008, 009 e 010. Pode correr mais de uma vez.)
-No fim aparecem 3 linhas, todas `OK`.
+### 1.2 Correções (OBRIGATÓRIO)
+Cola **`supabase/1_RUN_NO_SUPABASE.sql`** → Run. (Junta as migrações 008 a 014: pagamentos, reservas, Pensão por hora, eventos por dia, data de fim e remover evento. Pode correr mais de uma vez.)
+No fim aparecem 9 linhas, todas `OK`.
 O que faz: aceita pagamentos ZumboPay e os pacotes de publicação/evento; bloqueia reservas para táxi e outras categorias; quartos com pagamento 100% ou sinal de 20% e prazo de resposta de 24h.
 
 ### 1.3 Ser administrador

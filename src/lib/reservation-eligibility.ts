@@ -13,7 +13,8 @@
 // ============================================================
 
 /** Reservas de QUARTO: só quem tem alojamento. */
-export const ROOM_RESERVATION_CATEGORIES = ["hotel", "hotel_restaurant"] as const;
+// "pension" (Pensão): quartos com preço por hora e/ou por dia (v38).
+export const ROOM_RESERVATION_CATEGORIES = ["hotel", "hotel_restaurant", "pension"] as const;
 
 /** Reservas de MESA/espaço: alojamento, comida e parques. */
 export const TABLE_RESERVATION_CATEGORIES = [

@@ -242,22 +242,38 @@ Deno.serve(async (req: Request) => {
         expires_at: expiresAt.toISOString(),
       });
     } else if (payment.plan_id === "event") {
-      // Evento: cria a linha já "active" — sem expiração automática por
-      // agora (o admin/dono pode gerir manualmente depois do evento passar).
+      // Evento: cria a linha já "active". v38: o dono paga por dia (50 MZN/dia);
+      // passados os dias deixa de aparecer sozinho (expires_at). Eventos pagos
+      // antes da v38 não têm "days" → ficam sem expiração, como antes.
       const meta = (payment.content_metadata ?? {}) as Record<string, unknown>;
+      const eventDays = Number(meta.days);
+      const eventExpiresAt =
+        eventDays >= 1 ? new Date(Date.now() + eventDays * 86_400_000).toISOString() : null;
 
-      await supabase.from("events").insert({
+      const endRaw = String(meta.event_end_date ?? meta.eventEndDate ?? "");
+      const eventEndDate = /^\d{4}-\d{2}-\d{2}$/.test(endRaw) ? endRaw : null;
+      const eventRow: Record<string, unknown> = {
         business_id: payment.business_id,
         poster_url: meta.poster_url ?? meta.posterUrl ?? "",
         title: meta.title ?? "Evento",
         ticket_phone: meta.ticket_phone ?? meta.ticketPhone ?? null,
         ticket_link: meta.ticket_link ?? meta.ticketLink ?? null,
         event_date: meta.event_date ?? meta.eventDate ?? null,
+        event_end_date: eventEndDate,
         city: meta.city ?? null,
         tier: payment.boost_package_id ?? "standard",
         payment_id: payment.id,
         status: "active",
-      });
+        expires_at: eventExpiresAt,
+      };
+      const evInsert = await supabase.from("events").insert(eventRow);
+      // Rede de segurança: se as migrações 012/013 ainda não foram corridas, as colunas
+      // novas não existem — publica na mesma (o cliente já pagou) sem elas.
+      if (evInsert.error && /expires_at|event_end_date/.test(evInsert.error.message ?? "")) {
+        console.warn("events: colunas novas em falta, a publicar sem elas:", evInsert.error.message);
+        const { expires_at: _x, event_end_date: _y, ...legacyRow } = eventRow;
+        await supabase.from("events").insert(legacyRow);
+      }
     } else if (payment.plan_id === "room") {
       // Reserva de quarto: cria a linha já "pending_approval" — o
       // comerciante ainda tem de aceitar ou recusar, dentro do prazo
@@ -279,6 +295,10 @@ Deno.serve(async (req: Request) => {
 
       const deadline = responseDeadlineFrom();
       const isFull = meta.paymentOption === "full";
+      const isHourly = meta.bookingUnit === "hour";
+      const stayText = isHourly
+        ? `${meta.checkIn} às ${meta.startTime} (${meta.hours}h)`
+        : `${meta.checkIn} a ${meta.checkOut}`;
       const { data: reservation } = await supabase
         .from("room_reservations")
         .insert({
@@ -293,6 +313,9 @@ Deno.serve(async (req: Request) => {
           guests: meta.guests,
           special_request: meta.specialRequest ?? null,
           nights: meta.nights,
+          booking_unit: meta.bookingUnit ?? "night",
+          hours: meta.hours ?? null,
+          start_time: meta.startTime ?? null,
           total_price: meta.totalPrice,
           commission_amount: meta.commissionAmount,
           payment_option: meta.paymentOption ?? "deposit",
@@ -312,7 +335,7 @@ Deno.serve(async (req: Request) => {
         await sendReservationChatMessage(
           payment.business_id,
           meta.clientUserId as string,
-          `Recebemos o seu pedido de reserva — ${meta.roomName}, ${meta.checkIn} a ${meta.checkOut}, ${meta.guests} hóspede(s). Pagou ${meta.amountPaid} MT (${isFull ? "valor total" : "sinal de 20%"}). ${businessName} responde até ${formatDeadline(deadline)}.`,
+          `Recebemos o seu pedido de reserva — ${meta.roomName}, ${stayText}, ${meta.guests} hóspede(s). Pagou ${meta.amountPaid} MT (${isFull ? "valor total" : "sinal de 20%"}). ${businessName} responde até ${formatDeadline(deadline)}.`,
         );
         await sendReservationPush(
           meta.clientUserId as string,
@@ -325,7 +348,7 @@ Deno.serve(async (req: Request) => {
         await sendReservationPush(
           biz.owner_id,
           "Nova reserva de quarto pendente",
-          `${meta.roomName} — ${meta.checkIn} a ${meta.checkOut} — responda até ${formatDeadline(deadline)}.`,
+          `${meta.roomName} — ${stayText} — responda até ${formatDeadline(deadline)}.`,
         );
       }
       // E-mail para xtackoficial@gmail.com
@@ -334,7 +357,7 @@ Deno.serve(async (req: Request) => {
         buildReservationEmailHtml([
           ["Negócio", businessName],
           ["Quarto", String(meta.roomName ?? "")],
-          ["Check-in / Check-out", `${meta.checkIn} → ${meta.checkOut} (${meta.nights} noites)`],
+          [isHourly ? "Reserva por hora" : "Check-in / Check-out", isHourly ? stayText : `${meta.checkIn} → ${meta.checkOut} (${meta.nights} noites)`],
           ["Hóspedes", String(meta.guests ?? "")],
           ["Cliente", `${meta.clientName} — ${meta.clientPhone}`],
           ["E-mail do cliente", String(meta.clientEmail ?? "—")],

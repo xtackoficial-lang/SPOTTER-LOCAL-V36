@@ -86,7 +86,10 @@ const POST_PRICES: Record<string, number> = { "24h": 50, "3d": 120, "7d": 250 };
 const POST_HOURS: Record<string, number> = { "24h": 24, "3d": 72, "7d": 168 };
 
 // Eventos — listagem simples ou com destaque (topo da aba Eventos).
-const EVENT_PRICES: Record<string, number> = { standard: 100, featured: 250 };
+const EVENT_PRICES: Record<string, number> = { standard: 100, featured: 250 }; // só para apps antigas em cache
+// v38 — evento por dia: 50 MZN por dia, de 1 a 30 dias. O servidor calcula o valor.
+const EVENT_PRICE_PER_DAY = 50;
+const EVENT_MAX_DAYS = 30;
 
 // Reservas — comissão da plataforma:
 //   quarto: 10% do valor total da estadia (preço/noite × nº de noites)
@@ -109,7 +112,7 @@ const CORS_HEADERS = {
 
 // Categorias que podem receber reservas online — TEM de ficar igual a
 // src/lib/reservation-eligibility.ts e à migração 009.
-const ROOM_CATEGORIES = ["hotel", "hotel_restaurant"];
+const ROOM_CATEGORIES = ["hotel", "hotel_restaurant", "pension"];
 const TABLE_CATEGORIES = ["hotel", "hotel_restaurant", "restaurant", "snack_bar", "tourism_site"];
 
 function makeRef(businessId: string, planId: string): string {
@@ -135,11 +138,16 @@ Deno.serve(async (req: Request) => {
     boostPackageId?: string;
     postPackageId?: string;
     eventTier?: string;
+    eventDays?: number | null; // nº de dias que o evento fica publicado (1 a 30)
     contentMetadata?: Record<string, unknown>;
     // Reserva de quarto (planId === "room")
     roomId?: string;
     checkIn?: string;   // "YYYY-MM-DD"
     checkOut?: string;  // "YYYY-MM-DD"
+    // Pensão (v38): reserva por hora. checkIn = dia, startTime = "HH:MM", hours = nº de horas.
+    bookingUnit?: "night" | "hour";
+    hours?: number;
+    startTime?: string;
     guests?: number;
     specialRequest?: string;
     clientName?: string;
@@ -160,8 +168,8 @@ Deno.serve(async (req: Request) => {
   }
 
   const {
-    businessId, planId, boostPackageId, postPackageId, eventTier, contentMetadata,
-    roomId, paymentOption, checkIn, checkOut, guests, specialRequest, clientName, clientPhone, clientEmail,
+    businessId, planId, boostPackageId, postPackageId, eventTier, eventDays, contentMetadata,
+    roomId, paymentOption, checkIn, checkOut, bookingUnit, hours, startTime, guests, specialRequest, clientName, clientPhone, clientEmail,
     reservationDate, timeSlot, tableTipo,
   } = body;
 
@@ -173,7 +181,15 @@ Deno.serve(async (req: Request) => {
     const isTable = planId === "table";
     const boostDays = isBoost ? BOOST_DAYS[boostPackageId ?? ""] : undefined;
     const postHours = isPost ? POST_HOURS[postPackageId ?? ""] : undefined;
-    const eventPrice = isEvent ? EVENT_PRICES[eventTier ?? "standard"] : undefined;
+    const eventDaysNum = isEvent && eventDays != null ? Math.round(Number(eventDays)) : null;
+    const eventDaysOk = eventDaysNum != null && eventDaysNum >= 1 && eventDaysNum <= EVENT_MAX_DAYS;
+    const eventPrice = isEvent
+      ? eventDays != null
+        ? eventDaysOk
+          ? eventDaysNum! * EVENT_PRICE_PER_DAY
+          : undefined
+        : EVENT_PRICES[eventTier ?? "standard"]
+      : undefined;
 
     let authenticatedUserId: string | null = null;
     if (isRoom || isTable) {
@@ -193,7 +209,7 @@ Deno.serve(async (req: Request) => {
       (isBoost ? !!boostDays
         : isPost ? !!postHours
         : isEvent ? !!eventPrice
-        : isRoom ? (!!roomId && !!checkIn && !!checkOut && !!guests && !!clientName && !!clientPhone)
+        : isRoom ? (!!roomId && !!checkIn && (!!checkOut || bookingUnit === "hour") && !!guests && !!clientName && !!clientPhone)
         : isTable ? (!!reservationDate && !!timeSlot && !!guests && !!clientName && !!clientPhone)
         : !!PLAN_PRICES[planId]);
 
@@ -213,7 +229,7 @@ Deno.serve(async (req: Request) => {
     if (isRoom) {
       const { data: room, error: roomErr } = await supabase
         .from("business_rooms")
-        .select("id, business_id, name, price_per_night, active")
+        .select("id, business_id, name, price_per_night, price_per_hour, active")
         .eq("id", roomId)
         .eq("business_id", businessId)
         .maybeSingle();
@@ -239,17 +255,34 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      const nights = Math.round(
-        (new Date(checkOut!).getTime() - new Date(checkIn!).getTime()) / (1000 * 60 * 60 * 24),
-      );
-      if (!nights || nights < 1) {
-        return new Response(
-          JSON.stringify({ error: "Datas de entrada/saída inválidas" }),
-          { status: 400, headers: CORS_HEADERS },
+      // v38 — o cliente escolhe POR HORA ou POR DIA/NOITE. O servidor calcula
+      // o valor a partir dos preços do quarto (nunca confia no cliente).
+      const unit: "hour" | "night" = bookingUnit === "hour" ? "hour" : "night";
+      let nights = 0;
+      let hoursCount = 0;
+      let totalPrice = 0;
+      const bad = (msg: string) =>
+        new Response(JSON.stringify({ error: msg }), { status: 400, headers: CORS_HEADERS });
+      if (unit === "hour") {
+        const pph = Number(room.price_per_hour ?? 0);
+        if (!pph || pph <= 0) return bad("Este quarto não tem preço por hora");
+        hoursCount = Math.round(Number(hours));
+        if (!hoursCount || hoursCount < 1 || hoursCount > 12) {
+          return bad("Número de horas inválido (1 a 12)");
+        }
+        if (!startTime || !/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime)) {
+          return bad("Hora de entrada inválida");
+        }
+        totalPrice = pph * hoursCount;
+      } else {
+        const ppn = Number(room.price_per_night ?? 0);
+        if (!ppn || ppn <= 0) return bad("Este quarto não tem preço por dia");
+        nights = Math.round(
+          (new Date(checkOut!).getTime() - new Date(checkIn!).getTime()) / (1000 * 60 * 60 * 24),
         );
+        if (!nights || nights < 1) return bad("Datas de entrada/saída inválidas");
+        totalPrice = ppn * nights;
       }
-
-      const totalPrice = room.price_per_night * nights;
       const option = paymentOption === "full" ? "full" : paymentOption === "deposit" || paymentOption == null ? "deposit" : null;
       if (!option) {
         return new Response(
@@ -268,8 +301,12 @@ Deno.serve(async (req: Request) => {
         roomName: room.name,
         clientUserId: authenticatedUserId,
         checkIn,
-        checkOut,
+        checkOut: unit === "hour" ? checkIn : checkOut,
         nights,
+        bookingUnit: unit,
+        hours: unit === "hour" ? hoursCount : null,
+        startTime: unit === "hour" ? startTime : null,
+        pricePerHour: room.price_per_hour ?? null,
         guests,
         specialRequest: specialRequest ?? null,
         clientName,
@@ -381,7 +418,9 @@ Deno.serve(async (req: Request) => {
         merchant_ref: merchantRef,
         plan_id: planId,
         boost_package_id: isBoost ? boostPackageId : isPost ? postPackageId : isEvent ? eventTier ?? "standard" : null,
-        content_metadata: isPost || isEvent
+        content_metadata: isEvent
+          ? { ...(contentMetadata ?? {}), days: eventDaysOk ? eventDaysNum : null }
+          : isPost
           ? (contentMetadata ?? null)
           : isRoom
             ? roomReservationMeta
@@ -420,7 +459,7 @@ Deno.serve(async (req: Request) => {
       : isPost
         ? `Spotter Local — Publicação (${postPackageId})`
         : isEvent
-          ? `Spotter Local — Evento (${eventTier ?? "standard"})`
+          ? `Spotter Local — Evento (${eventDaysOk ? `${eventDaysNum} dias` : eventTier ?? "standard"})`
           : isRoom
             ? `Spotter Local — Reserva de quarto (${(roomReservationMeta as any)?.paymentOption === "full" ? "pagamento total" : "sinal de 20%"})`
             : isTable

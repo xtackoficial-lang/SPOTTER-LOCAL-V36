@@ -36,6 +36,7 @@ export const FAMILY_BY_CATEGORY: Record<string, FamilyId> = {
   bar: "comida",
   snack_bar: "comida",
   hotel: "alojamento",
+  pension: "alojamento",
   rental: "alojamento",
   pharmacy: "saude_servicos",
   clinic: "saude_servicos",

@@ -26,7 +26,12 @@ create index if not exists idx_payments_zumbopay_payment_id
 --     (supabase.channel(...).on("postgres_changes", ...)) NUNCA dispara.
 --     É o que faz a app do comerciante avançar sozinha para "Plano
 --     activado" assim que o webhook confirma o pagamento.
-alter publication supabase_realtime add table public.payments;
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'payments') then
+    alter publication supabase_realtime add table public.payments;
+  end if;
+end $$;
 
 -- 3c) Evita duas linhas "pending" para o mesmo pagamento em caso de
 --     clique duplo/repetido antes da Edge Function responder.

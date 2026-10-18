@@ -10,6 +10,7 @@
     "build:store": "node scripts/store-build.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
+    "check:db": "node scripts/verificar-colunas-bd.cjs",
     "format": "prettier --write .",
     "prebuild": "node scripts/inject-sw-env.mjs",
     "predev": "node scripts/inject-sw-env.mjs"

@@ -24,7 +24,11 @@ export interface RoomReservationInput {
   /** "full" = 100% agora · "deposit" = sinal de 20% para garantir a reserva */
   paymentOption: "full" | "deposit";
   checkIn: string; // "YYYY-MM-DD"
-  checkOut: string; // "YYYY-MM-DD"
+  checkOut: string; // "YYYY-MM-DD" (por hora: igual ao checkIn)
+  /** Pensão: "hour" = por horas (usa hours + startTime) · "night" = por dia/noites */
+  bookingUnit?: "night" | "hour";
+  hours?: number;
+  startTime?: string; // "HH:MM"
   guests: number;
   specialRequest?: string;
   clientName: string;
@@ -54,8 +58,11 @@ export interface EventContentInput {
   title: string;
   ticketPhone?: string;
   ticketLink?: string;
-  eventDate?: string; // YYYY-MM-DD
+  eventDate?: string; // YYYY-MM-DD (início)
+  eventEndDate?: string; // YYYY-MM-DD (fim, opcional)
   city?: string;
+  /** Nº de dias que o evento fica publicado (1 a 30) — 50 MZN por dia. */
+  days?: number;
 }
 
 export interface PaymentRequest {
@@ -330,12 +337,14 @@ export async function createZumboPayEventPayment(
       businessId,
       planId: "event",
       eventTier,
+      eventDays: content.days ?? null,
       contentMetadata: {
         poster_url: content.posterUrl,
         title: content.title,
         ticket_phone: content.ticketPhone ?? null,
         ticket_link: content.ticketLink ?? null,
         event_date: content.eventDate ?? null,
+        event_end_date: content.eventEndDate ?? null,
         city: content.city ?? null,
       },
     },
@@ -381,6 +390,9 @@ export async function createZumboPayRoomPayment(
       planId: "room",
       roomId: input.roomId,
       paymentOption: input.paymentOption,
+      bookingUnit: input.bookingUnit ?? "night",
+      hours: input.hours ?? null,
+      startTime: input.startTime ?? null,
       checkIn: input.checkIn,
       checkOut: input.checkOut,
       guests: input.guests,

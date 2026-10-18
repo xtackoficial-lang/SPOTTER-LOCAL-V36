@@ -18,6 +18,7 @@ import {
   type RoomReservation,
   type TableReservation,
   formatResponseDeadline,
+  reservationStayText,
 } from "@/lib/reservations-db";
 import {
   EMPTY_ROOM_FILTERS,
@@ -107,8 +108,7 @@ function RoomReservationCard({
         <div>
           <h3 className="text-sm font-bold text-foreground">{reservation.roomName}</h3>
           <p className="text-xs text-muted-foreground">
-            {reservation.checkIn} → {reservation.checkOut} ({reservation.nights} noites) ·{" "}
-            {reservation.guests} hóspede(s)
+            {reservationStayText(reservation)} · {reservation.guests} hóspede(s)
           </p>
         </div>
         <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${badge.className}`}>

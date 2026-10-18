@@ -102,5 +102,15 @@ create index if not exists idx_events_status_tier_date on public.events(status, 
 -- sozinho assim que o pagamento é confirmado (mesmo padrão já usado
 -- em "payments" para assinaturas e Turbinar).
 -- ============================================================
-alter publication supabase_realtime add table public.business_posts;
-alter publication supabase_realtime add table public.events;
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'business_posts') then
+    alter publication supabase_realtime add table public.business_posts;
+  end if;
+end $$;
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'events') then
+    alter publication supabase_realtime add table public.events;
+  end if;
+end $$;

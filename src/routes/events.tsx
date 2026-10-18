@@ -8,7 +8,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Icon } from "@/components/Icon";
-import { fetchActiveEvents, type SpotterEvent } from "@/lib/posts-events-db";
+import {
+  fetchActiveEvents,
+  formatEventDates,
+  todayLocalISO,
+  type SpotterEvent,
+} from "@/lib/posts-events-db";
 import { PROVINCES_MZ, citiesForProvince } from "@/lib/mozambique-locations";
 
 export const Route = createFileRoute("/events")({
@@ -16,8 +21,29 @@ export const Route = createFileRoute("/events")({
   component: EventsPage,
 });
 
+async function shareEvent(ev: SpotterEvent): Promise<"shared" | "copied" | "none"> {
+  const dates = formatEventDates(ev.eventDate, ev.eventEndDate);
+  const text = `${ev.title} — ${ev.businessName}${dates ? ` · ${dates}` : ""} (Spotter Local)`;
+  const url = `${window.location.origin}/events`;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: ev.title, text, url });
+      return "shared";
+    }
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(`${text} ${url}`);
+      return "copied";
+    }
+  } catch {
+    /* partilha cancelada */
+  }
+  return "none";
+}
+
 function EventsPage() {
   const [events, setEvents] = useState<SpotterEvent[]>([]);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const today = todayLocalISO();
   const [loading, setLoading] = useState(true);
   const [province, setProvince] = useState("");
   const [city, setCity] = useState("");
@@ -91,10 +117,19 @@ function EventsPage() {
             />
             <div className="space-y-2 p-4">
               <h2 className="text-base font-bold text-foreground">{ev.title}</h2>
+              {ev.eventDate &&
+                ev.eventDate <= today &&
+                (ev.eventEndDate ?? ev.eventDate) >= today && (
+                  <span className="inline-block rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
+                    A DECORRER
+                  </span>
+                )}
               <p className="text-xs text-muted-foreground">
                 {ev.businessName}
                 {ev.city ? ` · ${ev.city}` : ""}
-                {ev.eventDate ? ` · ${new Date(ev.eventDate).toLocaleDateString("pt-MZ")}` : ""}
+                {ev.eventDate || ev.eventEndDate
+                  ? ` · ${formatEventDates(ev.eventDate, ev.eventEndDate)}`
+                  : ""}
               </p>
               <div className="flex gap-2 pt-1">
                 {ev.ticketPhone && (
@@ -117,6 +152,18 @@ function EventsPage() {
                     Comprar bilhete
                   </a>
                 )}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if ((await shareEvent(ev)) === "copied") {
+                      setCopiedId(ev.id);
+                      setTimeout(() => setCopiedId(null), 2000);
+                    }
+                  }}
+                  className="press rounded-xl border border-border px-3 py-2 text-sm font-semibold text-foreground"
+                >
+                  {copiedId === ev.id ? "Copiado!" : "Partilhar"}
+                </button>
               </div>
             </div>
           </div>

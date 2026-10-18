@@ -5,7 +5,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Icon } from "@/components/Icon";
 import { supabase, SUPABASE_CONFIGURED } from "@/lib/supabase";
-import { fetchActiveRooms, type BusinessRoom } from "@/lib/reservations-db";
+import { fetchActiveRooms, roomPriceText, type BusinessRoom } from "@/lib/reservations-db";
 
 export const Route = createFileRoute("/rooms/$businessId")({
   head: () => ({ meta: [{ title: "Quartos disponíveis — Spotter Local" }] }),
@@ -89,7 +89,7 @@ function RoomsListPage() {
                   <div className="flex-1">
                     <h3 className="text-sm font-bold text-foreground">{room.name}</h3>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {room.capacity} pessoas · {room.pricePerNight} MT/noite
+                      {room.capacity} pessoas · {roomPriceText(room)}
                     </p>
                     {isOccupied && (
                       <p className="mt-1 text-xs font-semibold text-amber-600">

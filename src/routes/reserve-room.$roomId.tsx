@@ -12,7 +12,7 @@ import { Icon } from "@/components/Icon";
 import { supabase, SUPABASE_CONFIGURED } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { createZumboPayRoomPayment, type PaymentRequest } from "@/lib/payments-db";
-import { fetchActiveRooms, type BusinessRoom } from "@/lib/reservations-db";
+import { fetchActiveRooms, roomPriceText, type BusinessRoom } from "@/lib/reservations-db";
 
 export const Route = createFileRoute("/reserve-room/$roomId")({
   head: () => ({ meta: [{ title: "Reservar quarto — Spotter Local" }] }),
@@ -31,6 +31,10 @@ function ReserveRoomPage() {
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [guests, setGuests] = useState("2");
+  // Pensão (v38): o cliente escolhe reservar por HORAS ou por DIA/noites.
+  const [unit, setUnit] = useState<"night" | "hour">("night");
+  const [startTime, setStartTime] = useState("");
+  const [hours, setHours] = useState("2");
   const [specialRequest, setSpecialRequest] = useState("");
   const [clientName, setClientName] = useState(user?.name ?? "");
   const [clientPhone, setClientPhone] = useState("");
@@ -59,11 +63,27 @@ function ReserveRoomPage() {
     })();
   }, [roomId]);
 
+  const hasNight = !!room && room.pricePerNight > 0;
+  const hasHour = !!room && (room.pricePerHour ?? 0) > 0;
+  useEffect(() => {
+    if (room) setUnit(room.pricePerNight > 0 ? "night" : "hour");
+  }, [room]);
+
   const nights =
-    checkIn && checkOut
+    unit === "night" && checkIn && checkOut
       ? Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86_400_000)
       : 0;
-  const totalPrice = room && nights > 0 ? room.pricePerNight * nights : 0;
+  const hoursN = unit === "hour" ? Math.min(12, Number(hours) || 0) : 0;
+  const totalPrice = !room
+    ? 0
+    : unit === "hour"
+      ? hoursN > 0
+        ? (room.pricePerHour ?? 0) * hoursN
+        : 0
+      : nights > 0
+        ? room.pricePerNight * nights
+        : 0;
+  const canSubmit = unit === "hour" ? !!checkIn && !!startTime && hoursN >= 1 : nights >= 1;
   // Duas opções (pedido do Abrão, 2026-09-30): 100% agora ou sinal de 20%.
   const [paymentOption, setPaymentOption] = useState<"full" | "deposit">("deposit");
   const depositAmount = Math.round(totalPrice * 0.2 * 100) / 100;
@@ -72,7 +92,11 @@ function ReserveRoomPage() {
 
   const handleSubmit = async () => {
     if (!room) return;
-    if (!checkIn || !checkOut || nights < 1) {
+    if (unit === "hour" && (!checkIn || !startTime || hoursN < 1)) {
+      setError("Escolhe o dia, a hora de entrada e o número de horas.");
+      return;
+    }
+    if (unit === "night" && (!checkIn || !checkOut || nights < 1)) {
       setError("Escolhe datas de entrada e saída válidas.");
       return;
     }
@@ -87,7 +111,10 @@ function ReserveRoomPage() {
         roomId: room.id,
         paymentOption,
         checkIn,
-        checkOut,
+        checkOut: unit === "hour" ? checkIn : checkOut,
+        bookingUnit: unit,
+        hours: unit === "hour" ? hoursN : undefined,
+        startTime: unit === "hour" ? startTime : undefined,
         guests: Number(guests),
         specialRequest: specialRequest.trim() || undefined,
         clientName: clientName.trim(),
@@ -178,30 +205,97 @@ function ReserveRoomPage() {
             <div className="rounded-2xl border border-border bg-card p-4">
               <h2 className="text-sm font-bold text-foreground">{room.name}</h2>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {room.capacity} pessoas · {room.pricePerNight} MT/noite
+                {room.capacity} pessoas · {roomPriceText(room)}
               </p>
             </div>
 
-            <div>
-              <p className="mb-1.5 text-xs font-semibold text-muted-foreground">Entrada</p>
-              <input
-                type="date"
-                min={new Date().toISOString().slice(0, 10)}
-                value={checkIn}
-                onChange={(e) => setCheckIn(e.target.value)}
-                className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
-              />
-            </div>
-            <div>
-              <p className="mb-1.5 text-xs font-semibold text-muted-foreground">Saída</p>
-              <input
-                type="date"
-                min={checkIn || new Date().toISOString().slice(0, 10)}
-                value={checkOut}
-                onChange={(e) => setCheckOut(e.target.value)}
-                className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
-              />
-            </div>
+            {hasNight && hasHour && (
+              <div>
+                <p className="mb-1.5 text-xs font-semibold text-muted-foreground">
+                  Como queres reservar?
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      ["hour", "Por horas", `${room.pricePerHour} MT/hora`],
+                      ["night", "Por dia", `${room.pricePerNight} MT/dia`],
+                    ] as const
+                  ).map(([id, title, sub]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setUnit(id)}
+                      className={`press rounded-xl border p-3 text-left ${unit === id ? "border-primary bg-primary/5" : "border-border bg-background"}`}
+                    >
+                      <span className="block text-sm font-semibold text-foreground">{title}</span>
+                      <span className="block text-xs text-muted-foreground">{sub}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {unit === "hour" ? (
+              <>
+                <div>
+                  <p className="mb-1.5 text-xs font-semibold text-muted-foreground">Dia</p>
+                  <input
+                    type="date"
+                    min={new Date().toISOString().slice(0, 10)}
+                    value={checkIn}
+                    onChange={(e) => setCheckIn(e.target.value)}
+                    className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="mb-1.5 text-xs font-semibold text-muted-foreground">
+                      Hora de entrada
+                    </p>
+                    <input
+                      type="time"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-xs font-semibold text-muted-foreground">
+                      Quantas horas (1 a 12)
+                    </p>
+                    <input
+                      value={hours}
+                      onChange={(e) => setHours(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                      inputMode="numeric"
+                      className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <p className="mb-1.5 text-xs font-semibold text-muted-foreground">Entrada</p>
+                  <input
+                    type="date"
+                    min={new Date().toISOString().slice(0, 10)}
+                    value={checkIn}
+                    onChange={(e) => setCheckIn(e.target.value)}
+                    className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                  />
+                </div>
+                <div>
+                  <p className="mb-1.5 text-xs font-semibold text-muted-foreground">Saída</p>
+                  <input
+                    type="date"
+                    min={checkIn || new Date().toISOString().slice(0, 10)}
+                    value={checkOut}
+                    onChange={(e) => setCheckOut(e.target.value)}
+                    className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                  />
+                </div>
+              </>
+            )}
             <div>
               <p className="mb-1.5 text-xs font-semibold text-muted-foreground">Nº de hóspedes</p>
               <input
@@ -240,11 +334,13 @@ function ReserveRoomPage() {
               />
             </div>
 
-            {nights > 0 && (
+            {totalPrice > 0 && (
               <div className="rounded-2xl border border-border bg-card p-4 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">
-                    Valor total da estadia ({nights} noites)
+                    {unit === "hour"
+                      ? `Valor total (${hoursN}h × ${room.pricePerHour} MT)`
+                      : `Valor total da estadia (${nights} noites)`}
                   </span>
                   <span className="font-semibold text-foreground">{totalPrice} MT</span>
                 </div>
@@ -297,7 +393,7 @@ function ReserveRoomPage() {
 
             <button
               onClick={handleSubmit}
-              disabled={loading || nights < 1}
+              disabled={loading || !canSubmit}
               className="press h-12 w-full rounded-full text-sm font-semibold text-primary-foreground disabled:opacity-60"
               style={{ background: "var(--gradient-primary)" }}
             >

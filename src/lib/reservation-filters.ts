@@ -326,7 +326,7 @@ export function roomReservationsToCsv(list: RoomReservation[]): string {
     r.roomName,
     r.checkIn,
     r.checkOut,
-    r.nights,
+    r.bookingUnit === "hour" ? `${r.hours}h` : r.nights,
     r.guests,
     r.totalPrice,
     r.paymentOption === "full" ? "Total (100%)" : "Sinal (20%)",

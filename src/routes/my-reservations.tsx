@@ -19,6 +19,7 @@ import {
   type RoomReservation,
   type TableReservation,
   formatResponseDeadline,
+  reservationStayText,
 } from "@/lib/reservations-db";
 import { matchesQuery } from "@/lib/reservation-filters";
 import { SearchBox, StatusChips } from "@/components/ReservationFilters";
@@ -65,9 +66,7 @@ function RoomCard({ r }: { r: RoomReservation }) {
       <div className="flex items-start justify-between">
         <div>
           <h3 className="text-sm font-bold text-foreground">{r.roomName ?? "Quarto"}</h3>
-          <p className="text-xs text-muted-foreground">
-            {r.checkIn} → {r.checkOut} ({r.nights} noites)
-          </p>
+          <p className="text-xs text-muted-foreground">{reservationStayText(r)}</p>
         </div>
         <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${badge.className}`}>
           {badge.text}
