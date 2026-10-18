@@ -5,9 +5,6 @@ dist
 .DS_Store
 *.log
 *.zip
-# NOTA: .env fica no repositório de propósito — só tem chaves PÚBLICAS do
-# browser (VITE_SUPABASE_*, VITE_FIREBASE_*) e o build da Vercel/Cloudflare
-# precisa delas. NUNCA ponhas aqui a service_role key nem segredos da ZumboPay.
 .env
 .env.*
 !.env.example
