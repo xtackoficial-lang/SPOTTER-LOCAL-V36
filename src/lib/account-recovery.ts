@@ -30,6 +30,7 @@ import { useOnboarding } from "./onboarding-storage";
 import { useAuth } from "./auth-context";
 import { fetchProfile } from "./auth";
 import { fetchBusinessByOwner, fetchBusinessAccount } from "./businesses-db";
+import { galleryLayoutFromBlockOrder } from "./profile-styles";
 
 export type RecoveryStatus = "checking" | "done";
 
@@ -84,6 +85,18 @@ export function useAccountRecovery() {
             description: business.description,
             coverImage: business.cover_image,
             gallery: business.gallery ?? [],
+            // Aparência do perfil (estrutura, tema, fundo, ordem dos blocos e forma da galeria):
+            // sem isto, num aparelho novo o editor mostrava os valores predefinidos e, ao guardar,
+            // apagava a escolha do comerciante. Só entram se existirem na base de dados.
+            ...(business.structure_id ? { structureId: business.structure_id } : {}),
+            ...(business.theme_id ? { themeId: business.theme_id } : {}),
+            ...(business.background_id ? { backgroundId: business.background_id } : {}),
+            ...(business.block_order && business.block_order.length > 0
+              ? {
+                  blockOrder: business.block_order,
+                  galleryLayout: galleryLayoutFromBlockOrder(business.block_order),
+                }
+              : {}),
             hours: {
               open: business.hours_open ?? "08:00",
               close: business.hours_close ?? "18:00",

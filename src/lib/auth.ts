@@ -2,7 +2,23 @@
 // XTACK SPOTTER — Autenticação real via Supabase
 // Fallback para localStorage quando Supabase não está configurado
 // ============================================================
+import { wipeLocalUserData, rememberUid } from "./session-cleanup";
+import { releasePushTokensOfCurrentUser } from "./push-release";
 import { supabase, SUPABASE_CONFIGURED } from "./supabase";
+import {
+  validateEmail,
+  validateEmailStrict,
+  validatePassword,
+  validatePersonName,
+} from "./validators";
+import {
+  checkGuard,
+  recordGuardFailure,
+  recordGuardSuccess,
+  lockMessage,
+  GUARD_LIMITS,
+} from "./auth-guard";
+import { TURNSTILE_ENABLED } from "./turnstile";
 
 export interface AuthUser {
   id: string;
@@ -216,6 +232,23 @@ function translateAuthError(raw: string): string {
   ) {
     return 'Já existe uma conta com este email. Toca em "Já tem conta? Entrar" — se criaste a conta com Google, usa o botão "Continuar com Google".';
   }
+  if (msg.includes("captcha")) {
+    return "Não conseguimos confirmar que és uma pessoa. Espera um instante, faz a verificação de segurança outra vez e tenta de novo.";
+  }
+  if (
+    msg.includes("rate limit") ||
+    msg.includes("too many") ||
+    msg.includes("over_email_send_rate_limit")
+  ) {
+    return "Demasiados pedidos seguidos. Espera alguns minutos e tenta outra vez.";
+  }
+  if (
+    msg.includes("expired") ||
+    msg.includes("otp") ||
+    msg.includes("token has expired or is invalid")
+  ) {
+    return "Código errado ou expirado. Confirma os 6 dígitos ou pede um código novo.";
+  }
   if (msg.includes("email not confirmed")) {
     return "Confirma o teu email antes de entrar — verifica a caixa de entrada (e o spam).";
   }
@@ -229,16 +262,37 @@ function translateAuthError(raw: string): string {
 }
 
 export async function signUp(
-  email: string,
+  emailRaw: string,
   password: string,
-  name?: string,
+  nameRaw?: string,
+  captchaToken?: string | null,
 ): Promise<{ user: AuthUser | null; error: string | null; needsEmailConfirmation?: boolean }> {
+  // v41 (segurança): dados têm de ser reais — nome só com letras, email verdadeiro
+  // (formato + domínio que existe e recebe email), senha não trivial.
+  const nameCheck = validatePersonName(nameRaw ?? "", "nome");
+  if (!nameCheck.ok) return { user: null, error: nameCheck.error };
+  const emailCheck = await validateEmailStrict(emailRaw);
+  if (!emailCheck.ok) return { user: null, error: emailCheck.error };
+  const pwCheck = validatePassword(password);
+  if (!pwCheck.ok) return { user: null, error: pwCheck.error };
+  if (TURNSTILE_ENABLED && !captchaToken) {
+    return {
+      user: null,
+      error: "Faz a verificação de segurança («não sou um robô») antes de continuar.",
+    };
+  }
+  const email = emailCheck.value;
+  const name = nameCheck.value;
   if (SUPABASE_CONFIGURED && supabase) {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { name }, emailRedirectTo: `${window.location.origin}/` },
+        options: {
+          data: { name },
+          emailRedirectTo: `${window.location.origin}/`,
+          ...(captchaToken ? { captchaToken } : {}),
+        },
       });
       if (error) return { user: null, error: translateAuthError(error.message) };
       if (!data.user) return { user: null, error: "Erro ao criar conta" };
@@ -300,19 +354,57 @@ export async function signUp(
 
 // ---------- Sign In ----------
 export async function signIn(
-  email: string,
+  emailRaw: string,
   password: string,
-): Promise<{ user: AuthUser | null; error: string | null }> {
+  captchaToken?: string | null,
+): Promise<{ user: AuthUser | null; error: string | null; needsEmailConfirmation?: boolean }> {
+  // v41 (segurança): formato do email + limite de tentativas (3 erros → 30 min,
+  // a subir se continuar) + captcha. Contas antigas NÃO são afectadas pelas
+  // regras de "email real" — só o formato básico é exigido aqui.
+  const emailCheck = validateEmail(emailRaw);
+  if (!emailCheck.ok) return { user: null, error: emailCheck.error };
+  const email = emailCheck.value;
+  const guard = await checkGuard("login", email);
+  if (guard.locked) return { user: null, error: lockMessage("login", guard.retryAfterSec) };
+  if (TURNSTILE_ENABLED && !captchaToken) {
+    return {
+      user: null,
+      error: "Faz a verificação de segurança («não sou um robô») antes de continuar.",
+    };
+  }
   if (SUPABASE_CONFIGURED && supabase) {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+        ...(captchaToken ? { options: { captchaToken } } : {}),
+      });
       // BUG DO ABRÃO (2026-08-23): antes, QUALQUER erro aqui (incluindo
       // falha de rede pura) mostrava sempre "Email ou senha incorrectos"
       // — alguém sem sinal por um instante era enganado a pensar que
       // se tinha esquecido da senha. Agora distingue rede de
       // credenciais erradas.
-      if (error) return { user: null, error: translateAuthError(error.message) };
+      if (error) {
+        // Só conta como "tentativa errada" quando o Supabase diz mesmo que as
+        // credenciais estão erradas — falha de rede ou captcha não gastam tentativas.
+        const m = error.message.toLowerCase();
+        if (m.includes("invalid login credentials") || m.includes("invalid_credentials")) {
+          const g = await recordGuardFailure("login", email);
+          if (g.locked) return { user: null, error: lockMessage("login", g.retryAfterSec) };
+          const left = Math.min(g.remaining, GUARD_LIMITS.login);
+          return {
+            user: null,
+            error: `Email ou senha incorrectos. Tens mais ${left} tentativa${left === 1 ? "" : "s"} antes do bloqueio.`,
+          };
+        }
+        if (m.includes("email not confirmed")) {
+          // Conta criada mas nunca confirmada: o ecrã passa a pedir o código do e-mail.
+          return { user: null, error: null, needsEmailConfirmation: true };
+        }
+        return { user: null, error: translateAuthError(error.message) };
+      }
       if (!data.user) return { user: null, error: "Erro ao entrar" };
+      void recordGuardSuccess("login", email);
       const u: AuthUser = {
         id: data.user.id,
         email: data.user.email,
@@ -336,8 +428,11 @@ export async function signIn(
   }
   const passwordHash = await simpleHash(password);
   if (account.passwordHash !== passwordHash) {
+    const g = await recordGuardFailure("login", email);
+    if (g.locked) return { user: null, error: lockMessage("login", g.retryAfterSec) };
     return { user: null, error: "Email ou senha incorrectos" };
   }
+  void recordGuardSuccess("login", email);
   const u: AuthUser = {
     id: account.id,
     email: account.email,
@@ -399,6 +494,13 @@ export async function signInWithOAuth(
 export async function signOut(): Promise<void> {
   if (SUPABASE_CONFIGURED && supabase) {
     try {
+      // Antes de perder a sessão: solta o token de notificações deste
+      // aparelho, para a conta que sai deixar de receber push aqui.
+      await releasePushTokensOfCurrentUser();
+    } catch {
+      /* best-effort */
+    }
+    try {
       await supabase.auth.signOut();
     } catch (err) {
       console.warn(
@@ -408,6 +510,8 @@ export async function signOut(): Promise<void> {
     }
   }
   localSetSessionUser(null);
+  wipeLocalUserData();
+  rememberUid(null);
 }
 
 // Pedido do Abrão (2026-09-09): apagar a própria conta, de vez.
@@ -425,9 +529,25 @@ export async function deleteOwnAccount(): Promise<{ error?: string }> {
     const { error } = await supabase.functions.invoke("delete-own-account");
     if (error) {
       console.warn("deleteOwnAccount: falha na Edge Function.", error);
+      const status = (error as { context?: { status?: number } }).context?.status;
+      if (status === 404) {
+        // Função não publicada no Supabase (npx supabase functions deploy delete-own-account).
+        return {
+          error: "O pedido para apagar a conta não chegou ao servidor. Contacta o suporte.",
+        };
+      }
       return { error: "Não foi possível apagar a conta. Tenta novamente mais tarde." };
     }
+    // A conta já não existe: termina a sessão guardada e apaga tudo o que
+    // ficou neste aparelho (antes ficava um token morto e dados locais).
+    try {
+      await supabase.auth.signOut({ scope: "local" });
+    } catch {
+      /* ignorar */
+    }
     localSetSessionUser(null);
+    wipeLocalUserData();
+    rememberUid(null);
     return {};
   } catch (err) {
     console.warn("deleteOwnAccount: erro inesperado.", err);
@@ -528,13 +648,29 @@ export function onAuthChange(callback: (user: AuthUser | null) => void) {
 // desenvolvimento, o domínio .vercel.app depois de publicado, ou um
 // domínio próprio no futuro) — não precisa de nada fixo no código.
 // Mesmo padrão já usado em signInWithOAuth() acima.
-export async function sendPasswordReset(email: string): Promise<{ error: string | null }> {
+export async function sendPasswordReset(
+  emailRaw: string,
+  captchaToken?: string | null,
+): Promise<{ error: string | null }> {
   if (!SUPABASE_CONFIGURED || !supabase) {
     return { error: "Recuperação de senha só está disponível com o Supabase ligado." };
   }
+  // v41 (segurança): email com formato válido, no máximo 6 pedidos (depois
+  // bloqueio de 30 min, a subir) e captcha.
+  const emailCheck = validateEmail(emailRaw);
+  if (!emailCheck.ok) return { error: emailCheck.error };
+  const email = emailCheck.value;
+  const guard = await checkGuard("recover", email);
+  if (guard.locked) return { error: lockMessage("recover", guard.retryAfterSec) };
+  if (TURNSTILE_ENABLED && !captchaToken) {
+    return { error: "Faz a verificação de segurança («não sou um robô») antes de continuar." };
+  }
   try {
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    // cada pedido conta (é o número de "tentativas" da recuperação)
+    await recordGuardFailure("recover", email);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
+      ...(captchaToken ? { captchaToken } : {}),
     });
     if (error) return { error: translateAuthError(error.message) };
     return { error: null };
@@ -583,4 +719,104 @@ export async function resendConfirmationEmail(email: string): Promise<{ error: s
     console.warn("resendConfirmationEmail: falha de rede ao contactar Supabase.", err);
     return { error: "Sem ligação à internet. Verifique a sua ligação e tente novamente." };
   }
+}
+
+// ============================================================
+// Código (OTP) de 6 dígitos por e-mail — confirmar conta e recuperar senha
+// (31/10/2026). Em vez de um link que abre noutra app/navegador, a pessoa
+// digita o código no próprio ecrã. Precisa dos modelos de e-mail do Supabase
+// com {{ .Token }} (ver guia de configuração).
+// ============================================================
+const OTP_KEY = "xlocal.guard.otp.v1";
+const OTP_MAX_WRONG = 5; // códigos errados antes do bloqueio
+const OTP_LOCK_MS = 15 * 60 * 1000;
+
+function otpState(email: string): { count: number; until: number } {
+  try {
+    const all = JSON.parse(localStorage.getItem(OTP_KEY) || "{}");
+    return all[email] ?? { count: 0, until: 0 };
+  } catch {
+    return { count: 0, until: 0 };
+  }
+}
+function otpSave(email: string, st: { count: number; until: number } | null) {
+  try {
+    const all = JSON.parse(localStorage.getItem(OTP_KEY) || "{}");
+    if (st) all[email] = st;
+    else delete all[email];
+    localStorage.setItem(OTP_KEY, JSON.stringify(all));
+  } catch {
+    /* ignorar */
+  }
+}
+
+async function verifyEmailCode(
+  emailRaw: string,
+  codeRaw: string,
+  type: "signup" | "recovery",
+): Promise<{ user: AuthUser | null; error: string | null }> {
+  if (!SUPABASE_CONFIGURED || !supabase) {
+    return {
+      user: null,
+      error: "A verificação por código só está disponível com o Supabase ligado.",
+    };
+  }
+  const email = emailRaw.trim().toLowerCase();
+  const code = codeRaw.replace(/\D/g, "");
+  if (code.length !== 6) return { user: null, error: "Escreve os 6 dígitos do código." };
+  const st = otpState(email);
+  if (st.until > Date.now()) {
+    const min = Math.ceil((st.until - Date.now()) / 60000);
+    return {
+      user: null,
+      error: `Demasiadas tentativas erradas. Tenta outra vez dentro de ${min} min.`,
+    };
+  }
+  try {
+    const { data, error } = await supabase.auth.verifyOtp({ email, token: code, type });
+    if (error || !data.user) {
+      const count = (st.until && st.until <= Date.now() ? 0 : st.count) + 1;
+      otpSave(
+        email,
+        count >= OTP_MAX_WRONG
+          ? { count: 0, until: Date.now() + OTP_LOCK_MS }
+          : { count, until: 0 },
+      );
+      const left = OTP_MAX_WRONG - count;
+      const base = translateAuthError(error?.message ?? "otp");
+      return {
+        user: null,
+        error:
+          left > 0
+            ? `${base} (${left} tentativa${left === 1 ? "" : "s"} restante${left === 1 ? "" : "s"})`
+            : "Demasiadas tentativas erradas. Pede um código novo daqui a 15 min.",
+      };
+    }
+    otpSave(email, null);
+    return {
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.user_metadata?.name,
+        profileType: data.user.user_metadata?.profileType ?? null,
+      },
+      error: null,
+    };
+  } catch (err) {
+    console.warn("verifyEmailCode: falha de rede ao contactar Supabase.", err);
+    return {
+      user: null,
+      error: "Sem ligação à internet. Verifique a sua ligação e tente novamente.",
+    };
+  }
+}
+
+/** Confirma a conta acabada de criar com o código do e-mail (abre a sessão). */
+export function verifySignupCode(email: string, code: string) {
+  return verifyEmailCode(email, code, "signup");
+}
+
+/** Valida o código de recuperação de senha (abre a sessão temporária de recuperação). */
+export function verifyRecoveryCode(email: string, code: string) {
+  return verifyEmailCode(email, code, "recovery");
 }

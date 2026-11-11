@@ -1,31 +1,32 @@
 // ============================================================
 // SPOTTER — Publicar no feed (Ideia 1: só fotos, pago por duração)
 // ------------------------------------------------------------
-// Fluxo próprio, dedicado a ZumboPay (sem alternativa manual — a
-// publicação só é criada pelo webhook depois do pagamento confirmar,
+// Fluxo próprio, dedicado a M-Pesa (sem alternativa manual — a
+// publicação só é criada pelo servidor depois do pagamento confirmar,
 // porque precisa da foto já enviada para o Storage antes de mais nada).
 // ============================================================
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { Icon } from "@/components/Icon";
 import { ShimmerButton } from "@/components/ShimmerButton";
-import {
-  createZumboPayPostPayment,
-  type PostPackageId,
-  type PaymentRequest,
-} from "@/lib/payments-db";
+import { createMpesaPostPayment, type PostPackageId, type PaymentRequest } from "@/lib/payments-db";
+import { MpesaPayerField } from "@/components/MpesaPayerField";
+import { useMpesaConfirmation } from "@/lib/use-mpesa-confirmation";
+import { normalizeWalletPhone } from "@/lib/validators";
 import { uploadMedia } from "@/lib/storage-upload";
 import { PROVINCES_MZ, citiesForProvince } from "@/lib/mozambique-locations";
 import { useOnboarding } from "@/lib/onboarding-storage";
 import { useAuth } from "@/lib/auth-context";
 import { RequireBusiness } from "@/components/RequireBusiness";
+import { isPlayStoreApp } from "@/lib/play-context";
+import { PlayPlansNotice } from "@/components/PlayPlansNotice";
 import { supabase, SUPABASE_CONFIGURED } from "@/lib/supabase";
 
 export const Route = createFileRoute("/publish-post")({
   head: () => ({ meta: [{ title: "Publicar no feed — Spotter Local" }] }),
   component: () => (
     <RequireBusiness>
-      <PublishPostPage />
+      {isPlayStoreApp() ? <PlayPlansNotice /> : <PublishPostPage />}
     </RequireBusiness>
   ),
 });
@@ -55,7 +56,7 @@ function PublishPostPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [req, setReq] = useState<PaymentRequest | null>(null);
-  const [zumboPopupBlocked, setZumboPopupBlocked] = useState(false);
+  const [payerPhone, setPayerPhone] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedPackage = PACKAGES.find((p) => p.id === pkg)!;
@@ -76,6 +77,11 @@ function PublishPostPage() {
       setError("Precisas de ter sessão iniciada.");
       return;
     }
+    const payerCheck = normalizeWalletPhone(payerPhone, "mpesa");
+    if (!payerCheck.ok) {
+      setError(payerCheck.error);
+      return;
+    }
     setError(null);
     setLoading(true);
     setUploading(true);
@@ -88,72 +94,49 @@ function PublishPostPage() {
       const photoUrl = await uploadMedia(photoFile, "post", user.id);
       setUploading(false);
 
-      const { payment, paymentUrl } = await createZumboPayPostPayment(businessId, pkg, {
-        photoUrl,
-        caption: caption.trim() || undefined,
-        city: city || undefined,
-      });
-      setReq(payment);
-      const opened = window.open(paymentUrl, "_blank", "noopener,noreferrer");
-      if (!opened) setZumboPopupBlocked(true);
-      setStep("waiting");
+      setStep("waiting"); // "confirma no telemóvel" — a chamada só responde depois do PIN
+      const result = await createMpesaPostPayment(
+        businessId,
+        pkg,
+        {
+          photoUrl,
+          caption: caption.trim() || undefined,
+          city: city || undefined,
+        },
+        payerCheck.value,
+      );
+      setReq(result.payment);
+      if (result.status === "confirmed") setStep("done");
+      else if (result.status === "failed") {
+        setError(result.error ?? "O pagamento não foi concluído.");
+        setStep("form");
+      }
+      // "pending": continua em espera — useMpesaConfirmation volta a perguntar.
     } catch (err) {
       console.warn("Falha ao criar publicação:", err);
       setError(err instanceof Error ? err.message : "Não foi possível criar o pagamento.");
+      setStep("form");
     } finally {
       setLoading(false);
       setUploading(false);
     }
   };
 
-  // Confirmação automática — mesmo padrão de /boost e /payment: Realtime
-  // com fallback de polling, porque a linha de business_posts só é
-  // criada pelo webhook depois do pagamento confirmar.
-  useEffect(() => {
-    if (step !== "waiting" || !req?.id) return;
-    if (!SUPABASE_CONFIGURED || !supabase) return;
-    const client = supabase;
-
-    const channel = client
-      .channel(`zumbopay-post-${req.id}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "payments", filter: `id=eq.${req.id}` },
-        (payload) => {
-          if (payload.new.status === "confirmed") setStep("done");
-          else if (payload.new.status === "failed" || payload.new.status === "expired")
-            setStep("failed");
-        },
-      )
-      .subscribe();
-
-    return () => {
-      client.removeChannel(channel);
-    };
-  }, [step, req?.id]);
-
-  useEffect(() => {
-    if (step !== "waiting" || !req?.id) return;
-    if (!SUPABASE_CONFIGURED || !supabase) return;
-    const client = supabase;
-
-    const interval = setInterval(async () => {
-      const { data } = await client
-        .from("payments")
-        .select("status")
-        .eq("id", req.id)
-        .maybeSingle();
-      if (data?.status === "confirmed") setStep("done");
-      else if (data?.status === "failed" || data?.status === "expired") setStep("failed");
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [step, req?.id]);
+  // Rede de segurança: se a resposta da cobrança ficou em dúvida, volta a perguntar à M-Pesa.
+  useMpesaConfirmation(
+    step === "waiting" && req?.status === "pending",
+    req?.id,
+    () => setStep("done"),
+    () => setStep("failed"),
+  );
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-4 backdrop-blur">
-        <button onClick={() => navigate({ to: "/merchant" })} className="press rounded-full p-1">
+      <div className="glass-bar sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-4 backdrop-blur">
+        <button
+          onClick={() => navigate({ to: "/merchant", replace: true })}
+          className="press rounded-full p-1"
+        >
           <Icon name="chevronLeft" size={22} />
         </button>
         <h1 className="text-lg font-bold text-foreground">Publicar no feed</h1>
@@ -251,6 +234,8 @@ function PublishPostPage() {
               ))}
             </div>
 
+            <MpesaPayerField value={payerPhone} onChange={setPayerPhone} />
+
             {error && <p className="text-xs text-destructive">{error}</p>}
 
             <ShimmerButton
@@ -273,24 +258,16 @@ function PublishPostPage() {
             <Icon name="clock" size={40} className="text-primary" />
             <h2 className="text-lg font-bold text-foreground">A aguardar confirmação</h2>
             <p className="text-sm text-muted-foreground">
-              Completa o pagamento na página que abriu. A publicação aparece automaticamente assim
-              que confirmares.
+              Enviámos um pedido de pagamento para o teu M-Pesa. Abre o pedido no telemóvel e digita
+              o teu PIN. A publicação aparece automaticamente assim que confirmares.
             </p>
-            <div className="w-full rounded-2xl border border-border bg-card p-4 text-left space-y-1">
-              <div className="text-xs text-muted-foreground">Referência</div>
-              <div className="font-mono font-semibold text-sm text-primary">{req?.merchantRef}</div>
-            </div>
-            {req?.paymentUrl && (
-              <ShimmerButton
-                onClick={() => {
-                  const opened = window.open(req.paymentUrl, "_blank", "noopener,noreferrer");
-                  if (opened) setZumboPopupBlocked(false);
-                }}
-                className="press h-12 w-full rounded-2xl text-sm font-semibold text-primary-foreground"
-                style={{ background: "var(--gradient-primary)" }}
-              >
-                {zumboPopupBlocked ? "Abrir link de pagamento" : "Reabrir link de pagamento"}
-              </ShimmerButton>
+            {req?.merchantRef && (
+              <div className="w-full rounded-2xl border border-border bg-card p-4 text-left space-y-1">
+                <div className="text-xs text-muted-foreground">Referência</div>
+                <div className="font-mono font-semibold text-sm text-primary">
+                  {req.merchantRef}
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -303,7 +280,7 @@ function PublishPostPage() {
               A tua foto já está a aparecer no feed de descoberta durante {selectedPackage.hours}.
             </p>
             <ShimmerButton
-              onClick={() => navigate({ to: "/merchant" })}
+              onClick={() => navigate({ to: "/merchant", replace: true })}
               className="press h-12 w-full rounded-2xl text-sm font-semibold text-primary-foreground"
               style={{ background: "var(--gradient-primary)" }}
             >

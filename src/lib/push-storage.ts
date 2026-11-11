@@ -1,6 +1,7 @@
 // ============================================================
 // XTACK SPOTTER — Push Notifications: tokens, agendamentos e histórico
 // ============================================================
+import { addInboxItem } from "./notifications-inbox";
 import { useEffect, useState } from "react";
 import { supabase, SUPABASE_CONFIGURED } from "./supabase";
 import { requestPushToken, FIREBASE_CONFIGURED, onForegroundMessage } from "./firebase";
@@ -21,6 +22,21 @@ export async function registerPushToken(): Promise<{ token: string | null; error
   if (SUPABASE_CONFIGURED && supabase) {
     try {
       const user = await getCurrentUser();
+      // Reclama o token para a conta atual mesmo que esteja registado noutra
+      // (a regra da tabela só deixa mexer nas linhas da própria conta, por
+      // isso o upsert simples falhava em silêncio e as notificações da conta
+      // anterior continuavam a chegar). Função do servidor: migração 020.
+      if (user?.id) {
+        const claimed = await supabase.rpc("claim_push_token", {
+          p_token: token,
+          p_platform: /android/i.test(navigator.userAgent)
+            ? "android"
+            : /iphone|ipad/i.test(navigator.userAgent)
+              ? "ios"
+              : "web",
+        });
+        if (!claimed.error) return { token };
+      }
       await supabase.from("push_tokens").upsert(
         {
           user_id: user?.id ?? null,
@@ -49,13 +65,31 @@ export async function registerPushToken(): Promise<{ token: string | null; error
  * acaba de abrir a app por instruções repetidas do browser.
  */
 export function usePushAutoRegister() {
+  // Volta a registar sempre que muda a conta (antes só uma vez por abertura
+  // da app, e o token ficava preso à conta anterior).
+  const [uid, setUid] = useState<string | null>(null);
   useEffect(() => {
-    if (!FIREBASE_CONFIGURED) return;
+    let alive = true;
+    getCurrentUser()
+      .then((u) => alive && setUid(u?.id ?? null))
+      .catch(() => {});
+    const onChange = () =>
+      getCurrentUser()
+        .then((u) => alive && setUid(u?.id ?? null))
+        .catch(() => {});
+    window.addEventListener("xlocal-data-wiped", onChange);
+    return () => {
+      alive = false;
+      window.removeEventListener("xlocal-data-wiped", onChange);
+    };
+  }, []);
+  useEffect(() => {
+    if (!FIREBASE_CONFIGURED || !uid) return;
     if (typeof Notification === "undefined") return;
     if (Notification.permission === "granted") {
       registerPushToken();
     }
-  }, []);
+  }, [uid]);
 }
 
 // Mostra um toast simples quando chega uma notificação push com a app
@@ -66,6 +100,7 @@ export function useForegroundPushToast() {
 
   useEffect(() => {
     const unsubscribe = onForegroundMessage((title, body) => {
+      addInboxItem(title, body);
       setToast({ title, body });
     });
     return unsubscribe;

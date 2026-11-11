@@ -91,11 +91,11 @@ function CouponsPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-card/90 px-4 pb-3 pt-12 backdrop-blur-xl">
+      <header className="glass-bar sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-card/90 px-4 pb-3 pt-12 backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate({ to: "/business" })}
-            className="press grid h-9 w-9 place-items-center rounded-full bg-muted text-muted-foreground"
+            onClick={() => navigate({ to: "/business", replace: true })}
+            className="press grid h-9 w-9 place-items-center rounded-full glass-btn text-muted-foreground"
           >
             <Icon name="arrowLeft" size={16} />
           </button>
@@ -199,7 +199,7 @@ function CouponsPage() {
           </div>
         ) : coupons.length === 0 && !showForm ? (
           <div className="flex flex-col items-center gap-3 pt-16 text-center">
-            <div className="grid h-16 w-16 place-items-center rounded-full bg-muted">
+            <div className="grid h-16 w-16 place-items-center rounded-full glass-btn">
               <Icon name="tag" size={28} className="text-muted-foreground" />
             </div>
             <p className="text-sm text-muted-foreground">{tr("createFirstCouponHint")}</p>

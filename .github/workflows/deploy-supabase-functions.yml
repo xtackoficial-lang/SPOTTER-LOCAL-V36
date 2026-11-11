@@ -1,0 +1,24 @@
+# Publica as Edge Functions do Supabase sozinho (sem computador): corre quando mudas algo em
+# supabase/functions e também à mão (GitHub → Actions → este fluxo → Run workflow).
+# Precisa de 2 "secrets" no GitHub (Settings → Secrets and variables → Actions):
+#   SUPABASE_ACCESS_TOKEN  — Supabase → Account → Access Tokens → Generate new token
+#   SUPABASE_PROJECT_ID    — Supabase → Project Settings → General → Reference ID
+name: Deploy Supabase Functions
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/**"
+      - "supabase/config.toml"
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase functions deploy --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}"

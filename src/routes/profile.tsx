@@ -13,7 +13,6 @@ import { useT, useLocale, LOCALE_LABELS, INTL_TAG } from "@/lib/i18n";
 import { LanguageDropdown } from "@/components/LanguageSwitcher";
 import { useScreenAppearance } from "@/lib/theme-storage";
 import { ThemeAnimationOnly, resolveBackgroundStyle } from "@/components/ThemeBackdrop";
-import { registerPushToken } from "@/lib/push-storage";
 import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/profile")({
@@ -32,7 +31,6 @@ function Profile() {
   const [pushEnabled, setPushEnabled] = useState(
     typeof Notification !== "undefined" && Notification.permission === "granted",
   );
-  const [pushBlockedHint, setPushBlockedHint] = useState(false);
   const [favs, setFavs] = useState<Place[]>([]);
   // CONSERTO CRÍTICO (2026-09-15): "clico em Perfil e a página não
   // carrega" — estes 3 useState estavam depois do `if (!hydrated)
@@ -43,6 +41,8 @@ function Profile() {
   // ("Rendered more hooks than during the previous render") e a app
   // crasha para o ecrã genérico de erro. Agora ficam todos ANTES de
   // qualquer return condicional, como têm de estar sempre.
+  const [confirmingLogout, setConfirmingLogout] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -79,9 +79,15 @@ function Profile() {
   // de que era preciso recadastrar tudo. Agora termina mesmo a sessão do
   // Supabase (logout()) e só depois limpa o draft local e navega.
   const signOut = async () => {
-    await logout();
-    reset();
-    navigate({ to: "/" });
+    setLoggingOut(true);
+    try {
+      await logout();
+    } finally {
+      reset();
+      // Recarrega a app do zero: garante que nenhum estado em memória da
+      // conta anterior (conversas, avaliações, canais em tempo real) sobrevive.
+      window.location.replace("/");
+    }
   };
 
   // Apagar conta (pedido do Abrão, 2026-09-09): pede confirmação explícita
@@ -96,7 +102,7 @@ function Profile() {
       return;
     }
     reset();
-    navigate({ to: "/" });
+    window.location.replace("/");
   };
 
   return (
@@ -245,25 +251,8 @@ function Profile() {
             </span>
             <LanguageDropdown />
           </div>
-          <button
-            onClick={async () => {
-              // BUG CORRIGIDO (2026-09-02): Notification.requestPermission()
-              // só mostra o popup do sistema quando a permissão ainda está
-              // "default" (nunca respondida). Se já está "denied", o
-              // browser nunca mais volta a perguntar sozinho — o botão
-              // ficava sempre em "Ativar" sem nada acontecer, e o único
-              // aviso ia para a consola (console.warn), que o comerciante
-              // nunca vê. Agora detectamos esse estado ANTES de tentar, e
-              // mostramos instruções em vez de falhar em silêncio.
-              if (typeof Notification !== "undefined" && Notification.permission === "denied") {
-                setPushBlockedHint(true);
-                return;
-              }
-              setPushBlockedHint(false);
-              const { token, error } = await registerPushToken();
-              setPushEnabled(!!token);
-              if (error) console.warn("Notificações:", error);
-            }}
+          <Link
+            to="/notifications"
             className="press flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3.5 text-left hover:bg-accent/40"
           >
             <span className="inline-flex items-center gap-3 font-medium text-foreground">
@@ -273,12 +262,7 @@ function Profile() {
               {pushEnabled ? tr("notificationsActiveLabel") : tr("activateAction")}
               <Icon name="chevronRight" size={14} />
             </span>
-          </button>
-          {pushBlockedHint && (
-            <p className="rounded-2xl bg-primary/5 px-4 py-3 text-xs text-primary">
-              {tr("notificationsBlockedHint")}
-            </p>
-          )}
+          </Link>
           <Link
             to="/privacy"
             className="press flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3.5 text-left hover:bg-accent/40"
@@ -309,7 +293,7 @@ function Profile() {
           <Button
             variant="outline"
             className="press h-12 w-full gap-2 rounded-2xl"
-            onClick={signOut}
+            onClick={() => setConfirmingLogout(true)}
           >
             <Icon name="logout" size={16} /> {tr("logout")}
           </Button>
@@ -364,6 +348,38 @@ function Profile() {
           Spotter Local · by XTACK · v22
         </p>
       </main>
+      {confirmingLogout && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 backdrop-blur-sm sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => !loggingOut && setConfirmingLogout(false)}
+        >
+          <div
+            className="glass-bar w-full max-w-sm space-y-3 rounded-3xl border p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-base font-bold text-foreground">{tr("logoutConfirmTitle")}</h2>
+            <p className="text-sm text-muted-foreground">{tr("logoutConfirmBody")}</p>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setConfirmingLogout(false)}
+                disabled={loggingOut}
+                className="press flex-1 rounded-xl border border-border bg-card py-3 text-sm font-semibold text-foreground"
+              >
+                {tr("cancelAction")}
+              </button>
+              <button
+                onClick={signOut}
+                disabled={loggingOut}
+                className="press flex-1 rounded-xl bg-red-600 py-3 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {loggingOut ? tr("deletingEllipsis") : tr("logoutConfirmAction")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* BUG DO ABRÃO (2026-08-21): antes, esta página mostrava SEMPRE o
           menu inferior "pessoal" (Descobrir/Pesquisar/QR/Chat/Perfil),
           mesmo para contas comerciantes — que deviam ver

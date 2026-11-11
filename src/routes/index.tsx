@@ -1,14 +1,17 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@/components/Icon";
 import { useAuth } from "@/lib/auth-context";
 import { resendConfirmationEmail } from "@/lib/auth";
 import { SUPABASE_CONFIGURED } from "@/lib/supabase";
 import { useScreenAppearance } from "@/lib/theme-storage";
 import { ThemeBackdrop } from "@/components/ThemeBackdrop";
+import { TurnstileWidget, type TurnstileHandle } from "@/components/TurnstileWidget";
+import { TURNSTILE_ENABLED } from "@/lib/turnstile";
 import { ShimmerButton } from "@/components/ShimmerButton";
 import { BreathingLoader } from "@/components/BreathingLoader";
 import { useT } from "@/lib/i18n";
+import { OtpInput } from "@/components/OtpInput";
 import { IntroCarousel, hasSeenIntro } from "@/components/IntroCarousel";
 
 export const Route = createFileRoute("/")({
@@ -40,7 +43,7 @@ function SocialButton({
   return (
     <button
       onClick={onClick}
-      className="press flex h-13 w-full items-center justify-center gap-3 rounded-2xl border border-border bg-card text-sm font-medium text-foreground shadow-sm transition hover:bg-accent/40 hover:border-primary/30 active:scale-[0.98]"
+      className="press flex h-13 w-full items-center justify-center gap-3 rounded-2xl glass-btn glass-wide text-sm font-medium text-foreground transition active:scale-[0.98]"
       style={{ animationDelay: `${delay}ms` }}
     >
       {icon === "google" ? (
@@ -87,6 +90,7 @@ function Welcome() {
     login,
     loginWithOAuth,
     register,
+    verifySignup,
     user,
     loading: authLoading,
     suspended,
@@ -110,11 +114,23 @@ function Welcome() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [mounted, setMounted] = useState(false);
+  // v41: token do captcha Turnstile (só usado se VITE_TURNSTILE_SITE_KEY estiver definida)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<TurnstileHandle>(null);
   // CRIADO (pedido do Abrão, 2026-09-22): quando "Confirm email" está
   // ligado no Supabase, o registo não dá sessão logo — mostra este ecrã
   // em vez de avançar para o onboarding. Ver signUp() em auth.ts.
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
   const [resendStatus, setResendStatus] = useState<"idle" | "sending" | "sent">("idle");
+  // Código de 6 dígitos enviado por e-mail (confirmar a conta).
+  const [otp, setOtp] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 80);
@@ -160,12 +176,21 @@ function Welcome() {
     if (!email || !password) return;
     setMode("loading");
     setError("");
-    const result = isSignup ? await register(email, password, name) : await login(email, password);
+    const result = isSignup
+      ? await register(email, password, name, captchaToken)
+      : await login(email, password, captchaToken);
+    // cada token do captcha só serve uma vez: pede outro para a próxima tentativa
+    captchaRef.current?.reset();
     if (result.error) {
       setError(result.error);
       setMode("email");
     } else if ("needsEmailConfirmation" in result && result.needsEmailConfirmation) {
       setNeedsConfirmation(true);
+      setOtp("");
+      setCooldown(60);
+      // Tentou entrar numa conta que nunca confirmou: o Supabase não manda
+      // código sozinho nesse caso, por isso pede-se um novo.
+      if (!isSignup) void resendConfirmationEmail(email);
       setMode("email");
     } else {
       navigate({ to: "/onboarding" });
@@ -173,15 +198,32 @@ function Welcome() {
   };
 
   const handleResendConfirmation = async () => {
-    if (!email) return;
+    if (!email || cooldown > 0) return;
     setResendStatus("sending");
+    setError("");
     const { error: resendError } = await resendConfirmationEmail(email);
     if (resendError) {
       setError(resendError);
       setResendStatus("idle");
     } else {
       setResendStatus("sent");
+      setOtp("");
+      setCooldown(60);
     }
+  };
+
+  const handleVerifyCode = async (code: string) => {
+    if (verifying) return;
+    setVerifying(true);
+    setError("");
+    const { user: verified, error: verifyError } = await verifySignup(email, code);
+    setVerifying(false);
+    if (verifyError || !verified) {
+      setError(verifyError ?? tr("otpWrong"));
+      setOtp("");
+      return;
+    }
+    navigate({ to: "/onboarding" });
   };
 
   const handleGuest = () => navigate({ to: "/onboarding" });
@@ -311,7 +353,7 @@ function Welcome() {
 
         {/* Card de autenticação */}
         <div
-          className={`mt-auto rounded-[28px] lg:mt-0 lg:w-[460px] lg:shrink-0 border border-white/30 bg-card/96 p-6 shadow-[var(--shadow-lift)] backdrop-blur-2xl transition-all duration-700 delay-200 animate-auth-card-enter ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
+          className={`mt-auto rounded-[28px] lg:mt-0 lg:w-[460px] lg:shrink-0 glass-card p-6 transition-all duration-700 delay-200 animate-auth-card-enter ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
         >
           {mode === "loading" ? (
             <div className="py-6">
@@ -349,7 +391,7 @@ function Welcome() {
 
               <div className="space-y-2.5">
                 <button
-                  className="press flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-border bg-muted/60 text-sm font-medium text-foreground hover:bg-accent/50 transition"
+                  className="press flex h-12 w-full items-center justify-center gap-3 rounded-2xl glass-btn glass-wide text-sm font-medium text-foreground transition"
                   onClick={() => {
                     setIsSignup(true);
                     setMode("email");
@@ -359,7 +401,7 @@ function Welcome() {
                   {tr("createAccountWithEmail")}
                 </button>
                 <button
-                  className="press flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-border bg-muted/60 text-sm font-medium text-muted-foreground hover:bg-accent/50 transition"
+                  className="press flex h-12 w-full items-center justify-center gap-3 rounded-2xl glass-btn glass-wide text-sm font-medium text-muted-foreground transition"
                   onClick={() => {
                     setIsSignup(false);
                     setMode("email");
@@ -424,27 +466,39 @@ function Welcome() {
                   <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card px-5 py-6 text-center">
                     <Icon name="mail" size={28} className="text-primary" />
                     <p className="text-sm text-foreground">
-                      {tr("confirmEmailBody").replace("{email}", email)}
+                      {tr("otpSignupBody").replace("{email}", email)}
                     </p>
+                    <OtpInput
+                      value={otp}
+                      onChange={setOtp}
+                      onComplete={handleVerifyCode}
+                      disabled={verifying}
+                      invalid={!!error}
+                    />
+                    <p className="text-[11px] text-muted-foreground">{tr("otpSpamHint")}</p>
                   </div>
                   {error && (
                     <div className="mt-3 flex items-center gap-2 rounded-xl bg-destructive/10 border border-destructive/20 px-3 py-2.5 text-xs text-destructive animate-slide-up">
                       <Icon name="x" size={12} /> {error}
                     </div>
                   )}
-                  {resendStatus === "sent" ? (
-                    <p className="mt-4 text-center text-xs text-primary">
-                      {tr("confirmEmailResendSuccess")}
-                    </p>
-                  ) : (
-                    <button
-                      className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-primary transition disabled:opacity-50"
-                      disabled={resendStatus === "sending"}
-                      onClick={handleResendConfirmation}
-                    >
-                      {tr("confirmEmailResend")}
-                    </button>
-                  )}
+                  <ShimmerButton
+                    className="press ripple mt-4 h-12 w-full rounded-2xl text-sm font-bold text-primary-foreground disabled:opacity-40 transition hover:opacity-90"
+                    style={{ background: "var(--gradient-primary)" }}
+                    disabled={otp.length !== 6 || verifying}
+                    onClick={() => handleVerifyCode(otp)}
+                  >
+                    {verifying ? tr("otpVerifying") : tr("otpVerifyButton")}
+                  </ShimmerButton>
+                  <button
+                    className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-primary transition disabled:opacity-50"
+                    disabled={resendStatus === "sending" || cooldown > 0}
+                    onClick={handleResendConfirmation}
+                  >
+                    {cooldown > 0
+                      ? tr("otpResendIn").replace("{s}", String(cooldown))
+                      : tr("confirmEmailResend")}
+                  </button>
                 </div>
               ) : (
                 <>
@@ -479,6 +533,8 @@ function Welcome() {
                         </div>
                         <input
                           type="text"
+                          autoComplete="name"
+                          maxLength={80}
                           value={name}
                           onChange={(e) => setName(e.target.value)}
                           placeholder={tr("yourName")}
@@ -490,6 +546,11 @@ function Welcome() {
                       <div className="mb-1 text-xs font-semibold text-foreground">Email</div>
                       <input
                         type="email"
+                        inputMode="email"
+                        autoComplete="email"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        maxLength={254}
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder={tr("yourEmail")}
@@ -534,6 +595,7 @@ function Welcome() {
                         </div>
                       )}
                     </div>
+                    <TurnstileWidget ref={captchaRef} onToken={setCaptchaToken} />
                     {error && (
                       <div className="flex items-center gap-2 rounded-xl bg-destructive/10 border border-destructive/20 px-3 py-2.5 text-xs text-destructive animate-slide-up">
                         <Icon name="x" size={12} /> {error}
@@ -542,7 +604,7 @@ function Welcome() {
                     <ShimmerButton
                       className="press ripple h-12 w-full rounded-2xl text-sm font-bold text-primary-foreground disabled:opacity-40 transition hover:opacity-90"
                       style={{ background: "var(--gradient-primary)" }}
-                      disabled={!email || !password}
+                      disabled={!email || !password || (TURNSTILE_ENABLED && !captchaToken)}
                       onClick={handleContinue}
                     >
                       {isSignup ? tr("createAccount") : tr("signIn")}

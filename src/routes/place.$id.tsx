@@ -11,6 +11,7 @@ import { useFavorites } from "@/lib/favorites-storage";
 import { useChats } from "@/lib/chat-storage";
 import { trackEvent } from "@/lib/analytics-db";
 import { Icon } from "@/components/Icon";
+import { BusinessPublications } from "@/components/BusinessPublications";
 import {
   BlockCover,
   BlockInfo,
@@ -34,6 +35,8 @@ import {
   getTheme,
   getGalleryImageUrl,
   themeBackgroundStyle,
+  isOwnGalleryBackground,
+  canUseOwnGalleryBackground,
   DEFAULT_STRUCTURE_ID,
   type BlockId,
 } from "@/lib/profile-styles";
@@ -175,7 +178,13 @@ function PlaceDetail() {
   // plano de negócios de terceiros.
   const maxStructures = place ? getPlanById(place.planId ?? "free").maxStructures : 2;
   const structure = place
-    ? getStructure(family, place.structureId ?? DEFAULT_STRUCTURE_ID, maxStructures)
+    ? getStructure(
+        family,
+        place.structureId ?? DEFAULT_STRUCTURE_ID,
+        maxStructures,
+        place.category,
+        place.planId ?? "free",
+      )
     : null;
   const theme = getTheme(place?.themeId, place?.planId ?? "free");
   // A imagem de fundo escolhida (galeria partilhada, base64, ~8.3MB no
@@ -195,6 +204,14 @@ function PlaceDetail() {
       setBackgroundUrl(null);
       return;
     }
+    // Foto da própria galeria como fundo: só Pro e Premium (Starter/Free não).
+    if (
+      isOwnGalleryBackground(place.backgroundId) &&
+      !canUseOwnGalleryBackground(place.planId ?? "free")
+    ) {
+      setBackgroundUrl(null);
+      return;
+    }
     let cancelled = false;
     getGalleryImageUrl(place.backgroundId).then((url) => {
       if (!cancelled) setBackgroundUrl(url);
@@ -202,7 +219,7 @@ function PlaceDetail() {
     return () => {
       cancelled = true;
     };
-  }, [place?.backgroundId]);
+  }, [place?.backgroundId, place?.planId]);
   // block_order guarda a ordem que o comerciante escolheu dentro da
   // estrutura; se ainda não reordenou nada, usa a ordem-base da
   // Estrutura. Filtra blocos obsoletos (de uma Estrutura anterior) e
@@ -328,7 +345,16 @@ function PlaceDetail() {
   };
 
   return (
-    <div className="min-h-screen pb-32" style={themeBackgroundStyle(theme, backgroundUrl)}>
+    <div
+      className="min-h-screen pb-32"
+      style={
+        {
+          ...themeBackgroundStyle(theme, backgroundUrl),
+          "--g-base": theme.card,
+          "--g-tint": theme.accent,
+        } as React.CSSProperties
+      }
+    >
       <h1 className="sr-only">{place.name}</h1>
       {isOwnerPreview && (
         <div className="sticky top-0 z-50 flex items-center justify-between gap-2 bg-foreground px-4 py-2.5 text-background">
@@ -492,6 +518,9 @@ function PlaceDetail() {
             )}
           </div>
         )}
+
+        {/* ── Ver publicações — eventos e fotos que o negócio publicou (carrossel) ── */}
+        <BusinessPublications businessId={place.id} businessName={place.name} theme={theme} />
 
         {/* ── Avaliações — fixo no fim, fora do sistema de Estruturas:
             é a mesma lógica de negócio madura de sempre, independente

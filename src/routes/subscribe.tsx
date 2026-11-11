@@ -5,13 +5,19 @@ import { useOnboarding } from "@/lib/onboarding-storage";
 import { Icon } from "@/components/Icon";
 import { RequireBusiness } from "@/components/RequireBusiness";
 import { useT } from "@/lib/i18n";
+import { isPlayStoreApp } from "@/lib/play-context";
+import { PlayPlansNotice } from "@/components/PlayPlansNotice";
+
+const PLAN_TAGS = {
+  starter: "planTagStarter",
+  pro: "planTagPro",
+  premium: "planTagPremium",
+} as const;
 
 export const Route = createFileRoute("/subscribe")({
   head: () => ({ meta: [{ title: "Planos — Spotter Local" }] }),
   component: () => (
-    <RequireBusiness>
-      <SubscribePage />
-    </RequireBusiness>
+    <RequireBusiness>{isPlayStoreApp() ? <PlayPlansNotice /> : <SubscribePage />}</RequireBusiness>
   ),
 });
 
@@ -33,10 +39,10 @@ function SubscribePage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card/90 px-5 pb-3 pt-12 backdrop-blur-xl">
+      <header className="glass-bar sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card/90 px-5 pb-3 pt-12 backdrop-blur-xl">
         <button
-          onClick={() => navigate({ to: "/business" })}
-          className="press grid h-9 w-9 place-items-center rounded-full bg-muted text-muted-foreground"
+          onClick={() => navigate({ to: "/business", replace: true })}
+          className="press grid h-9 w-9 place-items-center rounded-full glass-btn text-muted-foreground"
         >
           <Icon name="arrowLeft" size={16} />
         </button>
@@ -70,6 +76,7 @@ function SubscribePage() {
               <span className="text-lg font-bold text-foreground">{FREE_PLAN.name}</span>
               <span className="text-sm text-muted-foreground">{tr("alwaysFreeLabel")}</span>
             </div>
+            <p className="mt-1 text-xs font-medium text-foreground">{tr("planTagFree")}</p>
             <ul className="mt-3 space-y-1.5">
               {FREE_PLAN.features.map((f) => (
                 <li key={f} className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -114,6 +121,9 @@ function SubscribePage() {
                         {p.price} {tr("perMonthSuffix")}
                       </span>
                     </div>
+                    <p className="mt-1 text-xs font-medium text-foreground">
+                      {tr(PLAN_TAGS[p.id])}
+                    </p>
                     <ul className="mt-3 space-y-1.5">
                       {p.features.map((f) => (
                         <li

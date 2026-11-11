@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "SUBSTITUIR_PELO_PACKAGE_NAME_DA_APP",
+      "sha256_cert_fingerprints": ["SUBSTITUIR_PELO_SHA256_DA_ASSINATURA_DO_PLAY"]
+    }
+  }
+]

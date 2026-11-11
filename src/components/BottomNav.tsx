@@ -1,5 +1,5 @@
-import { Link, useLocation } from "@tanstack/react-router";
-import { Icon } from "@/components/Icon";
+import { useLocation } from "@tanstack/react-router";
+import { GlassTabBar } from "@/components/GlassTabBar";
 import { useT } from "@/lib/i18n";
 
 const tabs = [
@@ -13,36 +13,10 @@ const tabs = [
 export function BottomNav() {
   const { pathname } = useLocation();
   const tr = useT();
-  return (
-    <nav className="sticky bottom-0 z-20 border-t border-border bg-card/95 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-md items-center justify-around md:max-w-xl">
-        {tabs.map((t) => {
-          const active = pathname === t.to || (t.to === "/home" && pathname === "/home");
-          return (
-            <Link
-              key={t.to}
-              to={t.to}
-              replace
-              className={`relative flex flex-col items-center gap-1 rounded-xl px-3 py-1.5 text-[10px] font-medium transition press ${
-                active ? "text-primary" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {active && (
-                <span
-                  className="absolute -top-0.5 left-1/2 h-1 w-8 -translate-x-1/2 rounded-full animate-pulse-ring-sm"
-                  style={{ background: "var(--gradient-primary)" }}
-                />
-              )}
-              <Icon
-                name={t.icon}
-                size={22}
-                className={`transition-all duration-300 ${active ? "scale-110 drop-shadow-sm" : ""}`}
-              />
-              <span className="tracking-wide">{t.key === "qr" ? "QR Scan" : tr(t.key)}</span>
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
-  );
+  const items = tabs.map((t) => ({
+    to: t.to,
+    icon: t.icon,
+    label: t.key === "qr" ? "QR Scan" : tr(t.key),
+  }));
+  return <GlassTabBar tabs={items} activeIndex={tabs.findIndex((t) => pathname === t.to)} />;
 }

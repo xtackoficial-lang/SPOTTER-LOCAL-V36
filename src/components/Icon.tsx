@@ -1,4 +1,5 @@
 import {
+  Languages,
   SlidersHorizontal,
   MapPin,
   Search,
@@ -98,6 +99,7 @@ import {
 } from "lucide-react";
 
 const MAP: Record<string, LucideIcon> = {
+  languages: Languages,
   // brand / nav
   pin: MapPin,
   search: Search,

@@ -23,10 +23,18 @@ import {
   getAvailableStructures,
   getStructure,
   STRUCTURES_BY_FAMILY,
+  menuLockedByCategory,
   THEMES,
   ADVANCED_BLOCKS,
   BACKGROUND_GALLERY,
   getGalleryImageUrl,
+  OWN_BG_PREFIX,
+  isOwnGalleryBackground,
+  canUseOwnGalleryBackground,
+  GALLERY_LAYOUTS,
+  galleryLayoutOf,
+  withGalleryLayout,
+  type GalleryLayout,
   DEFAULT_STRUCTURE_ID,
   DEFAULT_THEME_ID,
   countSwapsThisMonth,
@@ -35,6 +43,12 @@ import {
 } from "@/lib/profile-styles";
 import { PROVINCES_MZ, citiesForProvince, PROVINCE_CENTER_MZ } from "@/lib/mozambique-locations";
 import { uploadMedia, uploadMediaBatch, deleteMediaByUrl } from "@/lib/storage-upload";
+import {
+  normalizePhone,
+  phoneForInput,
+  validatePersonName,
+  validateWebsite,
+} from "@/lib/validators";
 import { ShimmerButton } from "@/components/ShimmerButton";
 import { useModalBackButton } from "@/lib/use-modal-back";
 
@@ -101,7 +115,7 @@ function MerchantPanel() {
   // prática. Guardado como texto separado por vírgulas, mais simples de
   // editar do que uma lista.
   const [tagsText, setTagsText] = useState((draft.business.tags ?? []).join(", "));
-  const [phone, setPhone] = useState(draft.business.phone || "");
+  const [phone, setPhone] = useState(phoneForInput(draft.business.phone || ""));
   const [website, setWebsite] = useState(draft.business.website || "");
   const [ownerName, setOwnerName] = useState(draft.business.ownerName || "");
   const [category, setCategory] = useState(draft.business.category || "");
@@ -202,6 +216,9 @@ function MerchantPanel() {
       structure.blocks.includes(b),
     ) ?? structure.blocks,
   );
+  const [galleryLayout, setGalleryLayout] = useState<GalleryLayout>(
+    galleryLayoutOf(draft.business.blockOrder, draft.business.galleryLayout),
+  );
   const [draggedBlockIdx, setDraggedBlockIdx] = useState<number | null>(null);
   const [dragOverBlockIdx, setDragOverBlockIdx] = useState<number | null>(null);
   // Simplificação da aba Visual (2026-07-07): a maioria dos comerciantes
@@ -239,7 +256,7 @@ function MerchantPanel() {
     setName(b.businessName || "");
     setDesc(b.description || "");
     setTagsText((b.tags ?? []).join(", "));
-    setPhone(b.phone || "");
+    setPhone(phoneForInput(b.phone || ""));
     setWebsite(b.website || "");
     setOwnerName(b.ownerName || "");
     setCategory(b.category || "");
@@ -259,6 +276,7 @@ function MerchantPanel() {
     setStructureId(b.structureId ?? DEFAULT_STRUCTURE_ID);
     setThemeId(b.themeId ?? DEFAULT_THEME_ID);
     setBackgroundId(b.backgroundId);
+    setGalleryLayout(galleryLayoutOf(b.blockOrder, b.galleryLayout));
     const fam = familyForCategory(b.category || "");
     const struct = getStructure(fam, b.structureId ?? DEFAULT_STRUCTURE_ID);
     setBlockOrder(
@@ -380,6 +398,26 @@ function MerchantPanel() {
   // ── guardar perfil ──
   async function saveProfile() {
     if (isBlocked || isOverdue) return; // conta bloqueada/atrasada não pode editar perfil
+    // v41 (segurança): contacto real — telemóvel válido (sem dígitos a mais), nome só
+    // com letras e site com endereço verdadeiro.
+    const phoneCheck = normalizePhone(phone.trim().startsWith("+") ? phone : `+258${phone}`);
+    if (!phoneCheck.ok) {
+      setProfileSaveError(phoneCheck.error);
+      return;
+    }
+    if (ownerName.trim()) {
+      const ownerCheck = validatePersonName(ownerName, "nome do responsável");
+      if (!ownerCheck.ok) {
+        setProfileSaveError(ownerCheck.error);
+        return;
+      }
+    }
+    const siteCheck = validateWebsite(website);
+    if (!siteCheck.ok) {
+      setProfileSaveError(siteCheck.error);
+      return;
+    }
+    const phoneClean = phoneCheck.value;
     // Máximo de 6 tags, sem vazios/duplicados — evita alguém colar um
     // parágrafo inteiro aqui em vez de palavras-chave curtas.
     const tags = Array.from(
@@ -394,8 +432,8 @@ function MerchantPanel() {
       businessName: name,
       description: desc,
       tags,
-      phone,
-      website,
+      phone: phoneClean,
+      website: siteCheck.value,
       ownerName,
       category,
       taxiType: category === "taxi" ? taxiType : undefined,
@@ -433,10 +471,10 @@ function MerchantPanel() {
           neighborhood: neighborhood || undefined,
           country: draft.business.country || tr("defaultCountry"),
           address: "",
-          phone,
+          phone: phoneClean,
           description: desc,
           tags,
-          website: website || undefined,
+          website: siteCheck.value || undefined,
           cover_image: cover || undefined,
           gallery,
           always_open: alwaysOpen,
@@ -504,12 +542,24 @@ function MerchantPanel() {
     // aqui contra o plano actual, nunca só contra o que a UI deixou
     // clicar.
     const structIdx = STRUCTURES_BY_FAMILY[family].findIndex((s) => s.id === structureId);
-    const structureLocked = structIdx >= 0 && structIdx >= plan.maxStructures;
+    const structureLocked =
+      structIdx >= 0 &&
+      (structIdx >= plan.maxStructures ||
+        menuLockedByCategory(family, STRUCTURES_BY_FAMILY[family][structIdx], category, plan.id));
     const selectedTheme = THEMES[themeId];
     const themeLocked = selectedTheme?.plan === "pago" && plan.id === "free";
     // Toda a galeria de fundos é paga (2026-09-02) — só "Sem imagem"
     // (backgroundId undefined) fica disponível no Free.
     const backgroundLocked = plan.id === "free" && !!backgroundId;
+    // Foto da própria galeria como fundo: só Pro e Premium (e a foto tem de
+    // estar mesmo na galeria deste negócio).
+    if (isOwnGalleryBackground(backgroundId)) {
+      const ownUrl = (backgroundId as string).slice(OWN_BG_PREFIX.length);
+      if (!canUseOwnGalleryBackground(plan.id) || !gallery.includes(ownUrl)) {
+        setVisualError(tr("ownGalleryBgProOnlyError"));
+        return;
+      }
+    }
     if (structureLocked || themeLocked || backgroundLocked) {
       setVisualError(
         tr("exclusiveToPaidPlansError").replace(
@@ -547,7 +597,7 @@ function MerchantPanel() {
     }
 
     setVisualError(null);
-    updateBusiness({ structureId, themeId, backgroundId, blockOrder });
+    updateBusiness({ structureId, themeId, backgroundId, blockOrder, galleryLayout });
 
     if (!businessId || !user) {
       // Sem negócio/sessão ainda (ex: a meio do onboarding) — guarda
@@ -594,7 +644,7 @@ function MerchantPanel() {
         structure_id: structureId,
         theme_id: themeId,
         background_id: backgroundId,
-        block_order: blockOrder,
+        block_order: withGalleryLayout(blockOrder, galleryLayout),
       });
     } catch (err) {
       // A gravação remota falhou — o cliente nunca veria esta
@@ -633,7 +683,7 @@ function MerchantPanel() {
   }
 
   // ── galeria upload ──
-  // Limite real depende do plano (galleryLimit) — Starter 6, Pro 20, Premium 40.
+  // Limite real depende do plano (galleryLimit) — Free 6, Starter 13, Pro 17, Premium 26.
   // A galeria está disponível em TODOS os planos: nenhum precisa de upgrade
   // para começar a publicar fotos do seu negócio.
   const GALLERY_LIMIT = plan.galleryLimit;
@@ -656,6 +706,12 @@ function MerchantPanel() {
       setMediaSyncError(tr("saveErrorInternet"));
     } finally {
       setUploadingGallery(false);
+      // Permite escolher outra vez a(s) mesma(s) foto(s) logo a seguir.
+      try {
+        e.target.value = "";
+      } catch {
+        /* ignorar */
+      }
     }
   }
 
@@ -790,7 +846,7 @@ function MerchantPanel() {
         {appearance.enabled && <ThemeAnimationOnly appearance={appearance} />}
         <div className="pointer-events-none absolute -right-16 -top-10 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
         <button
-          onClick={() => navigate({ to: "/business" })}
+          onClick={() => navigate({ to: "/business", replace: true })}
           className="mb-4 inline-flex items-center gap-1.5 text-xs text-white/80"
         >
           <Icon name="arrowLeft" size={14} /> Painel
@@ -1158,9 +1214,11 @@ function MerchantPanel() {
                   </span>
                   <input
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="84 000 0000"
+                    onChange={(e) => setPhone(e.target.value.replace(/[^\d\s+()-]/g, ""))}
+                    placeholder="84 123 4567"
                     type="tel"
+                    inputMode="tel"
+                    maxLength={20}
                     className="input-base flex-1"
                   />
                 </div>
@@ -1276,7 +1334,8 @@ function MerchantPanel() {
                   real de uma estrutura trancada, empurrando para upgrade. */}
               <div className="flex flex-wrap gap-2">
                 {STRUCTURES_BY_FAMILY[family].map((s, idx) => {
-                  const locked = idx >= plan.maxStructures;
+                  const locked =
+                    idx >= plan.maxStructures || menuLockedByCategory(family, s, category, plan.id);
                   return (
                     <button
                       key={s.id}
@@ -1296,7 +1355,10 @@ function MerchantPanel() {
                   );
                 })}
               </div>
-              {plan.maxStructures < STRUCTURES_BY_FAMILY[family].length && (
+              {(plan.maxStructures < STRUCTURES_BY_FAMILY[family].length ||
+                STRUCTURES_BY_FAMILY[family].some((s) =>
+                  menuLockedByCategory(family, s, category, plan.id),
+                )) && (
                 <button
                   onClick={() => navigate({ to: "/subscribe" })}
                   className="press mt-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-primary"
@@ -1308,13 +1370,55 @@ function MerchantPanel() {
                 const structIdx = STRUCTURES_BY_FAMILY[family].findIndex(
                   (s) => s.id === structureId,
                 );
-                return structIdx >= plan.maxStructures ? (
+                return structIdx >= 0 &&
+                  (structIdx >= plan.maxStructures ||
+                    menuLockedByCategory(
+                      family,
+                      STRUCTURES_BY_FAMILY[family][structIdx],
+                      category,
+                      plan.id,
+                    )) ? (
                   <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-[11px] text-primary">
                     {tr("structureExclusiveHint")}
                   </p>
                 ) : null;
               })()}
 
+              {/* Forma da galeria de fotos (fila, mosaico ou grelha). Grátis em todos os planos. */}
+              {structure.blocks.includes("gallery" as BlockId) && (
+                <div className="mt-4">
+                  <p className="mb-1.5 text-[11px] font-semibold text-foreground">
+                    {tr("galleryLayoutLabel")}
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {GALLERY_LAYOUTS.map((id) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setGalleryLayout(id)}
+                        aria-pressed={galleryLayout === id}
+                        className={`press flex flex-col items-center gap-1.5 rounded-xl border-2 p-2 text-center ${
+                          galleryLayout === id ? "border-primary bg-primary/5" : "border-border"
+                        }`}
+                      >
+                        <GalleryLayoutThumb layout={id} />
+                        <span className="text-[10px] font-semibold leading-tight text-foreground">
+                          {tr(
+                            id === "strip"
+                              ? "galleryLayoutStrip"
+                              : id === "mosaic"
+                                ? "galleryLayoutMosaic"
+                                : "galleryLayoutGrid",
+                          )}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-[10px] text-muted-foreground">
+                    {tr("galleryLayoutHint")}
+                  </p>
+                </div>
+              )}
               {/* Simplificação (2026-07-07): "Ordem dos blocos" era uma
                   secção separada, à parte, e confundia-se com a escolha
                   de Estrutura acima — parecia a mesma coisa duas vezes.
@@ -1473,6 +1577,42 @@ function MerchantPanel() {
                 <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-[11px] text-primary">
                   {tr("backgroundExclusiveHint")}
                 </p>
+              )}
+              {/* As fotos da própria galeria como fundo — só Pro e Premium. */}
+              <p className="mb-1.5 mt-4 text-[11px] font-semibold text-foreground">
+                {tr("ownGalleryBgLabel")}
+              </p>
+              {!canUseOwnGalleryBackground(plan.id) ? (
+                <p className="rounded-xl bg-primary/5 px-3 py-2 text-[11px] text-primary">
+                  <Icon name="lock" size={11} className="mr-1 inline" />
+                  {tr("ownGalleryBgLockedHint")}
+                </p>
+              ) : gallery.length === 0 ? (
+                <p className="text-[11px] text-muted-foreground">{tr("ownGalleryBgEmpty")}</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {gallery.map((url, i) => {
+                    const id = OWN_BG_PREFIX + url;
+                    return (
+                      <button
+                        key={url + i}
+                        type="button"
+                        onClick={() => setBackgroundId(id)}
+                        className={`press h-14 w-14 overflow-hidden rounded-xl border-2 ${
+                          backgroundId === id ? "border-primary" : "border-transparent"
+                        }`}
+                      >
+                        <img
+                          loading="lazy"
+                          decoding="async"
+                          src={url}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </div>
 
@@ -2124,6 +2264,36 @@ function MerchantPanel() {
 // Carrega a miniatura de uma imagem de fundo via import() dinâmico
 // (ver getGalleryImageUrl em profile-styles.ts) — evita que as imagens
 // (base64, ~8.3MB no total) entrem no ficheiro principal do app.
+// Desenho pequeno de cada forma da galeria (só divs; sem imagens).
+function GalleryLayoutThumb({ layout }: { layout: GalleryLayout }) {
+  const c = "rounded-[3px] bg-muted-foreground/35";
+  if (layout === "strip")
+    return (
+      <div className="flex h-10 w-full items-center gap-1 overflow-hidden px-1">
+        {[0, 1, 2, 3].map((k) => (
+          <div key={k} className={`h-7 w-7 shrink-0 ${c}`} />
+        ))}
+      </div>
+    );
+  if (layout === "mosaic")
+    return (
+      <div className="grid h-10 w-full grid-cols-4 grid-rows-2 gap-0.5 px-1">
+        <div className={`col-span-2 row-span-2 ${c}`} />
+        <div className={c} />
+        <div className={c} />
+        <div className={c} />
+        <div className={c} />
+      </div>
+    );
+  return (
+    <div className="grid h-10 w-full grid-cols-3 gap-0.5 px-1">
+      {[0, 1, 2, 3, 4, 5].map((k) => (
+        <div key={k} className={c} />
+      ))}
+    </div>
+  );
+}
+
 function BackgroundThumb({ backgroundId, label }: { backgroundId: string; label: string }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {

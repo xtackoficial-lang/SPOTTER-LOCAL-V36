@@ -15,6 +15,7 @@ import {
 import { useOnboarding } from "@/lib/onboarding-storage";
 import { RequireBusiness } from "@/components/RequireBusiness";
 
+import { normalizePhone } from "@/lib/validators";
 export const Route = createFileRoute("/reservation-settings")({
   head: () => ({ meta: [{ title: "Definições de reserva — Spotter Local" }] }),
   component: () => (
@@ -72,6 +73,7 @@ function ReservationSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchReservationSettings(businessId).then((s) => {
@@ -87,15 +89,37 @@ function ReservationSettingsPage() {
   }, [businessId]);
 
   const handleSave = async () => {
+    // v41 (segurança): números reais e preços com sentido
+    setFormError(null);
+    const wa = whatsapp.trim() ? normalizePhone(whatsapp) : null;
+    if (wa && !wa.ok) {
+      setFormError(`WhatsApp de reservas: ${wa.error}`);
+      return;
+    }
+    const rep = numeroRepasse.trim() ? normalizePhone(numeroRepasse) : null;
+    if (rep && (!rep.ok || !/^\+258\d{9}$/.test(rep.value))) {
+      setFormError(
+        rep && !rep.ok
+          ? `Número de repasse: ${rep.error}`
+          : "Número de repasse: tem de ser um número M-Pesa/e-Mola de Moçambique.",
+      );
+      return;
+    }
+    const pn = Number(precoNormal);
+    const pe = Number(precoEvento);
+    if (!(pn > 0 && pn <= 1_000_000) || !(pe > 0 && pe <= 1_000_000)) {
+      setFormError("Os preços da mesa têm de ser números maiores que 0.");
+      return;
+    }
     setSaving(true);
     setSaved(false);
     await updateReservationSettings(businessId, {
       acceptsRoomReservation: settings?.acceptsRoomReservation ?? false,
       acceptsTableReservation: settings?.acceptsTableReservation ?? false,
-      whatsappReservas: whatsapp.trim() || null,
-      numeroRepasse: numeroRepasse.trim() || null,
-      mesaPrecoNormal: Number(precoNormal) || 200,
-      mesaPrecoEvento: Number(precoEvento) || 500,
+      whatsappReservas: wa && wa.ok ? wa.value : null,
+      numeroRepasse: rep && rep.ok ? rep.value : null,
+      mesaPrecoNormal: pn,
+      mesaPrecoEvento: pe,
     });
     setSaving(false);
     setSaved(true);
@@ -108,8 +132,11 @@ function ReservationSettingsPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-4 backdrop-blur">
-        <button onClick={() => navigate({ to: "/business" })} className="press rounded-full p-1">
+      <div className="glass-bar sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-4 backdrop-blur">
+        <button
+          onClick={() => navigate({ to: "/business", replace: true })}
+          className="press rounded-full p-1"
+        >
           <Icon name="chevronLeft" size={22} />
         </button>
         <h1 className="text-lg font-bold text-foreground">Definições de reserva</h1>
@@ -151,8 +178,10 @@ function ReservationSettingsPage() {
                 </p>
                 <input
                   value={whatsapp}
-                  onChange={(e) => setWhatsapp(e.target.value)}
-                  placeholder="84xxxxxxx"
+                  onChange={(e) => setWhatsapp(e.target.value.replace(/[^\d\s+()-]/g, ""))}
+                  inputMode="tel"
+                  maxLength={20}
+                  placeholder="84 123 4567"
                   className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
                 />
               </div>
@@ -162,11 +191,14 @@ function ReservationSettingsPage() {
                 </p>
                 <input
                   value={numeroRepasse}
-                  onChange={(e) => setNumeroRepasse(e.target.value)}
-                  placeholder="84xxxxxxx"
+                  onChange={(e) => setNumeroRepasse(e.target.value.replace(/[^\d\s+()-]/g, ""))}
+                  inputMode="tel"
+                  maxLength={20}
+                  placeholder="84 123 4567"
                   className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
                 />
               </div>
+              {formError && <p className="text-xs text-red-600">{formError}</p>}
             </div>
 
             {settings.acceptsTableReservation && (

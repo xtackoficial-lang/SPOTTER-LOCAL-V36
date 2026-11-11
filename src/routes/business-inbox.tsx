@@ -13,6 +13,8 @@ import { BusinessBottomNav } from "@/components/BusinessBottomNav";
 import { Icon } from "@/components/Icon";
 import { RequireBusiness } from "@/components/RequireBusiness";
 import { useT } from "@/lib/i18n";
+import { TranslateMessage } from "@/components/TranslateMessage";
+import { translateAvailable } from "@/lib/translate-message";
 import { supabase, SUPABASE_CONFIGURED } from "@/lib/supabase";
 
 export const Route = createFileRoute("/business-inbox")({
@@ -117,8 +119,8 @@ function BusinessInbox() {
       <header className="px-5 pb-4 pt-12 animate-slide-up">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate({ to: "/business" })}
-            className="press grid h-9 w-9 place-items-center rounded-full bg-muted text-muted-foreground"
+            onClick={() => navigate({ to: "/business", replace: true })}
+            className="press grid h-9 w-9 place-items-center rounded-full glass-btn text-muted-foreground"
           >
             <Icon name="arrowLeft" size={16} />
           </button>
@@ -263,10 +265,10 @@ function ConversationView({
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card/90 px-4 pb-3 pt-12 backdrop-blur-xl">
+      <header className="glass-bar sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card/90 px-4 pb-3 pt-12 backdrop-blur-xl">
         <button
           onClick={onBack}
-          className="press grid h-9 w-9 place-items-center rounded-full bg-muted text-muted-foreground hover:bg-accent"
+          className="press grid h-9 w-9 place-items-center rounded-full glass-btn text-muted-foreground hover:bg-accent"
           aria-label={tr("backAria")}
         >
           <Icon name="arrowLeft" size={16} />
@@ -289,24 +291,21 @@ function ConversationView({
             {tr("noMessagesInConversation")}
           </div>
         ) : (
-          messages.map((m) => (
-            <div
-              key={m.id}
-              className={`flex animate-slide-up ${m.sender_id === ownerId ? "justify-end" : "justify-start"}`}
-            >
+          messages.map((m) => {
+            const mine = m.sender_id === ownerId;
+            const bubble = (result?: React.ReactNode) => (
               <div
                 className={`max-w-[78%] rounded-2xl px-3.5 py-2 text-sm ${
-                  m.sender_id === ownerId
+                  mine
                     ? "rounded-br-sm text-primary-foreground shadow-[var(--shadow-soft)]"
                     : "rounded-bl-sm bg-muted text-foreground"
                 }`}
-                style={
-                  m.sender_id === ownerId ? { background: "var(--gradient-primary)" } : undefined
-                }
+                style={mine ? { background: "var(--gradient-primary)" } : undefined}
               >
                 {m.text}
+                {result}
                 <div
-                  className={`mt-0.5 text-right text-[9px] ${m.sender_id === ownerId ? "opacity-80" : "text-muted-foreground"}`}
+                  className={`mt-0.5 text-right text-[9px] ${mine ? "opacity-80" : "text-muted-foreground"}`}
                 >
                   {new Date(m.created_at).toLocaleTimeString([], {
                     hour: "2-digit",
@@ -314,8 +313,28 @@ function ConversationView({
                   })}
                 </div>
               </div>
-            </div>
-          ))
+            );
+            return (
+              <div
+                key={m.id}
+                className={`flex animate-slide-up items-end gap-1.5 ${mine ? "justify-end" : "justify-start"}`}
+              >
+                {m.text && translateAvailable() ? (
+                  <TranslateMessage messageId={m.id} mine={mine}>
+                    {({ button, result }) => (
+                      <>
+                        {mine && button}
+                        {bubble(result)}
+                        {!mine && button}
+                      </>
+                    )}
+                  </TranslateMessage>
+                ) : (
+                  bubble()
+                )}
+              </div>
+            );
+          })
         )}
         <div ref={bottomRef} />
       </main>
@@ -326,7 +345,7 @@ function ConversationView({
             e.preventDefault();
             submit();
           }}
-          className="sticky bottom-0 flex items-center gap-2 border-t border-border bg-card/95 px-3 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-3 backdrop-blur-xl"
+          className="glass-bar sticky bottom-0 flex items-center gap-2 border-t border-border bg-card/95 px-3 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-3 backdrop-blur-xl"
         >
           <input
             value={text}
@@ -345,7 +364,7 @@ function ConversationView({
           </button>
         </form>
       ) : (
-        <div className="sticky bottom-0 border-t border-border bg-card/95 px-4 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-3 backdrop-blur-xl">
+        <div className="glass-bar sticky bottom-0 border-t border-border bg-card/95 px-4 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-3 backdrop-blur-xl">
           <button
             onClick={() => navigate({ to: "/subscribe" })}
             className="press flex w-full items-center gap-3 rounded-2xl border border-amber-400/40 bg-amber-500/10 p-3 text-left"

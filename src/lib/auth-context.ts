@@ -2,6 +2,7 @@
 // XTACK SPOTTER — Context de autenticação global
 // Hook useAuth() disponível em toda a app
 // ============================================================
+import { wipeIfDifferentUser } from "./session-cleanup";
 import { useEffect, useState } from "react";
 import {
   getCurrentUser,
@@ -11,6 +12,7 @@ import {
   signInWithOAuth,
   signOut as authSignOut,
   deleteOwnAccount as authDeleteOwnAccount,
+  verifySignupCode as authVerifySignupCode,
   setProfileType as authSetProfileType,
   syncProfileToSupabase,
   isSelfSuspended,
@@ -36,6 +38,10 @@ const suspendedListeners = new Set<(s: boolean) => void>();
 let lastSyncedUserId: string | null = null;
 
 function notifyAll(u: AuthUser | null) {
+  // Entrou uma conta diferente da que usou este aparelho por último (ex.: a
+  // sessão anterior expirou e outra pessoa fez login): apaga já os dados
+  // locais da outra conta, antes de qualquer ecrã os ler.
+  if (u?.id) wipeIfDifferentUser(u.id);
   globalUser = u;
   listeners.forEach((fn) => fn(u));
   // Sincroniza o nome da conta (Google/Apple/Email) para public.profiles.
@@ -104,8 +110,8 @@ export function useAuth() {
     suspendedListeners.forEach((fn) => fn(false));
   };
 
-  const login = async (email: string, password: string) => {
-    const result = await signIn(email, password);
+  const login = async (email: string, password: string, captchaToken?: string | null) => {
+    const result = await signIn(email, password, captchaToken);
     if (result.user) notifyAll(result.user);
     return result;
   };
@@ -118,8 +124,19 @@ export function useAuth() {
     return signInWithOAuth(provider);
   };
 
-  const register = async (email: string, password: string, name?: string) => {
-    const result = await signUp(email, password, name);
+  const register = async (
+    email: string,
+    password: string,
+    name?: string,
+    captchaToken?: string | null,
+  ) => {
+    const result = await signUp(email, password, name, captchaToken);
+    if (result.user) notifyAll(result.user);
+    return result;
+  };
+
+  const verifySignup = async (email: string, code: string) => {
+    const result = await authVerifySignupCode(email, code);
     if (result.user) notifyAll(result.user);
     return result;
   };
@@ -153,6 +170,7 @@ export function useAuth() {
     loginWithOAuth,
     register,
     logout,
+    verifySignup,
     deleteAccount,
     setProfileType,
     isLoggedIn: !!user,

@@ -1,3 +1,5 @@
+> OBSOLETO desde a v47: a ZumboPay foi substituída pela M-Pesa directa — ver MPESA_INTEGRATION.md.
+
 # Integração ZumboPay — Spotter Local (assinaturas)
 
 ## Melhorias desta versão vs a primeira entrega

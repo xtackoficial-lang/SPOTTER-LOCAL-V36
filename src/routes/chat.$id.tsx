@@ -11,6 +11,9 @@ import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { MessageAttachment } from "@/components/MessageAttachment";
 import { fileToAttachment, attachmentToDataUrl, type ChatAttachment } from "@/lib/chat-attachments";
 import { OrderModal } from "@/components/OrderModal";
+import { ReportButton } from "@/components/ReportButton";
+import { TranslateMessage } from "@/components/TranslateMessage";
+import { translateAvailable } from "@/lib/translate-message";
 import { useT } from "@/lib/i18n";
 
 export const Route = createFileRoute("/chat/$id")({
@@ -175,10 +178,10 @@ function ChatThread() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card/90 px-4 pb-3 pt-12 backdrop-blur-xl">
+      <header className="glass-bar sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card/90 px-4 pb-3 pt-12 backdrop-blur-xl">
         <button
           onClick={() => navigate({ to: "/chats" })}
-          className="press grid h-9 w-9 place-items-center rounded-full bg-muted text-muted-foreground hover:bg-accent"
+          className="press grid h-9 w-9 place-items-center rounded-full glass-btn text-muted-foreground hover:bg-accent"
           aria-label={tr("backLabel")}
         >
           <Icon name="arrowLeft" size={16} />
@@ -256,11 +259,8 @@ function ChatThread() {
         {displayMessages.length === 0 ? (
           <div className="mt-10 text-center text-xs text-muted-foreground">{tr("sayHello")}</div>
         ) : (
-          displayMessages.map((m) => (
-            <div
-              key={m.id}
-              className={`flex animate-slide-up ${m.from === "me" ? "justify-end" : "justify-start"}`}
-            >
+          displayMessages.map((m) => {
+            const bubble = (result?: React.ReactNode) => (
               <div
                 className={`max-w-[78%] space-y-1.5 rounded-2xl px-3.5 py-2 text-sm ${
                   m.from === "me"
@@ -271,14 +271,44 @@ function ChatThread() {
               >
                 {m.attachment && <MessageAttachment attachment={m.attachment} />}
                 {m.text && <div>{m.text}</div>}
+                {result}
                 <div
                   className={`mt-0.5 text-right text-[9px] ${m.from === "me" ? "opacity-80" : "text-muted-foreground"}`}
                 >
                   {new Date(m.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </div>
+                {canUseRealChat && m.from === "them" && (
+                  <div className="text-right">
+                    <ReportButton
+                      kind="message"
+                      targetId={m.id}
+                      className="text-muted-foreground"
+                    />
+                  </div>
+                )}
               </div>
-            </div>
-          ))
+            );
+            return (
+              <div
+                key={m.id}
+                className={`flex animate-slide-up items-end gap-1.5 ${m.from === "me" ? "justify-end" : "justify-start"}`}
+              >
+                {canUseRealChat && m.text && translateAvailable() ? (
+                  <TranslateMessage messageId={m.id} mine={m.from === "me"}>
+                    {({ button, result }) => (
+                      <>
+                        {m.from === "me" && button}
+                        {bubble(result)}
+                        {m.from === "them" && button}
+                      </>
+                    )}
+                  </TranslateMessage>
+                ) : (
+                  bubble()
+                )}
+              </div>
+            );
+          })
         )}
         <div ref={bottomRef} />
       </main>
@@ -323,7 +353,7 @@ function ChatThread() {
           e.preventDefault();
           submit();
         }}
-        className="sticky bottom-0 flex items-center gap-2 border-t border-border bg-card/95 px-3 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-3 backdrop-blur-xl"
+        className="glass-bar sticky bottom-0 flex items-center gap-2 border-t border-border bg-card/95 px-3 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-3 backdrop-blur-xl"
       >
         {!recording && (
           <ChatAttachmentMenu onFile={handleFile} onStartRecording={() => setRecording(true)} />

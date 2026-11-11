@@ -12,6 +12,7 @@ import { Icon } from "@/components/Icon";
 import { ShimmerButton } from "@/components/ShimmerButton";
 import { BreathingLoader } from "@/components/BreathingLoader";
 import { updatePasswordAfterReset } from "@/lib/auth";
+import { validatePassword } from "@/lib/validators";
 import { supabase, SUPABASE_CONFIGURED } from "@/lib/supabase";
 import { useT } from "@/lib/i18n";
 
@@ -62,6 +63,11 @@ function ResetPasswordPage() {
   const handleSave = async () => {
     if (!password || password.length < 6) {
       setError(tr("minSixChars"));
+      return;
+    }
+    const pwCheck = validatePassword(password);
+    if (!pwCheck.ok) {
+      setError(pwCheck.error);
       return;
     }
     if (password !== confirmPassword) {

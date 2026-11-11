@@ -238,6 +238,15 @@ function PrivacyPage() {
                 <p>
                   • <strong>{tr("unsplashLabel")}</strong> {tr("unsplashBody")}
                 </p>
+                <p>
+                  • <strong>{tr("cloudflareLabel")}</strong> {tr("cloudflareBody")}
+                </p>
+                <p>
+                  • <strong>{tr("mpesaLabel")}</strong> {tr("mpesaBody")}
+                </p>
+                <p>
+                  • <strong>{tr("translateLabel")}</strong> {tr("translateBody")}
+                </p>
               </LegalBlock>
               <LegalBlock title={tr("privacyYourRights")}>
                 <p>{tr("yourRightsBody")}</p>

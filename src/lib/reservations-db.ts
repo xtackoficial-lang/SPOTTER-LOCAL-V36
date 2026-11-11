@@ -3,6 +3,8 @@
 // ============================================================
 import { supabase, SUPABASE_CONFIGURED, isUuid } from "./supabase";
 
+export const MAX_ROOM_PHOTOS = 4;
+
 export interface BusinessRoom {
   id: string;
   businessId: string;
@@ -10,7 +12,8 @@ export interface BusinessRoom {
   capacity: number;
   pricePerNight: number; // por dia/noite (0 = não se vende por dia)
   pricePerHour: number | null; // só Pensão (null = não se vende por hora)
-  photoUrl: string | null;
+  photoUrl: string | null; // 1ª foto (compatibilidade)
+  photoUrls: string[]; // até MAX_ROOM_PHOTOS
   active: boolean;
   occupiedUntil: string | null; // "YYYY-MM-DD" ou null (disponível)
   createdAt: string;
@@ -94,6 +97,7 @@ interface BusinessRoomRow {
   price_per_night: number;
   price_per_hour?: number | null;
   photo_url: string | null;
+  photo_urls?: string[] | null;
   active: boolean;
   occupied_until: string | null;
   created_at: string;
@@ -149,6 +153,15 @@ interface TableReservationRow {
 }
 
 function mapRoom(row: BusinessRoomRow): BusinessRoom {
+  const urls = (
+    row.photo_urls && row.photo_urls.length > 0
+      ? row.photo_urls
+      : row.photo_url
+        ? [row.photo_url]
+        : []
+  )
+    .filter((u): u is string => typeof u === "string" && u.length > 0)
+    .slice(0, MAX_ROOM_PHOTOS);
   return {
     id: row.id,
     businessId: row.business_id,
@@ -156,7 +169,8 @@ function mapRoom(row: BusinessRoomRow): BusinessRoom {
     capacity: row.capacity,
     pricePerNight: row.price_per_night,
     pricePerHour: row.price_per_hour ?? null,
-    photoUrl: row.photo_url ?? null,
+    photoUrl: urls[0] ?? null,
+    photoUrls: urls,
     active: row.active,
     occupiedUntil: row.occupied_until ?? null,
     createdAt: row.created_at,
@@ -249,23 +263,33 @@ export async function createRoom(
     pricePerNight: number;
     pricePerHour?: number | null;
     photoUrl?: string | null;
+    photoUrls?: string[];
   },
 ): Promise<BusinessRoom | null> {
   if (!SUPABASE_CONFIGURED || !supabase) return null;
-  const { data, error } = await supabase
+  const photos = (room.photoUrls ?? (room.photoUrl ? [room.photoUrl] : [])).slice(
+    0,
+    MAX_ROOM_PHOTOS,
+  );
+  const base = {
+    business_id: businessId,
+    name: room.name,
+    capacity: room.capacity,
+    price_per_night: room.pricePerNight,
+    price_per_hour: room.pricePerHour ?? null,
+    photo_url: photos[0] ?? null,
+  };
+  let res = await supabase
     .from("business_rooms")
-    .insert({
-      business_id: businessId,
-      name: room.name,
-      capacity: room.capacity,
-      price_per_night: room.pricePerNight,
-      price_per_hour: room.pricePerHour ?? null,
-      photo_url: room.photoUrl ?? null,
-    })
+    .insert({ ...base, photo_urls: photos })
     .select()
     .single();
-  if (error || !data) return null;
-  return mapRoom(data);
+  // Migração 015 ainda não corrida → guarda só a 1ª foto, sem partir.
+  if (res.error && /photo_urls/i.test(res.error.message ?? "")) {
+    res = await supabase.from("business_rooms").insert(base).select().single();
+  }
+  if (res.error || !res.data) return null;
+  return mapRoom(res.data);
 }
 
 export async function updateRoom(
@@ -276,6 +300,7 @@ export async function updateRoom(
     pricePerNight: number;
     pricePerHour: number | null;
     photoUrl: string | null;
+    photoUrls: string[];
   }>,
 ): Promise<void> {
   if (!SUPABASE_CONFIGURED || !supabase) return;
@@ -284,8 +309,19 @@ export async function updateRoom(
   if (patch.capacity !== undefined) dbPatch.capacity = patch.capacity;
   if (patch.pricePerNight !== undefined) dbPatch.price_per_night = patch.pricePerNight;
   if (patch.pricePerHour !== undefined) dbPatch.price_per_hour = patch.pricePerHour;
-  if (patch.photoUrl !== undefined) dbPatch.photo_url = patch.photoUrl;
-  await supabase.from("business_rooms").update(dbPatch).eq("id", roomId);
+  if (patch.photoUrls !== undefined) {
+    const photos = patch.photoUrls.slice(0, MAX_ROOM_PHOTOS);
+    dbPatch.photo_url = photos[0] ?? null;
+    dbPatch.photo_urls = photos;
+  } else if (patch.photoUrl !== undefined) {
+    dbPatch.photo_url = patch.photoUrl;
+  }
+  const { error } = await supabase.from("business_rooms").update(dbPatch).eq("id", roomId);
+  // Migração 015 ainda não corrida → actualiza sem a coluna nova.
+  if (error && /photo_urls/i.test(error.message ?? "")) {
+    delete dbPatch.photo_urls;
+    await supabase.from("business_rooms").update(dbPatch).eq("id", roomId);
+  }
 }
 
 // Liga/desliga o quarto (deixa de aparecer como opção de reserva).

@@ -64,7 +64,7 @@ self.addEventListener("notificationclick", (event) => {
   );
 });
 
-const CACHE_NAME = "spotter-local-v19";
+const CACHE_NAME = "spotter-local-v20";
 const OFFLINE_URL = "/";
 
 self.addEventListener("install", (event) => {
@@ -104,6 +104,39 @@ self.addEventListener("fetch", (event) => {
   // recursos do próprio app (HTML, JS, CSS, imagens locais).
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  // Ficheiros com hash no nome (/assets/*) nunca mudam e as imagens de
+  // fundo quase nunca: servem-se logo do cache (instantâneo, mesmo com rede
+  // lenta) e só vão à rede na primeira vez. HTML e o resto continuam
+  // "rede primeiro" para as correções chegarem logo.
+  const isStatic =
+    url.pathname.startsWith("/assets/") ||
+    url.pathname.startsWith("/backgrounds/") ||
+    url.pathname.startsWith("/onboarding-intro/") ||
+    /^\/icon-.*\.png$/.test(url.pathname);
+  if (isStatic) {
+    event.respondWith(
+      caches.match(request).then(
+        (cached) =>
+          cached ||
+          fetch(request).then((response) => {
+            if (response && response.status === 200) {
+              const clone = response.clone();
+              caches.open(CACHE_NAME).then(async (cache) => {
+                await cache.put(request, clone);
+                // Não deixar a cache crescer sem limite entre versões.
+                const keys = await cache.keys();
+                if (keys.length > 200) {
+                  await Promise.all(keys.slice(0, keys.length - 200).map((k) => cache.delete(k)));
+                }
+              });
+            }
+            return response;
+          }),
+      ),
+    );
+    return;
+  }
 
   event.respondWith(
     fetch(request)

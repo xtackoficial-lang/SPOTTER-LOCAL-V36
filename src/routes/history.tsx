@@ -62,10 +62,10 @@ function HistoryPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card/90 px-4 pb-3 pt-12 backdrop-blur-xl">
+      <header className="glass-bar sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card/90 px-4 pb-3 pt-12 backdrop-blur-xl">
         <button
           onClick={() => navigate({ to: "/profile" })}
-          className="press grid h-9 w-9 place-items-center rounded-full bg-muted text-muted-foreground"
+          className="press grid h-9 w-9 place-items-center rounded-full glass-btn text-muted-foreground"
         >
           <Icon name="arrowLeft" size={16} />
         </button>
@@ -79,7 +79,7 @@ function HistoryPage() {
           </div>
         ) : orders.length === 0 ? (
           <div className="flex flex-col items-center gap-3 pt-16 text-center">
-            <div className="grid h-16 w-16 place-items-center rounded-full bg-muted">
+            <div className="grid h-16 w-16 place-items-center rounded-full glass-btn">
               <Icon name="cart" size={28} className="text-muted-foreground" />
             </div>
             <p className="text-sm text-muted-foreground">{tr("noOrdersYet")}</p>

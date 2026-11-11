@@ -6,6 +6,8 @@
 // (ver /publish-event), mas ver é aberto a todos.
 // ============================================================
 import { createFileRoute } from "@tanstack/react-router";
+import { PhotoCarousel } from "@/components/PhotoCarousel";
+import { ReportButton } from "@/components/ReportButton";
 import { useState, useEffect } from "react";
 import { Icon } from "@/components/Icon";
 import {
@@ -57,7 +59,7 @@ function EventsPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <div className="sticky top-0 z-10 border-b border-border bg-background/95 px-4 py-4 backdrop-blur">
+      <div className="glass-bar sticky top-0 z-10 border-b border-border bg-background/95 px-4 py-4 backdrop-blur">
         <h1 className="text-lg font-bold text-foreground">Eventos</h1>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <select
@@ -108,15 +110,14 @@ function EventsPage() {
                 DESTAQUE
               </div>
             )}
-            <img
-              loading="lazy"
-              decoding="async"
-              src={ev.posterUrl}
-              alt={ev.title}
-              className="h-56 w-full object-cover"
-            />
+            <PhotoCarousel photos={ev.photoUrls} alt={ev.title} />
             <div className="space-y-2 p-4">
-              <h2 className="text-base font-bold text-foreground">{ev.title}</h2>
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="text-base font-bold text-foreground">{ev.title}</h2>
+                <span className="shrink-0 pt-1 text-muted-foreground">
+                  <ReportButton kind="event" targetId={ev.id} />
+                </span>
+              </div>
               {ev.eventDate &&
                 ev.eventDate <= today &&
                 (ev.eventEndDate ?? ev.eventDate) >= today && (

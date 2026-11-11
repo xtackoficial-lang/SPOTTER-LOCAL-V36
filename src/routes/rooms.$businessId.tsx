@@ -4,6 +4,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Icon } from "@/components/Icon";
+import { ImageViewer } from "@/components/ImageViewer";
 import { supabase, SUPABASE_CONFIGURED } from "@/lib/supabase";
 import { fetchActiveRooms, roomPriceText, type BusinessRoom } from "@/lib/reservations-db";
 
@@ -17,6 +18,7 @@ function RoomsListPage() {
   const navigate = useNavigate();
   const [rooms, setRooms] = useState<BusinessRoom[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewing, setViewing] = useState<{ images: string[]; name: string } | null>(null);
 
   useEffect(() => {
     const reload = () =>
@@ -52,7 +54,7 @@ function RoomsListPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-4 backdrop-blur">
+      <div className="glass-bar sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-4 backdrop-blur">
         <button
           onClick={() => navigate({ to: "/place/$id", params: { id: businessId } })}
           className="press rounded-full p-1"
@@ -75,7 +77,12 @@ function RoomsListPage() {
             return (
               <div key={room.id} className="rounded-2xl border border-border bg-card p-4">
                 <div className="flex gap-3">
-                  <div className="h-20 w-20 flex-none overflow-hidden rounded-xl bg-background">
+                  <button
+                    type="button"
+                    disabled={room.photoUrls.length === 0}
+                    onClick={() => setViewing({ images: room.photoUrls, name: room.name })}
+                    className="press relative h-20 w-20 flex-none overflow-hidden rounded-xl bg-background"
+                  >
                     {room.photoUrl && (
                       <img
                         loading="lazy"
@@ -85,7 +92,12 @@ function RoomsListPage() {
                         className="h-full w-full object-cover"
                       />
                     )}
-                  </div>
+                    {room.photoUrls.length > 1 && (
+                      <span className="absolute bottom-0.5 right-0.5 rounded bg-black/65 px-1 text-[10px] font-bold text-white">
+                        {room.photoUrls.length}
+                      </span>
+                    )}
+                  </button>
                   <div className="flex-1">
                     <h3 className="text-sm font-bold text-foreground">{room.name}</h3>
                     <p className="mt-0.5 text-xs text-muted-foreground">
@@ -114,6 +126,9 @@ function RoomsListPage() {
           })
         )}
       </div>
+      {viewing && (
+        <ImageViewer images={viewing.images} alt={viewing.name} onClose={() => setViewing(null)} />
+      )}
     </div>
   );
 }

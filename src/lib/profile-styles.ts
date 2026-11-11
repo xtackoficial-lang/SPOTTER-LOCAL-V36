@@ -269,13 +269,38 @@ export const STRUCTURES_BY_FAMILY: Record<FamilyId, ProfileStructure[]> = {
   ],
 };
 
+// Cardápio (estruturas com o bloco "menu") por tipo de negócio:
+//  - restaurante, lanchonete e hotel+restaurante: têm cardápio em qualquer plano
+//    que inclua essa estrutura;
+//  - bar e padaria: só nos planos Pro e Premium.
+// `category`/`planId` são opcionais para não mudar chamadas antigas.
+const MENU_ALWAYS_CATEGORIES = ["restaurant", "snack_bar", "hotel_restaurant"];
+const MENU_PRO_CATEGORIES = ["bar", "bakery"];
+export function menuLockedByCategory(
+  family: FamilyId,
+  structure: ProfileStructure,
+  category?: string,
+  planId?: string,
+): boolean {
+  if (family !== "comida" || !structure.blocks.includes("menu") || !category) return false;
+  if (MENU_ALWAYS_CATEGORIES.includes(category)) return false;
+  if (MENU_PRO_CATEGORIES.includes(category)) return planId !== "pro" && planId !== "premium";
+  return false;
+}
+
 export function getStructure(
   family: FamilyId,
   structureId: string,
   maxStructures?: number,
+  category?: string,
+  planId?: string,
 ): ProfileStructure {
   const list = STRUCTURES_BY_FAMILY[family];
-  const allowed = maxStructures != null ? list.slice(0, maxStructures) : list;
+  const byPlan = maxStructures != null ? list.slice(0, maxStructures) : list;
+  const allowed =
+    category != null
+      ? byPlan.filter((s) => !menuLockedByCategory(family, s, category, planId))
+      : byPlan;
   // Se o structureId guardado não está entre as estruturas que o plano
   // actual permite (ex: negócio fez downgrade, ou o valor foi gravado
   // por outra via fora da UI normal), cai para a primeira estrutura
@@ -539,8 +564,26 @@ export function getGalleryImageMeta(backgroundId?: string): GalleryImage | null 
 // WebP em /public/backgrounds/ (~30-150 KB cada), servidos pelo CDN, com
 // cache do browser, e só a imagem escolhida é descarregada.
 // Mantém-se async/Promise para não mudar quem já chama esta função.
+// Fundo com uma foto da PRÓPRIA galeria do negócio (só planos Pro e Premium).
+// Guardado em background_id como "own:<url>". O URL é validado (só https ou
+// caminho local, sem aspas/parênteses/espaços) porque vai parar a um CSS url().
+export const OWN_BG_PREFIX = "own:";
+const SAFE_BG_URL = /^(https:\/\/|\/)[^\s"'()<>\\]+$/;
+export function isOwnGalleryBackground(backgroundId?: string): boolean {
+  return !!backgroundId && backgroundId.startsWith(OWN_BG_PREFIX);
+}
+export function ownGalleryBackgroundUrl(backgroundId?: string): string | null {
+  if (!isOwnGalleryBackground(backgroundId)) return null;
+  const url = (backgroundId as string).slice(OWN_BG_PREFIX.length);
+  return SAFE_BG_URL.test(url) ? url : null;
+}
+export function canUseOwnGalleryBackground(planId?: string): boolean {
+  return planId === "pro" || planId === "premium";
+}
+
 export async function getGalleryImageUrl(backgroundId?: string): Promise<string | null> {
   if (!backgroundId) return null;
+  if (isOwnGalleryBackground(backgroundId)) return ownGalleryBackgroundUrl(backgroundId);
   const meta = getGalleryImageMeta(backgroundId);
   if (!meta) return null;
   return `/backgrounds/${backgroundId}.webp`;
@@ -625,4 +668,51 @@ export async function recordThemeSwap(
   } catch (err) {
     console.warn("recordThemeSwap: Supabase indisponível, troca não foi registada.", err);
   }
+}
+
+// ── Forma da galeria de fotos do perfil ──────────────────────────────────────
+// O comerciante escolhe como as fotos aparecem no perfil público:
+//   "strip"  → fila deslizante (a forma original, é a predefinida)
+//   "mosaic" → 1 foto grande + até 4 pequenas, "+N" na última (precisa de 4+ fotos)
+//   "grid"   → grelha de quadrados, 3 por linha, como o perfil do Instagram
+// A escolha viaja dentro de `block_order` (coluna que já existe e já é pública)
+// como uma etiqueta "galeria:<forma>". Todo o código que lê block_order filtra
+// pelos blocos da Estrutura, por isso a etiqueta é ignorada por quem não a conhece
+// (inclusive versões antigas da app) e a base de dados não precisa de migração.
+export type GalleryLayout = "strip" | "mosaic" | "grid";
+export const GALLERY_LAYOUTS: GalleryLayout[] = ["strip", "mosaic", "grid"];
+export const DEFAULT_GALLERY_LAYOUT: GalleryLayout = "strip";
+const GALLERY_LAYOUT_PREFIX = "galeria:";
+
+export function galleryLayoutFromBlockOrder(order?: readonly string[] | null): GalleryLayout {
+  const tag = (order ?? []).find(
+    (b) => typeof b === "string" && b.startsWith(GALLERY_LAYOUT_PREFIX),
+  );
+  const v = tag?.slice(GALLERY_LAYOUT_PREFIX.length);
+  return (GALLERY_LAYOUTS as string[]).includes(v ?? "")
+    ? (v as GalleryLayout)
+    : DEFAULT_GALLERY_LAYOUT;
+}
+
+/**
+ * Forma da galeria no rascunho local do comerciante: a etiqueta em `blockOrder` (se vier da
+ * base de dados) ou, se não houver, o campo `galleryLayout` guardado no aparelho.
+ */
+export function galleryLayoutOf(
+  blockOrder?: readonly string[] | null,
+  fallback?: string | null,
+): GalleryLayout {
+  const hasTag = (blockOrder ?? []).some(
+    (b) => typeof b === "string" && b.startsWith(GALLERY_LAYOUT_PREFIX),
+  );
+  if (hasTag) return galleryLayoutFromBlockOrder(blockOrder);
+  return (GALLERY_LAYOUTS as string[]).includes(fallback ?? "")
+    ? (fallback as GalleryLayout)
+    : DEFAULT_GALLERY_LAYOUT;
+}
+
+/** Devolve a ordem dos blocos com a etiqueta da forma da galeria (a predefinida não leva etiqueta). */
+export function withGalleryLayout(order: readonly string[], layout: GalleryLayout): string[] {
+  const clean = order.filter((b) => !b.startsWith(GALLERY_LAYOUT_PREFIX));
+  return layout === DEFAULT_GALLERY_LAYOUT ? clean : [...clean, GALLERY_LAYOUT_PREFIX + layout];
 }

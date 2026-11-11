@@ -1,52 +1,44 @@
 // ============================================================
-// XTACK SPOTTER — Edge Function: create-zumbopay-payment
+// XTACK SPOTTER — Edge Function: create-mpesa-payment
 // ------------------------------------------------------------
-// Chamada pelo cliente (src/lib/payments-db.ts) quando o comerciante ou
-// cliente escolhe "ZumboPay" como método de pagamento — assinaturas
-// (starter/pro/premium), Turbinar (boost), Publicações (post), Eventos
-// (event), e agora também Reservas de quarto (room) e mesa (table).
+// Substitui create-zumbopay-payment + zumbopay-webhook. Cobra o cliente
+// directamente pela API M-Pesa da Vodacom (C2B "single stage"): o cliente
+// recebe o pedido de PIN no telemóvel e a resposta chega NA MESMA CHAMADA —
+// por isso não há webhook nem link de pagamento.
 //
-// O que faz:
-//   1. Valida o plano e calcula o preço:
-//        - boost/post/event/plano: valor fixo (tabelas PLAN_PRICES etc.)
-//        - room: 100% ou sinal de 20% do preço/noite × nº de noites (busca na BD)
-//        - table: valor fixo do negócio (mesa_preco_normal/evento)
-//   2. Cria a linha em "payments" (status pending) — igual ao fluxo
-//      manual existente, para tudo continuar visível em /admin.
-//   3. Chama a API da ZumboPay para gerar um Payment Link.
-//   4. Grava a referência/URL devolvidas e devolve o link ao cliente.
+// Duas acções (campo "action" no corpo):
+//   (omitida)  → cria o pagamento e cobra. Mesmos planId/valores que antes:
+//                starter/pro/premium, boost, post, event, room, table.
+//                Precisa de "payerPhone" (84/85) — o número que paga.
+//   "check"    → { paymentId } pergunta à M-Pesa o estado de um pagamento que
+//                ficou "pending" (ligação caída, timeout) e activa-o se já foi pago.
 //
-// A reserva em si (room_reservations/table_reservations) só é criada
-// pelo zumbopay-webhook, depois da confirmação do pagamento — nunca aqui.
+// O preço é SEMPRE calculado aqui, no servidor. A activação (plano, reserva,
+// evento…) está em _shared/fulfill-payment.ts, igual à que o webhook usava.
 //
-// Variáveis de ambiente necessárias (Supabase → Edge Functions → Secrets):
-//   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (já existem por omissão)
-//   ZUMBOPAY_API_KEY        — chave secreta da ZumboPay (nunca no .env do Vite)
-//   ZUMBOPAY_MERCHANT_ID    — ex: MCH_543CDD49F2
-//   ZUMBOPAY_WALLET_ID      — wallet_id da carteira de destino (obrigatório)
-//   ZUMBOPAY_WEBHOOK_URL    — URL pública desta function:
-//                             https://<project-ref>.supabase.co/functions/v1/zumbopay-webhook
-//
-// Formato oficial (doc ZumboPay, 2026-09):
-//   POST {BASE}/payments  →  201 { data: { id, reference, slug, checkout_url, ... } }
-//   O webhook é configurado no painel ZumboPay (não vai no corpo do pedido).
+// Secrets: ver _shared/mpesa.ts (MPESA_API_KEY, MPESA_PUBLIC_KEY,
+// MPESA_SERVICE_PROVIDER_CODE, MPESA_ENV).
 // ============================================================
 
 // @ts-nocheck — ambiente Deno (Supabase Edge Functions).
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { clientIp, LIMITS, rateLimit, tooManyRequests } from "../_shared/rate-limit.ts";
+import {
+  normalizePhone,
+  normalizeWalletPhone,
+  validateEmail,
+  validatePersonName,
+} from "../_shared/validators.ts";
+import {
+  c2bSingleStage,
+  mpesaConfigured,
+  queryTransactionStatus,
+  toMsisdn,
+} from "../_shared/mpesa.ts";
+import { fulfillPayment } from "../_shared/fulfill-payment.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const ZUMBOPAY_API_KEY = Deno.env.get("ZUMBOPAY_API_KEY")!;
-const ZUMBOPAY_MERCHANT_ID = Deno.env.get("ZUMBOPAY_MERCHANT_ID")!;
-const ZUMBOPAY_WEBHOOK_URL = Deno.env.get("ZUMBOPAY_WEBHOOK_URL") ?? "";
-// Confirmado na documentação oficial (https://zumbopay.com/documentacao):
-// URL base = https://zumbopay.com/api/public/v1 (o domínio api.zumbopay.com NÃO existe).
-const ZUMBOPAY_BASE_URL = "https://zumbopay.com/api/public/v1";
-// UUID (ou wallet_code de 6 dígitos) da carteira onde o valor cai — obrigatório
-// em POST /payments. Ver Painel ZumboPay → Carteiras (ou GET /wallets).
-const ZUMBOPAY_WALLET_ID = Deno.env.get("ZUMBOPAY_WALLET_ID") ?? "";
-
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
@@ -115,10 +107,12 @@ const CORS_HEADERS = {
 const ROOM_CATEGORIES = ["hotel", "hotel_restaurant", "pension"];
 const TABLE_CATEGORIES = ["hotel", "hotel_restaurant", "restaurant", "snack_bar", "tourism_site"];
 
+// Alfanumérica e com no máximo 20 caracteres (a M-Pesa pode rejeitar hífens / refs longas).
 function makeRef(businessId: string, planId: string): string {
-  const ts = Date.now().toString(36).toUpperCase();
-  const bid = businessId.slice(0, 6).toUpperCase();
-  return `XL-${bid}-${planId.slice(0, 2).toUpperCase()}-${ts}`;
+  const ts = Date.now().toString(36).toUpperCase(); // ~8
+  const bid = businessId.replace(/[^a-z0-9]/gi, "").slice(0, 3).toUpperCase();
+  const rnd = Math.random().toString(36).slice(2, 5).toUpperCase();
+  return `XL${bid}${planId.slice(0, 1).toUpperCase()}${ts}${rnd}`.slice(0, 20);
 }
 
 Deno.serve(async (req: Request) => {
@@ -130,6 +124,12 @@ Deno.serve(async (req: Request) => {
       status: 405,
       headers: CORS_HEADERS,
     });
+  }
+
+  // Rate limiting por IP (rede de segurança antes de qualquer trabalho): 30 pedidos / 10 min.
+  {
+    const rl = await rateLimit(supabase, `pay:ip:${clientIp(req)}`, 30, LIMITS.payment.window);
+    if (!rl.allowed) return tooManyRequests(rl.retryAfter, CORS_HEADERS);
   }
 
   let body: {
@@ -153,6 +153,10 @@ Deno.serve(async (req: Request) => {
     clientName?: string;
     clientPhone?: string;
     clientEmail?: string;
+    // M-Pesa
+    action?: "check";
+    paymentId?: string;
+    payerPhone?: string; // número M-Pesa que paga (84/85)
     // Reserva de mesa (planId === "table")
     reservationDate?: string; // "YYYY-MM-DD"
     timeSlot?: string;
@@ -167,10 +171,20 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const {
+  // ── Acção "check": reconfirma na M-Pesa um pagamento que ficou pendente ──
+  if (body.action === "check") {
+    try {
+      return await handleCheck(req, body.paymentId);
+    } catch (err) {
+      console.error("create-mpesa-payment: erro no check", err);
+      return json({ error: "internal_error" }, 500);
+    }
+  }
+
+  let {
     businessId, planId, boostPackageId, postPackageId, eventTier, eventDays, contentMetadata,
     roomId, paymentOption, checkIn, checkOut, bookingUnit, hours, startTime, guests, specialRequest, clientName, clientPhone, clientEmail,
-    reservationDate, timeSlot, tableTipo,
+    reservationDate, timeSlot, tableTipo, payerPhone,
   } = body;
 
   try {
@@ -200,6 +214,10 @@ Deno.serve(async (req: Request) => {
           { status: 401, headers: CORS_HEADERS },
         );
       }
+      {
+        const rl = await rateLimit(supabase, `pay:${authenticatedUserId}`, LIMITS.payment.limit, LIMITS.payment.window);
+        if (!rl.allowed) return tooManyRequests(rl.retryAfter, CORS_HEADERS);
+      }
     }
 
     const validoBase =
@@ -218,6 +236,43 @@ Deno.serve(async (req: Request) => {
         JSON.stringify({ error: "businessId, planId, ou dados da reserva incompletos" }),
         { status: 400, headers: CORS_HEADERS },
       );
+    }
+
+    // Número que paga: M-Pesa só funciona com 84/85.
+    const payerCheck = normalizeWalletPhone(payerPhone ?? "", "mpesa");
+    if (!payerCheck.ok) {
+      return json({ error: payerCheck.error }, 400);
+    }
+    const msisdn = toMsisdn(payerCheck.value);
+
+    // v41 (segurança): o servidor valida de novo os dados do cliente — quem chama a API
+    // directamente (sem passar pela app) não contorna as regras. Nome só com letras,
+    // telemóvel real (sem dígitos a mais/inventados), email (se existir) com formato real.
+    if (isRoom || isTable) {
+      const nameCheck = validatePersonName(clientName ?? "", "nome");
+      if (!nameCheck.ok) {
+        return new Response(JSON.stringify({ error: nameCheck.error }), { status: 400, headers: CORS_HEADERS });
+      }
+      const phoneCheck = normalizePhone(clientPhone ?? "");
+      if (!phoneCheck.ok) {
+        return new Response(JSON.stringify({ error: phoneCheck.error }), { status: 400, headers: CORS_HEADERS });
+      }
+      if (clientEmail) {
+        const emailCheck = validateEmail(clientEmail);
+        if (!emailCheck.ok) {
+          return new Response(JSON.stringify({ error: emailCheck.error }), { status: 400, headers: CORS_HEADERS });
+        }
+        clientEmail = emailCheck.value;
+      }
+      const guestsNum = Number(guests);
+      if (!Number.isInteger(guestsNum) || guestsNum < 1 || guestsNum > 50) {
+        return new Response(JSON.stringify({ error: "Número de pessoas inválido (1 a 50)." }), {
+          status: 400,
+          headers: CORS_HEADERS,
+        });
+      }
+      clientName = nameCheck.value;
+      clientPhone = phoneCheck.value;
     }
 
     // Reservas precisam de ir à base de dados calcular o preço —
@@ -363,45 +418,25 @@ Deno.serve(async (req: Request) => {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 10 * 60 * 1000); // 10 min, igual ao fluxo manual
 
-    // Idempotência (só para ASSINATURAS): se já existe um pedido "pending"
-    // via ZumboPay para este negócio+plano+valor criado há menos de 10 min,
-    // reaproveita-o em vez de criar outro — evita clique duplo a gerar dois
-    // Payment Links para a mesma assinatura.
-    // IMPORTANTE (bug encontrado nos testes de 2026-10-01): isto NÃO pode
-    // valer para quarto/mesa/post/evento/boost, porque cada pedido tem dados
-    // próprios (cliente, datas, opção 20%/100%, valor). Antes, um 2.º cliente
-    // a reservar no mesmo hotel nos 10 min seguintes recebia o link e os
-    // dados do 1.º cliente. Esses tipos criam SEMPRE um pagamento novo.
-    const isSubscription = !isBoost && !isPost && !isEvent && !isRoom && !isTable;
-    let existing: any = null;
-    if (isSubscription) {
-      const { data } = await supabase
+    // Trava duplo clique: um 2.º pedido de PIN ao mesmo número enquanto o 1.º
+    // ainda está à espera seria cobrança em dobro.
+    {
+      const since = new Date(now.getTime() - 90 * 1000).toISOString();
+      const { data: inflight } = await supabase
         .from("payments")
-        .select("*")
-        .eq("business_id", businessId)
-        .eq("plan_id", planId)
-        .eq("method", "zumbopay")
+        .select("id")
+        .eq("method", "mpesa")
         .eq("status", "pending")
-        .eq("amount", amount)
-        .gt("expires_at", now.toISOString())
-        .order("created_at", { ascending: false })
+        .eq("phone", payerCheck.value)
+        .gt("created_at", since)
         .limit(1)
         .maybeSingle();
-      existing = data;
-    }
-    if (existing?.payment_url) {
-      return new Response(
-        JSON.stringify({
-          paymentId: existing.id,
-          merchantRef: existing.merchant_ref,
-          amount: existing.amount,
-          createdAt: existing.created_at,
-          expiresAt: existing.expires_at,
-          paymentUrl: existing.payment_url,
-          reused: true,
-        }),
-        { headers: CORS_HEADERS },
-      );
+      if (inflight) {
+        return json(
+          { error: "Já há um pagamento à espera de confirmação neste número. Confirma no telemóvel ou espera um minuto." },
+          409,
+        );
+      }
     }
 
     const merchantRef = makeRef(businessId!, planId!);
@@ -429,7 +464,8 @@ Deno.serve(async (req: Request) => {
               : null,
         amount,
         currency: "MZN",
-        method: "zumbopay",
+        method: "mpesa",
+        phone: payerCheck.value,
         status: "pending",
         expires_at: expiresAt.toISOString(),
       })
@@ -446,136 +482,144 @@ Deno.serve(async (req: Request) => {
           { status: 409, headers: CORS_HEADERS },
         );
       }
-      console.error("create-zumbopay-payment: falha ao criar linha payments", insertError);
+      console.error("create-mpesa-payment: falha ao criar linha payments", insertError);
       return new Response(JSON.stringify({ error: "Falha ao registar o pagamento" }), {
         status: 500,
         headers: CORS_HEADERS,
       });
     }
 
-    // 2) Cria o Payment Link na ZumboPay
-    const description = isBoost
-      ? `Spotter Local — Turbinar (${boostPackageId})`
-      : isPost
-        ? `Spotter Local — Publicação (${postPackageId})`
-        : isEvent
-          ? `Spotter Local — Evento (${eventDaysOk ? `${eventDaysNum} dias` : eventTier ?? "standard"})`
-          : isRoom
-            ? `Spotter Local — Reserva de quarto (${(roomReservationMeta as any)?.paymentOption === "full" ? "pagamento total" : "sinal de 20%"})`
-            : isTable
-              ? `Spotter Local — Reserva de mesa (${(tableReservationMeta as any)?.tipo ?? "normal"})`
-              : `Spotter Local — Plano ${planId}`;
-
-    if (!ZUMBOPAY_API_KEY || !ZUMBOPAY_MERCHANT_ID || !ZUMBOPAY_WALLET_ID) {
-      console.error("create-zumbopay-payment: faltam secrets", {
-        api_key: !!ZUMBOPAY_API_KEY,
-        merchant_id: !!ZUMBOPAY_MERCHANT_ID,
-        wallet_id: !!ZUMBOPAY_WALLET_ID,
-      });
+    if (!mpesaConfigured()) {
+      console.error("create-mpesa-payment: faltam secrets MPESA_*");
       await supabase
         .from("payments")
-        .update({ status: "failed", fail_reason: "Configuração ZumboPay incompleta" })
+        .update({ status: "failed", fail_reason: "Configuração M-Pesa incompleta" })
         .eq("id", paymentRow.id);
-      return new Response(JSON.stringify({ error: "Pagamento online indisponível de momento" }), {
-        status: 500,
-        headers: CORS_HEADERS,
-      });
+      return json({ error: "Pagamento M-Pesa indisponível de momento" }, 500);
     }
 
-    // Checkout hospedado: aceita M-Pesa, e-Mola e cartão. O cliente é
-    // redireccionado para data.checkout_url. Expira em 10 min (igual ao fluxo manual).
-    let zumboRes: Response;
+    // 2) Cobra o cliente. Fica aqui à espera até ele digitar o PIN (até ~60 s).
+    let outcome: any;
     try {
-      zumboRes = await fetch(`${ZUMBOPAY_BASE_URL}/payments`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${ZUMBOPAY_API_KEY}`,
-          "X-Merchant-Id": ZUMBOPAY_MERCHANT_ID,
-          "Content-Type": "application/json",
-          "Idempotency-Key": merchantRef,
-        },
-        body: JSON.stringify({
-          title: description.slice(0, 120),
-          description: `${description} · ref ${merchantRef}`,
-          amount,
-          currency: "MZN",
-          channels: ["mpesa", "emola", "card"],
-          wallet_id: ZUMBOPAY_WALLET_ID,
-          max_uses: 1,
-          expires_at: expiresAt.toISOString(),
-        }),
+      outcome = await c2bSingleStage({
+        amount,
+        msisdn,
+        transactionReference: merchantRef,
+        thirdPartyReference: merchantRef,
       });
     } catch (netErr) {
-      console.error("create-zumbopay-payment: falha de rede ao chamar a ZumboPay", netErr);
-      await supabase
-        .from("payments")
-        .update({ status: "failed", fail_reason: "ZumboPay inacessível" })
-        .eq("id", paymentRow.id);
-      return new Response(JSON.stringify({ error: "Não foi possível contactar a ZumboPay" }), {
-        status: 502,
-        headers: CORS_HEADERS,
-      });
+      console.error("create-mpesa-payment: falha de rede/timeout na M-Pesa", netErr);
+      outcome = { state: "unknown", code: "NET", description: String(netErr) };
     }
 
-    if (!zumboRes.ok) {
-      const errBody = await zumboRes.text();
-      console.error("create-zumbopay-payment: ZumboPay respondeu erro", zumboRes.status, errBody);
-      // Marca a linha como failed para não ficar "pending" órfã.
-      await supabase
-        .from("payments")
-        .update({ status: "failed", fail_reason: `ZumboPay ${zumboRes.status}: ${errBody.slice(0, 200)}` })
-        .eq("id", paymentRow.id);
-      return new Response(JSON.stringify({ error: "Falha ao criar pagamento na ZumboPay" }), {
-        status: 502,
-        headers: CORS_HEADERS,
-      });
+    // Resposta em dúvida (timeout, erro interno): pergunta o estado antes de decidir.
+    if (outcome.state === "unknown") {
+      const q = await queryTransactionStatus(merchantRef, merchantRef);
+      if (q === "success") outcome = { state: "success", transactionId: null, code: outcome.code, description: "confirmado por consulta" };
+      else if (q === "failed") outcome = { state: "failed", code: outcome.code, description: "falhou (consulta)", userMessage: "O pagamento não foi concluído. Tenta outra vez." };
     }
 
-    const zumboJson = await zumboRes.json();
-    const zumboData = zumboJson?.data ?? zumboJson;
-    const paymentUrl = zumboData.checkout_url ?? zumboData.payment_url ?? zumboData.url;
-    // "reference" (ZP_...) é o identificador estável que a ZumboPay usa nos
-    // webhooks e em GET /payments/:ref; guardamo-lo em zumbopay_payment_id.
-    const zumbopayPaymentId = zumboData.reference ?? zumboData.id ?? null;
-
-    if (!paymentUrl) {
-      console.error("create-zumbopay-payment: resposta sem checkout_url", zumboJson);
-      await supabase
-        .from("payments")
-        .update({ status: "failed", fail_reason: "ZumboPay sem checkout_url" })
-        .eq("id", paymentRow.id);
-      return new Response(JSON.stringify({ error: "Resposta inesperada da ZumboPay" }), {
-        status: 502,
-        headers: CORS_HEADERS,
-      });
-    }
-
-    // 3) Guarda a referência devolvida pela ZumboPay na mesma linha
-    await supabase
-      .from("payments")
-      .update({
-        zumbopay_reference: merchantRef,
-        zumbopay_payment_id: zumbopayPaymentId,
-        payment_url: paymentUrl,
-      })
-      .eq("id", paymentRow.id);
-
-    return new Response(
-      JSON.stringify({
-        paymentId: paymentRow.id,
-        merchantRef,
-        amount,
-        createdAt: paymentRow.created_at,
-        expiresAt: expiresAt.toISOString(),
-        paymentUrl,
-      }),
-      { headers: CORS_HEADERS },
-    );
-  } catch (err) {
-    console.error("create-zumbopay-payment: erro inesperado", err);
-    return new Response(JSON.stringify({ error: "internal_error" }), {
-      status: 500,
-      headers: CORS_HEADERS,
+    const result = await settlePayment(paymentRow, outcome);
+    return json({
+      paymentId: paymentRow.id,
+      merchantRef,
+      amount,
+      createdAt: paymentRow.created_at,
+      expiresAt: expiresAt.toISOString(),
+      ...result,
     });
+  } catch (err) {
+    console.error("create-mpesa-payment: erro inesperado", err);
+    return json({ error: "internal_error" }, 500);
   }
 });
+
+// ── Funções de apoio (usadas pelo fluxo principal e pelo "check") ─────────────
+
+function json(obj: unknown, status = 200): Response {
+  return new Response(JSON.stringify(obj), { status, headers: CORS_HEADERS });
+}
+
+/**
+ * Aplica o resultado da M-Pesa à linha de pagamento.
+ *  success → marca confirmed (só se ainda estava pending: evita activar 2 vezes) e activa o que foi pago
+ *  failed  → marca failed com o motivo
+ *  unknown → deixa pending (o cliente volta a perguntar com action "check")
+ */
+async function settlePayment(
+  payment: any,
+  outcome: any,
+): Promise<{ status: "confirmed" | "failed" | "pending"; error?: string }> {
+  if (outcome.state === "success") {
+    const { data: claimed } = await supabase
+      .from("payments")
+      .update({
+        status: "confirmed",
+        operator_ref: outcome.transactionId ?? payment.merchant_ref,
+        confirmed_at: new Date().toISOString(),
+      })
+      .eq("id", payment.id)
+      .eq("status", "pending")
+      .select()
+      .maybeSingle();
+    if (claimed) {
+      try {
+        await fulfillPayment(supabase, claimed);
+      } catch (err) {
+        // O dinheiro já foi cobrado: nunca devolver erro ao cliente por causa disto.
+        console.error("PAGO MAS NÃO ACTIVADO — verificar à mão:", payment.id, payment.plan_id, err);
+        await supabase
+          .from("payments")
+          .update({ fail_reason: `fulfil_error: ${String((err as Error)?.message ?? err).slice(0, 180)}` })
+          .eq("id", payment.id);
+      }
+    }
+    return { status: "confirmed" };
+  }
+  if (outcome.state === "failed") {
+    await supabase
+      .from("payments")
+      .update({ status: "failed", fail_reason: `M-Pesa ${outcome.code}: ${outcome.description}`.slice(0, 250) })
+      .eq("id", payment.id)
+      .eq("status", "pending");
+    return { status: "failed", error: outcome.userMessage };
+  }
+  return { status: "pending" };
+}
+
+async function handleCheck(req: Request, paymentId?: string): Promise<Response> {
+  if (!paymentId) return json({ error: "paymentId em falta" }, 400);
+  const uid = await getAuthenticatedUserId(req);
+  if (!uid) return json({ error: "Sessão inválida" }, 401);
+
+  const { data: payment } = await supabase.from("payments").select("*").eq("id", paymentId).maybeSingle();
+  if (!payment || payment.method !== "mpesa") return json({ error: "Pagamento não encontrado" }, 404);
+
+  // Só quem fez o pedido (cliente da reserva) ou o dono do negócio pode perguntar.
+  const meta = (payment.content_metadata ?? {}) as Record<string, unknown>;
+  let allowed = meta.clientUserId === uid;
+  if (!allowed) {
+    const { data: biz } = await supabase.from("businesses").select("owner_id").eq("id", payment.business_id).maybeSingle();
+    allowed = biz?.owner_id === uid;
+  }
+  if (!allowed) return json({ error: "Sem permissão" }, 403);
+
+  if (payment.status === "confirmed") return json({ status: "confirmed" });
+  if (payment.status === "failed") return json({ status: "failed", error: payment.fail_reason ?? undefined });
+
+  const q = await queryTransactionStatus(payment.merchant_ref, payment.merchant_ref);
+  if (q === "success") {
+    return json(await settlePayment(payment, { state: "success", transactionId: null }));
+  }
+  if (q === "failed" || new Date(payment.expires_at).getTime() < Date.now()) {
+    return json(
+      await settlePayment(payment, {
+        state: "failed",
+        code: q === "failed" ? "QUERY" : "EXPIRED",
+        description: q === "failed" ? "falhou (consulta)" : "expirou sem confirmação",
+        userMessage: "O pagamento não foi confirmado. Tenta outra vez.",
+      }),
+    );
+  }
+  return json({ status: "pending" });
+}

@@ -35,6 +35,9 @@ export interface Plan {
   // themeSwapsPerMonth: quantas vezes por mês pode trocar de
   // Estrutura/Tema — benefício incluído no plano, não é compra avulsa.
   themeSwapsPerMonth: number;
+  // Eventos incluídos no plano por mês (aba Eventos). 0 = o plano não publica
+  // eventos. Espelho de _event_quota_for() na migração 017 — o servidor decide.
+  eventsPerMonth: number;
 }
 
 // Plano gratuito — para sempre, sem mensalidade. Limites reais que
@@ -48,7 +51,7 @@ export const FREE_PLAN: Plan = {
   currency: "MZN",
   maxProducts: 3,
   hasGallery: true,
-  galleryLimit: 2,
+  galleryLimit: 6,
   hasChat: false,
   hasAnalytics: false,
   hasFeaturedPin: false,
@@ -63,12 +66,15 @@ export const FREE_PLAN: Plan = {
   // antes o Free tinha 1 troca/mês incluída, o que não dava incentivo
   // real de upgrade.
   themeSwapsPerMonth: 0,
+  eventsPerMonth: 0,
   features: [
     "featFreeProfile",
     "featFreeMessages",
     "featFreePhotos",
     "featFreeProducts",
     "featFreeStructures",
+    "featLayoutChoice",
+    "featFreeThemeOnce",
   ],
 };
 
@@ -80,7 +86,7 @@ export const PLANS: (Omit<Plan, "id"> & { id: PaidPlanId })[] = [
     currency: "MZN",
     maxProducts: 8,
     hasGallery: true,
-    galleryLimit: 6,
+    galleryLimit: 13,
     hasChat: true,
     hasAnalytics: false,
     hasFeaturedPin: true,
@@ -89,6 +95,7 @@ export const PLANS: (Omit<Plan, "id"> & { id: PaidPlanId })[] = [
     maxStructures: 4,
     hasMultiCategory: true,
     themeSwapsPerMonth: 2,
+    eventsPerMonth: 0,
     features: [
       "featStarterAll",
       "featStarterReply",
@@ -98,6 +105,8 @@ export const PLANS: (Omit<Plan, "id"> & { id: PaidPlanId })[] = [
       "featStarterWebsite",
       "featStarterStructures4",
       "featStarterMultiCategory",
+      "featStarterThemeSwaps",
+      "featPhotoViewer",
     ],
   },
   {
@@ -108,7 +117,7 @@ export const PLANS: (Omit<Plan, "id"> & { id: PaidPlanId })[] = [
     maxProducts: 14,
     highlight: true,
     hasGallery: true,
-    galleryLimit: 10,
+    galleryLimit: 17,
     hasChat: true,
     hasAnalytics: true,
     hasFeaturedPin: true,
@@ -117,6 +126,7 @@ export const PLANS: (Omit<Plan, "id"> & { id: PaidPlanId })[] = [
     maxStructures: 5,
     hasMultiCategory: true,
     themeSwapsPerMonth: 3,
+    eventsPerMonth: 4,
     features: [
       "featProAll",
       "featProGallery20",
@@ -124,6 +134,11 @@ export const PLANS: (Omit<Plan, "id"> & { id: PaidPlanId })[] = [
       "featProAnalytics",
       "featProRanking",
       "featProStructures5",
+      "featProThemeSwaps",
+      "featProGalleryBg",
+      "featProEvents4",
+      "featEventsCarousel",
+      "featEventsNotify",
     ],
   },
   {
@@ -133,7 +148,7 @@ export const PLANS: (Omit<Plan, "id"> & { id: PaidPlanId })[] = [
     currency: "MZN",
     maxProducts: 20,
     hasGallery: true,
-    galleryLimit: 15,
+    galleryLimit: 26,
     hasChat: true,
     hasAnalytics: true,
     hasFeaturedPin: true,
@@ -142,6 +157,7 @@ export const PLANS: (Omit<Plan, "id"> & { id: PaidPlanId })[] = [
     maxStructures: 6,
     hasMultiCategory: true,
     themeSwapsPerMonth: 4,
+    eventsPerMonth: 8,
     features: [
       "featPremiumAll",
       "featPremiumGallery40",
@@ -150,6 +166,10 @@ export const PLANS: (Omit<Plan, "id"> & { id: PaidPlanId })[] = [
       "featPremiumVerifiedBadge",
       "featPremiumTopRanking",
       "featPremiumStructures6",
+      "featPremiumThemeSwaps",
+      "featPremiumEvents8",
+      "featEventsCarousel",
+      "featEventsNotify",
     ],
   },
 ];

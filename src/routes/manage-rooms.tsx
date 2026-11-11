@@ -9,6 +9,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { Icon } from "@/components/Icon";
+import { ImageViewer } from "@/components/ImageViewer";
 import {
   fetchAllRoomsForBusiness,
   createRoom,
@@ -17,6 +18,7 @@ import {
   setRoomOccupiedUntil,
   type BusinessRoom,
   roomPriceText,
+  MAX_ROOM_PHOTOS,
 } from "@/lib/reservations-db";
 import { uploadMedia } from "@/lib/storage-upload";
 import { useAuth } from "@/lib/auth-context";
@@ -54,18 +56,30 @@ function RoomForm({
   const [priceHour, setPriceHour] = useState(
     existing?.pricePerHour ? String(existing.pricePerHour) : "",
   );
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(existing?.photoUrl ?? null);
+  // Até MAX_ROOM_PHOTOS fotos: as já guardadas (só url) + as novas (com ficheiro).
+  const [photos, setPhotos] = useState<{ url: string; file?: File }[]>(
+    (existing?.photoUrls ?? []).map((url) => ({ url })),
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
 
   const handlePickPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (files.length === 0) return;
+    setPhotos((cur) => {
+      const room = MAX_ROOM_PHOTOS - cur.length;
+      const add = files.slice(0, Math.max(room, 0)).map((file) => ({
+        url: URL.createObjectURL(file),
+        file,
+      }));
+      return [...cur, ...add];
+    });
+    if (photos.length + files.length > MAX_ROOM_PHOTOS) {
+      setError(`Cada quarto pode ter no máximo ${MAX_ROOM_PHOTOS} fotos.`);
+    }
   };
 
   const handleSave = async () => {
@@ -84,12 +98,12 @@ function RoomForm({
     setError(null);
     setSaving(true);
     try {
-      let photoUrl = existing?.photoUrl ?? null;
-      if (photoFile) {
-        // CORREÇÃO (varredura 2026-09-19): a política de Storage exige
-        // auth.uid() na 2ª pasta do caminho — businessId nunca bate com
-        // isso (é gerado à parte), o upload seria rejeitado em silêncio.
-        photoUrl = await uploadMedia(photoFile, "room", user.id);
+      // CORREÇÃO (varredura 2026-09-19): a política de Storage exige
+      // auth.uid() na 2ª pasta do caminho — businessId nunca bate com
+      // isso (é gerado à parte), o upload seria rejeitado em silêncio.
+      const photoUrls: string[] = [];
+      for (const ph of photos.slice(0, MAX_ROOM_PHOTOS)) {
+        photoUrls.push(ph.file ? await uploadMedia(ph.file, "room", user.id) : ph.url);
       }
       if (existing) {
         await updateRoom(existing.id, {
@@ -97,7 +111,7 @@ function RoomForm({
           capacity: Number(capacity),
           pricePerNight: price ? Number(price) : 0,
           pricePerHour: isPension && priceHour ? Number(priceHour) : null,
-          photoUrl,
+          photoUrls,
         });
       } else {
         await createRoom(businessId, {
@@ -105,7 +119,7 @@ function RoomForm({
           capacity: Number(capacity),
           pricePerNight: price ? Number(price) : 0,
           pricePerHour: isPension && priceHour ? Number(priceHour) : null,
-          photoUrl,
+          photoUrls,
         });
       }
       onSaved();
@@ -122,28 +136,47 @@ function RoomForm({
         ref={fileInputRef}
         type="file"
         accept="image/*"
+        multiple
         onChange={handlePickPhoto}
         className="hidden"
       />
-      <button
-        onClick={() => fileInputRef.current?.click()}
-        className="press flex h-36 w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-border bg-background"
-      >
-        {photoPreview ? (
-          <img
-            loading="lazy"
-            decoding="async"
-            src={photoPreview}
-            alt=""
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex flex-col items-center gap-1 text-muted-foreground">
-            <Icon name="image" size={22} />
-            <span className="text-xs">Adicionar foto do quarto</span>
+      <div className="grid grid-cols-4 gap-2">
+        {photos.map((ph, idx) => (
+          <div
+            key={ph.url}
+            className="relative aspect-square overflow-hidden rounded-xl bg-background"
+          >
+            <img
+              loading="lazy"
+              decoding="async"
+              src={ph.url}
+              alt=""
+              className="h-full w-full object-cover"
+            />
+            <button
+              type="button"
+              onClick={() => setPhotos((cur) => cur.filter((_, i) => i !== idx))}
+              aria-label="Remover foto"
+              className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-black/60 text-xs text-white"
+            >
+              ✕
+            </button>
           </div>
+        ))}
+        {photos.length < MAX_ROOM_PHOTOS && (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="press flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border bg-background text-muted-foreground"
+          >
+            <Icon name="image" size={20} />
+            <span className="text-[10px]">Foto</span>
+          </button>
         )}
-      </button>
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        {photos.length}/{MAX_ROOM_PHOTOS} fotos do quarto
+      </p>
 
       <input
         value={name}
@@ -209,6 +242,7 @@ function RoomCard({ room, onChanged }: { room: BusinessRoom; onChanged: () => vo
   const [editing, setEditing] = useState(false);
   const [showOccupiedInput, setShowOccupiedInput] = useState(false);
   const [occupiedDate, setOccupiedDate] = useState(room.occupiedUntil ?? "");
+  const [viewer, setViewer] = useState(false);
   const businessId = room.businessId;
 
   if (editing) {
@@ -231,7 +265,12 @@ function RoomCard({ room, onChanged }: { room: BusinessRoom; onChanged: () => vo
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
       <div className="flex gap-3">
-        <div className="h-16 w-16 flex-none overflow-hidden rounded-xl bg-background">
+        <button
+          type="button"
+          disabled={room.photoUrls.length === 0}
+          onClick={() => setViewer(true)}
+          className="press relative h-16 w-16 flex-none overflow-hidden rounded-xl bg-background"
+        >
           {room.photoUrl && (
             <img
               loading="lazy"
@@ -241,7 +280,15 @@ function RoomCard({ room, onChanged }: { room: BusinessRoom; onChanged: () => vo
               className="h-full w-full object-cover"
             />
           )}
-        </div>
+          {room.photoUrls.length > 1 && (
+            <span className="absolute bottom-0.5 right-0.5 rounded bg-black/65 px-1 text-[10px] font-bold text-white">
+              {room.photoUrls.length}
+            </span>
+          )}
+        </button>
+        {viewer && (
+          <ImageViewer images={room.photoUrls} alt={room.name} onClose={() => setViewer(false)} />
+        )}
         <div className="flex-1">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-foreground">{room.name}</h3>
@@ -345,8 +392,11 @@ function ManageRoomsPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-4 backdrop-blur">
-        <button onClick={() => navigate({ to: "/business" })} className="press rounded-full p-1">
+      <div className="glass-bar sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-4 backdrop-blur">
+        <button
+          onClick={() => navigate({ to: "/business", replace: true })}
+          className="press rounded-full p-1"
+        >
           <Icon name="chevronLeft" size={22} />
         </button>
         <h1 className="text-lg font-bold text-foreground">Gerir quartos</h1>

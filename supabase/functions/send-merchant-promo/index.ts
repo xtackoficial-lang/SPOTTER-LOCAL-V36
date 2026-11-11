@@ -24,6 +24,7 @@
 
 // @ts-nocheck — ambiente Deno (Supabase Edge Functions), tipos diferentes do projecto Vite/React.
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { LIMITS, rateLimit, tooManyRequests } from "../_shared/rate-limit.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -159,6 +160,11 @@ Deno.serve(async (req: Request) => {
         status: 401,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    if (caller.userId) {
+      const rl = await rateLimit(supabase, `promo:${caller.userId}`, LIMITS.merchantPromo.limit, LIMITS.merchantPromo.window);
+      if (!rl.allowed) return tooManyRequests(rl.retryAfter);
     }
 
     const payload = req.method === "POST" ? await req.json().catch(() => ({})) : {};

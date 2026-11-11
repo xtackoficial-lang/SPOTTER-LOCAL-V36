@@ -130,7 +130,7 @@ export function OrderModal({
       <div className="flex items-center gap-3 border-b border-border bg-card px-4 pb-3 pt-12">
         <button
           onClick={onClose}
-          className="press grid h-9 w-9 place-items-center rounded-full bg-muted text-muted-foreground"
+          className="press grid h-9 w-9 place-items-center rounded-full glass-btn text-muted-foreground"
         >
           <Icon name="x" size={16} />
         </button>

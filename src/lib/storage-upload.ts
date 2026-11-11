@@ -19,6 +19,7 @@
 // para o modo de desenvolvimento sem Supabase continuar a funcionar).
 // ============================================================
 import { supabase, SUPABASE_CONFIGURED } from "./supabase";
+import { IMAGE_PROVIDER, deleteFromR2, isR2Url, uploadToR2 } from "./image-store";
 
 const BUCKET = "spotter-media";
 // Anexos de chat vão para um bucket PRIVADO à parte — fotos de capa/
@@ -71,6 +72,9 @@ function compressImage(file: File, maxDimension: number, quality: number): Promi
         reject(new Error("Não foi possível processar a imagem."));
         return;
       }
+      // Fundo branco: PNG com transparência ficava preto ao virar JPEG.
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, width, height);
       ctx.drawImage(img, 0, 0, width, height);
       canvas.toBlob(
         (blob) => {
@@ -124,6 +128,16 @@ export async function uploadMedia(file: File, kind: UploadKind, ownerId: string)
   const processed = isImage ? await compressImage(file, maxDim, quality) : file;
   const ext = isImage ? "jpg" : file.name.split(".").pop() || "bin";
   const path = `${kind}/${ownerId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+  // v41: imagens públicas vão para o Cloudflare R2 quando o interruptor está ligado
+  // (VITE_IMAGE_STORAGE=r2). Se o R2 falhar, cai para o Supabase abaixo.
+  if (IMAGE_PROVIDER === "r2" && kind !== "chat" && isImage) {
+    try {
+      return await uploadToR2(processed, kind);
+    } catch (err) {
+      console.warn("uploadMedia: falha no R2, a usar o Supabase Storage.", err);
+    }
+  }
 
   if (SUPABASE_CONFIGURED && supabase) {
     try {
@@ -186,7 +200,26 @@ export async function uploadMediaBatch(
   kind: UploadKind,
   ownerId: string,
 ): Promise<string[]> {
-  return Promise.all(files.map((f) => uploadMedia(f, kind, ownerId)));
+  // No máximo 3 de cada vez: descodificar e comprimir 20+ fotos de câmara
+  // ao mesmo tempo esgota a memória de telemóveis fracos (a página fica
+  // lenta ou fecha). A ordem do resultado é a mesma da lista recebida.
+  const results: (string | undefined)[] = new Array(files.length);
+  let firstError: unknown;
+  let next = 0;
+  const worker = async () => {
+    while (next < files.length) {
+      const i = next++;
+      try {
+        results[i] = await uploadMedia(files[i], kind, ownerId);
+      } catch (err) {
+        firstError ??= err; // uma foto má não deita fora as que já subiram
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(3, files.length) }, worker));
+  const ok = results.filter((u): u is string => typeof u === "string");
+  if (ok.length === 0 && files.length > 0) throw firstError ?? new Error("Falha no envio");
+  return ok;
 }
 
 /**
@@ -197,6 +230,10 @@ export async function uploadMediaBatch(
  * falhar por qualquer razão de rede.
  */
 export async function deleteMediaByUrl(url: string): Promise<void> {
+  if (isR2Url(url)) {
+    await deleteFromR2(url);
+    return;
+  }
   if (!SUPABASE_CONFIGURED || !supabase) return;
   if (!url.includes(`/storage/v1/object/public/${BUCKET}/`)) return; // não é do nosso bucket
   try {

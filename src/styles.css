@@ -681,3 +681,416 @@
 /* CONSERTO (2026-09-30): fundo do ecrã segue o tema em vez do #0d0d0d do
    splash — evita faixas escuras à volta do conteúdo em monitores largos. */
 html, body, #root { background: var(--background); min-height: 100%; }
+
+/* ============================================================
+   Vidro ("liquid glass") — só nas barras e nos botões redondos.
+   Equivalente web do expo-glass-effect (que só existe em React Native).
+   Em fundo claro o vidro "some", por isso leva: brilho em gradiente
+   (reflexo no canto de cima), leve tom da cor principal, rebordo
+   nítido e sombra com profundidade. Tema claro/escuro via var(--card).
+   Sem suporte a backdrop-filter, ou com "reduzir transparência" ligado
+   no sistema, volta ao fundo sólido de antes.
+   ============================================================ */
+.glass-bar,
+.glass-btn {
+  background-image:
+    linear-gradient(180deg, color-mix(in oklab, #fff 70%, transparent) 0%, transparent 55%),
+    linear-gradient(135deg, color-mix(in oklab, var(--primary) 14%, transparent), color-mix(in oklab, var(--primary) 3%, transparent));
+  background-color: color-mix(in oklab, var(--card) 55%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(2);
+  backdrop-filter: blur(20px) saturate(2);
+  border-color: color-mix(in oklab, var(--primary) 22%, #fff 40%);
+  box-shadow:
+    inset 0 1.5px 0 color-mix(in oklab, #fff 90%, transparent),
+    inset 0 -1px 0 color-mix(in oklab, var(--primary) 18%, transparent),
+    0 10px 30px -12px color-mix(in oklab, #000 38%, transparent);
+}
+.glass-btn {
+  border: 1px solid color-mix(in oklab, var(--primary) 24%, #fff 40%);
+  box-shadow:
+    inset 0 1.5px 0 color-mix(in oklab, #fff 90%, transparent),
+    inset 0 -1px 0 color-mix(in oklab, var(--primary) 20%, transparent),
+    0 4px 12px -4px color-mix(in oklab, #000 35%, transparent);
+}
+@media (hover: hover) {
+  .glass-btn:hover {
+    background-color: color-mix(in oklab, var(--card) 72%, transparent);
+  }
+}
+.dark .glass-bar,
+.dark .glass-btn {
+  background-image:
+    linear-gradient(180deg, color-mix(in oklab, #fff 16%, transparent) 0%, transparent 55%),
+    linear-gradient(135deg, color-mix(in oklab, var(--primary) 10%, transparent), transparent);
+  background-color: color-mix(in oklab, var(--card) 60%, transparent);
+  border-color: color-mix(in oklab, #fff 22%, transparent);
+  box-shadow:
+    inset 0 1.5px 0 color-mix(in oklab, #fff 28%, transparent),
+    0 10px 30px -12px color-mix(in oklab, #000 80%, transparent);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-bar,
+  .glass-btn {
+    background-image: none;
+    background-color: var(--card);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass-bar,
+  .glass-btn {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-image: none;
+    background-color: var(--card);
+  }
+}
+
+/* ---------- Barra inferior em vidro líquido (GlassTabBar) ---------- */
+.glass-pill {
+  transition:
+    transform 0.5s cubic-bezier(0.34, 1.45, 0.5, 1),
+    box-shadow 0.3s ease,
+    background-color 0.3s ease;
+  will-change: transform;
+  /* reflexo extra: brilho no topo e luz lateral, como vidro curvo */
+  background-image:
+    radial-gradient(120% 90% at 30% 0%, color-mix(in oklab, #fff 85%, transparent) 0%, transparent 55%),
+    linear-gradient(135deg, color-mix(in oklab, var(--primary) 20%, transparent), color-mix(in oklab, var(--primary) 4%, transparent));
+}
+.glass-pill.is-pressed {
+  transition-duration: 0.18s;
+}
+.glass-pill.is-dragging {
+  transition: box-shadow 0.2s ease, background-color 0.2s ease; /* segue o dedo sem atraso */
+  background-color: color-mix(in oklab, var(--card) 38%, transparent);
+  -webkit-backdrop-filter: blur(6px) saturate(2.4) brightness(1.08);
+  backdrop-filter: blur(6px) saturate(2.4) brightness(1.08);
+  box-shadow:
+    inset 0 2px 0 color-mix(in oklab, #fff 95%, transparent),
+    inset 0 -2px 6px color-mix(in oklab, var(--primary) 30%, transparent),
+    0 14px 30px -10px color-mix(in oklab, var(--primary) 55%, #000 20%);
+}
+.glass-tab-icon {
+  transition: transform 0.45s cubic-bezier(0.34, 1.6, 0.5, 1), filter 0.3s;
+}
+.glass-tab-icon.is-lit {
+  transform: translateY(-1px) scale(1.14);
+  filter: drop-shadow(0 2px 3px color-mix(in oklab, var(--primary) 40%, transparent));
+}
+
+/* ---------- Botões principais (gradiente laranja) com brilho de vidro ---------- */
+button[style*="gradient-primary"]:not(:disabled),
+a[style*="gradient-primary"] {
+  border: 1px solid color-mix(in oklab, #fff 38%, transparent);
+  box-shadow:
+    inset 0 1.5px 0 color-mix(in oklab, #fff 62%, transparent),
+    inset 10px 0 14px -10px color-mix(in oklab, #000 22%, transparent),
+    inset -10px 0 14px -10px color-mix(in oklab, #000 22%, transparent),
+    inset 0 -2px 5px color-mix(in oklab, #000 14%, transparent),
+    0 10px 22px -10px color-mix(in oklab, var(--primary) 75%, transparent);
+  transition:
+    transform 0.2s cubic-bezier(0.34, 1.5, 0.5, 1),
+    box-shadow 0.25s ease,
+    filter 0.2s ease;
+}
+button[style*="gradient-primary"]:not(:disabled):active,
+a[style*="gradient-primary"]:active {
+  transform: scale(0.96);
+  filter: brightness(1.06) saturate(1.1);
+}
+
+/* Transição suave entre páginas (onde o browser suporta) */
+@keyframes xl-page-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-pill,
+  .glass-tab-icon,
+  button[style*="gradient-primary"],
+  a[style*="gradient-primary"] {
+    transition: none !important;
+  }
+}
+
+/* ---------- Cartão de vidro com sombras laterais (ecrã de entrada) ---------- */
+.glass-card {
+  background-color: color-mix(in oklab, var(--card) 78%, transparent);
+  background-image:
+    linear-gradient(180deg, color-mix(in oklab, #fff 55%, transparent) 0%, transparent 38%),
+    linear-gradient(90deg, color-mix(in oklab, var(--primary) 7%, transparent), transparent 22%, transparent 78%, color-mix(in oklab, var(--primary) 7%, transparent));
+  -webkit-backdrop-filter: blur(26px) saturate(1.8);
+  backdrop-filter: blur(26px) saturate(1.8);
+  border: 1px solid color-mix(in oklab, #fff 55%, transparent);
+  box-shadow:
+    inset 0 1.5px 0 color-mix(in oklab, #fff 95%, transparent),
+    inset 14px 0 18px -14px color-mix(in oklab, #000 16%, transparent),
+    inset -14px 0 18px -14px color-mix(in oklab, #000 16%, transparent),
+    inset 0 -10px 18px -14px color-mix(in oklab, #000 12%, transparent),
+    var(--shadow-lift);
+}
+/* Botões largos: sombra interior nas laterais, como vidro curvo */
+.glass-wide {
+  box-shadow:
+    inset 0 1.5px 0 color-mix(in oklab, #fff 90%, transparent),
+    inset 10px 0 14px -10px color-mix(in oklab, #000 16%, transparent),
+    inset -10px 0 14px -10px color-mix(in oklab, #000 16%, transparent),
+    inset 0 -1px 0 color-mix(in oklab, var(--primary) 18%, transparent),
+    0 8px 18px -8px color-mix(in oklab, #000 32%, transparent);
+}
+.dark .glass-card {
+  background-color: color-mix(in oklab, var(--card) 70%, transparent);
+  border-color: color-mix(in oklab, #fff 18%, transparent);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-card { background-color: var(--card); background-image: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass-card { -webkit-backdrop-filter: none; backdrop-filter: none; background-color: var(--card); background-image: none; }
+}
+
+/* ---------- Barra flutuante em cápsula + lente de vidro ---------- */
+.glass-float {
+  border-radius: 33px;
+  background-color: color-mix(in oklab, var(--card) 42%, transparent);
+  -webkit-backdrop-filter: blur(22px) saturate(2);
+  backdrop-filter: blur(22px) saturate(2);
+  border: 1px solid color-mix(in oklab, #fff 70%, transparent);
+  box-shadow:
+    inset 0 1.5px 0 color-mix(in oklab, #fff 80%, transparent),
+    inset 0 -1px 0 color-mix(in oklab, #000 8%, transparent),
+    0 18px 40px -12px rgba(0, 0, 0, 0.45),
+    0 4px 10px rgba(0, 0, 0, 0.12);
+}
+.dark .glass-float {
+  background-color: color-mix(in oklab, var(--card) 48%, transparent);
+  border-color: color-mix(in oklab, #fff 22%, transparent);
+}
+.glass-lens {
+  transition: box-shadow 0.3s ease; /* o movimento é mola física em JS (lib/spring.ts) */
+  will-change: transform;
+  background-image:
+    radial-gradient(120% 100% at 30% 0%, color-mix(in oklab, #fff 90%, transparent) 0%, transparent 55%),
+    linear-gradient(135deg, color-mix(in oklab, var(--primary) 22%, transparent), color-mix(in oklab, var(--primary) 4%, transparent));
+  -webkit-backdrop-filter: blur(3px) saturate(2.4) brightness(1.12);
+  backdrop-filter: blur(3px) saturate(2.4) brightness(1.12);
+  border: 1.5px solid color-mix(in oklab, #fff 95%, transparent);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -3px 8px color-mix(in oklab, var(--primary) 25%, transparent),
+    inset 8px 0 12px -8px rgba(255, 255, 255, 0.7),
+    inset -8px 0 12px -8px rgba(255, 255, 255, 0.7),
+    0 14px 28px -10px color-mix(in oklab, var(--primary) 55%, #000 20%);
+}
+.glass-lens::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(from 200deg, #ff6b6b55, #ffd16655, #7bffb255, #6bc8ff66, #c46bff55, #ff6b6b55);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.8;
+}
+.glass-lens.is-dragging {
+  transition: box-shadow 0.2s ease; /* segue o dedo sem atraso */
+  -webkit-backdrop-filter: blur(2px) saturate(2.6) brightness(1.15);
+  backdrop-filter: blur(2px) saturate(2.6) brightness(1.15);
+}
+.dark .glass-lens {
+  border-color: color-mix(in oklab, #fff 45%, transparent);
+  background-image:
+    radial-gradient(120% 100% at 30% 0%, color-mix(in oklab, #fff 30%, transparent) 0%, transparent 55%),
+    linear-gradient(135deg, color-mix(in oklab, var(--primary) 26%, transparent), color-mix(in oklab, var(--primary) 6%, transparent));
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-float { background-color: var(--card); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass-float { -webkit-backdrop-filter: none; backdrop-filter: none; background-color: var(--card); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .glass-lens { transition: none !important; }
+}
+
+
+/* ---------- Molas físicas em CSS (curvas geradas por simulação de mola) ----------
+   --spring-soft ≈ 0,58 s (assenta com leve passagem), --spring-bouncy ≈ 0,8 s
+   (salta mais), --spring-snappy ≈ 0,41 s (rápida). Em browsers sem linear()
+   cai para a curva normal. */
+:root {
+  --spring-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --spring-bouncy: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --spring-snappy: cubic-bezier(0.22, 1, 0.36, 1);
+}
+@supports (transition-timing-function: linear(0, 1)) {
+  :root {
+    --spring-soft: linear(0, 0.035, 0.114, 0.207, 0.319, 0.432, 0.528, 0.624, 0.701, 0.773, 0.834, 0.878, 0.917, 0.944, 0.967, 0.984, 0.995, 1.003, 1.008, 1.011, 1.012, 1.012, 1.011, 1.01, 1.009, 1.008, 1.007, 1.005, 1.004, 1.003, 1.003, 1.002, 1.001, 1.001, 1.001, 1, 1);
+    --spring-bouncy: linear(0, 0.077, 0.237, 0.438, 0.657, 0.838, 0.981, 1.082, 1.144, 1.167, 1.162, 1.138, 1.106, 1.071, 1.039, 1.01, 0.991, 0.979, 0.973, 0.972, 0.975, 0.98, 0.986, 0.992, 0.997, 1, 1.003, 1.004, 1.005, 1.004, 1.004, 1.003, 1.002, 1.001, 1, 1, 1);
+    --spring-snappy: linear(0, 0.036, 0.116, 0.22, 0.333, 0.446, 0.551, 0.646, 0.729, 0.789, 0.848, 0.895, 0.931, 0.959, 0.98, 0.994, 1.004, 1.01, 1.013, 1.015, 1.015, 1.014, 1.013, 1.011, 1.009, 1.008, 1.006, 1.005, 1.004, 1.003, 1.002, 1.001, 1.001, 1.001, 1, 1, 1);
+  }
+}
+/* Carregar em qualquer botão: encolhe a toque e volta com mola ao soltar */
+.press {
+  transition:
+    transform 0.58s var(--spring-soft),
+    opacity 0.2s,
+    box-shadow 0.2s ease;
+}
+.press:active {
+  transition-duration: 0.12s, 0.2s, 0.2s;
+}
+.glass-tab-icon { transition: transform 0.8s var(--spring-bouncy), filter 0.3s; }
+button[style*="gradient-primary"]:not(:disabled),
+a[style*="gradient-primary"] {
+  transition:
+    transform 0.58s var(--spring-soft),
+    box-shadow 0.25s ease,
+    filter 0.2s ease;
+}
+/* Janelas e folhas: entram com mola */
+.animate-slide-up { animation-timing-function: var(--spring-soft); }
+@media (prefers-reduced-motion: reduce) {
+  .press { transition: none !important; }
+}
+
+/* ================= Vidro nos ecrãs com tema próprio (página do negócio) =================
+   A página do negócio usa cores de tema inline; as variáveis --g-base (fundo do tema) e
+   --g-tint (cor de destaque) são postas na raiz da página e o vidro adapta-se a cada tema. */
+.theme-glass {
+  background-color: color-mix(in oklab, var(--g-base, var(--card)) 42%, transparent) !important;
+  background-image:
+    radial-gradient(120% 90% at 30% 0%, color-mix(in oklab, #fff 26%, transparent) 0%, transparent 58%),
+    linear-gradient(135deg, color-mix(in oklab, var(--g-tint, var(--primary)) 16%, transparent), transparent 70%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.9);
+  backdrop-filter: blur(18px) saturate(1.9);
+  border: 1px solid color-mix(in oklab, var(--g-tint, var(--primary)) 28%, #fff 22%) !important;
+  box-shadow:
+    inset 0 1.5px 0 color-mix(in oklab, #fff 42%, transparent),
+    inset 0 -1px 0 color-mix(in oklab, var(--g-tint, var(--primary)) 22%, transparent),
+    0 8px 20px -10px color-mix(in oklab, #000 55%, transparent) !important;
+}
+.theme-glass-wide {
+  box-shadow:
+    inset 0 1.5px 0 color-mix(in oklab, #fff 42%, transparent),
+    inset 10px 0 14px -10px color-mix(in oklab, #000 40%, transparent),
+    inset -10px 0 14px -10px color-mix(in oklab, #000 40%, transparent),
+    inset 0 -1px 0 color-mix(in oklab, var(--g-tint, var(--primary)) 22%, transparent),
+    0 8px 20px -10px color-mix(in oklab, #000 55%, transparent) !important;
+}
+/* botões de cor sólida do tema: ficam sólidos, com brilho de vidro por cima */
+.theme-gloss:not(:disabled) {
+  border: 1px solid color-mix(in oklab, #fff 40%, transparent);
+  box-shadow:
+    inset 0 1.5px 0 color-mix(in oklab, #fff 60%, transparent),
+    inset 10px 0 14px -10px color-mix(in oklab, #000 25%, transparent),
+    inset -10px 0 14px -10px color-mix(in oklab, #000 25%, transparent),
+    inset 0 -2px 5px color-mix(in oklab, #000 16%, transparent),
+    0 10px 22px -10px color-mix(in oklab, var(--g-tint, var(--primary)) 75%, transparent) !important;
+}
+.theme-glass.theme-gloss:disabled { opacity: 0.7; }
+@media (prefers-reduced-transparency: reduce) {
+  .theme-glass { -webkit-backdrop-filter: none; backdrop-filter: none; background-color: var(--g-base, var(--card)) !important; background-image: none !important; }
+}
+
+/* ================= Vidro automático em botões e elementos flutuantes ================= */
+/* Botões "de superfície" (fundo card/muted/accent) em qualquer ecrã */
+button:is([class*="bg-card"], [class*="bg-muted"], [class*="bg-secondary"], [class*="bg-accent"], [class*="bg-white/"], [class*="bg-background"]):not([class*="glass-"]):not(.theme-glass):not([role="switch"]):not([role="checkbox"]):not([role="tab"]):not([role="option"]):not(:disabled),
+a[class*="rounded-full"]:is([class*="bg-card"], [class*="bg-muted"], [class*="bg-white/"]):not([class*="glass-"]) {
+  background-color: color-mix(in oklab, var(--card) 52%, transparent) !important;
+  background-image:
+    linear-gradient(180deg, color-mix(in oklab, #fff 60%, transparent) 0%, transparent 55%),
+    linear-gradient(135deg, color-mix(in oklab, var(--primary) 10%, transparent), transparent 70%);
+  -webkit-backdrop-filter: blur(16px) saturate(1.9);
+  backdrop-filter: blur(16px) saturate(1.9);
+  border-color: color-mix(in oklab, var(--primary) 20%, #fff 40%) !important;
+  box-shadow:
+    inset 0 1.5px 0 color-mix(in oklab, #fff 85%, transparent),
+    inset 8px 0 12px -10px color-mix(in oklab, #000 16%, transparent),
+    inset -8px 0 12px -10px color-mix(in oklab, #000 16%, transparent),
+    0 6px 14px -8px color-mix(in oklab, #000 32%, transparent);
+}
+.dark button:is([class*="bg-card"], [class*="bg-muted"], [class*="bg-secondary"], [class*="bg-accent"], [class*="bg-background"]):not([class*="glass-"]):not(.theme-glass):not(:disabled) {
+  background-image: linear-gradient(180deg, color-mix(in oklab, #fff 16%, transparent) 0%, transparent 55%);
+  border-color: color-mix(in oklab, #fff 22%, transparent) !important;
+}
+/* Botões de cor sólida (bg-primary): mantêm a cor, ganham brilho de vidro */
+button[class~="bg-primary"]:not(:disabled):not([class*="glass-"]) {
+  border: 1px solid color-mix(in oklab, #fff 38%, transparent);
+  box-shadow:
+    inset 0 1.5px 0 color-mix(in oklab, #fff 60%, transparent),
+    inset 10px 0 14px -10px color-mix(in oklab, #000 22%, transparent),
+    inset -10px 0 14px -10px color-mix(in oklab, #000 22%, transparent),
+    inset 0 -2px 5px color-mix(in oklab, #000 14%, transparent),
+    0 8px 18px -10px color-mix(in oklab, var(--primary) 75%, transparent);
+}
+/* Folhas, janelas, menus e avisos flutuantes */
+[role="dialog"]:not([class*="glass-"]),
+[role="alertdialog"]:not([class*="glass-"]),
+[role="menu"],
+[data-sonner-toast],
+[class*="rounded-t-3xl"][class*="bg-background"],
+[class*="rounded-t-3xl"][class*="bg-card"] {
+  background-color: color-mix(in oklab, var(--card) 80%, transparent) !important;
+  background-image: linear-gradient(180deg, color-mix(in oklab, #fff 50%, transparent) 0%, transparent 40%);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  backdrop-filter: blur(24px) saturate(1.8);
+  border-color: color-mix(in oklab, #fff 55%, transparent) !important;
+  box-shadow:
+    inset 0 1.5px 0 color-mix(in oklab, #fff 90%, transparent),
+    inset 14px 0 18px -14px color-mix(in oklab, #000 14%, transparent),
+    inset -14px 0 18px -14px color-mix(in oklab, #000 14%, transparent),
+    0 20px 50px -16px rgba(0, 0, 0, 0.45);
+}
+.dark [role="dialog"], .dark [role="menu"], .dark [data-sonner-toast] {
+  background-image: linear-gradient(180deg, color-mix(in oklab, #fff 14%, transparent) 0%, transparent 40%);
+  border-color: color-mix(in oklab, #fff 22%, transparent) !important;
+}
+@media (prefers-reduced-transparency: reduce) {
+  [role="dialog"], [role="alertdialog"], [role="menu"], [data-sonner-toast] { -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* Linhas/atalhos em forma de ligação (ex.: lista do Perfil) — só os sem fotos dentro, para não pesar */
+a[class*="rounded-2xl"]:is([class*="bg-card"], [class*="bg-muted"]):not(:has(img)):not([class*="glass-"]) {
+  background-color: color-mix(in oklab, var(--card) 52%, transparent) !important;
+  background-image:
+    linear-gradient(180deg, color-mix(in oklab, #fff 60%, transparent) 0%, transparent 55%),
+    linear-gradient(135deg, color-mix(in oklab, var(--primary) 10%, transparent), transparent 70%);
+  -webkit-backdrop-filter: blur(16px) saturate(1.9);
+  backdrop-filter: blur(16px) saturate(1.9);
+  border-color: color-mix(in oklab, var(--primary) 20%, #fff 40%) !important;
+  box-shadow:
+    inset 0 1.5px 0 color-mix(in oklab, #fff 85%, transparent),
+    inset 8px 0 12px -10px color-mix(in oklab, #000 16%, transparent),
+    inset -8px 0 12px -10px color-mix(in oklab, #000 16%, transparent),
+    0 6px 14px -8px color-mix(in oklab, #000 32%, transparent);
+}
+/* Qualquer botão de cor sólida com texto branco (âmbar, verde, vermelho…): cor mantida + brilho de vidro */
+button:is([class*="text-white"], [class*="text-primary-foreground"]):is([class*="bg-amber-"], [class*="bg-emerald-"], [class*="bg-red-"], [class*="bg-green-"], [class*="bg-blue-"], [class*="bg-orange-"], [class*="bg-destructive"]):not(:disabled):not([class*="glass-"]) {
+  border: 1px solid color-mix(in oklab, #fff 38%, transparent);
+  box-shadow:
+    inset 0 1.5px 0 color-mix(in oklab, #fff 55%, transparent),
+    inset 10px 0 14px -10px color-mix(in oklab, #000 24%, transparent),
+    inset -10px 0 14px -10px color-mix(in oklab, #000 24%, transparent),
+    inset 0 -2px 5px color-mix(in oklab, #000 14%, transparent),
+    0 8px 18px -10px rgba(0, 0, 0, 0.4);
+}
+
+/* ---------- Toque com mola em TODOS os botões (mesmo os sem a classe .press) ----------
+   Usa a propriedade `scale` (separada de `transform`) para não estragar botões
+   que já usam translate/rotate para se posicionarem. */
+button:not(.press):not(:disabled),
+[role="button"]:not(.press) {
+  transition: scale 0.58s var(--spring-soft);
+}
+button:not(.press):not(:disabled):active,
+[role="button"]:not(.press):active {
+  scale: 0.95;
+  transition-duration: 0.12s;
+}
+@media (prefers-reduced-motion: reduce) {
+  button:not(.press), [role="button"]:not(.press) { transition: none !important; }
+}

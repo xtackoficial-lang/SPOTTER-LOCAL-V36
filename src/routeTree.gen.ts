@@ -23,6 +23,7 @@ import { Route as ProductsRouteImport } from './routes/products'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PaymentRouteImport } from './routes/payment'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as MyReservationsRouteImport } from './routes/my-reservations'
 import { Route as MerchantRouteImport } from './routes/merchant'
 import { Route as MapRouteImport } from './routes/map'
@@ -116,6 +117,11 @@ const PaymentRoute = PaymentRouteImport.update({
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MyReservationsRoute = MyReservationsRouteImport.update({
@@ -255,6 +261,7 @@ export interface FileRoutesByFullPath {
   '/map': typeof MapRoute
   '/merchant': typeof MerchantRoute
   '/my-reservations': typeof MyReservationsRoute
+  '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/payment': typeof PaymentRoute
   '/privacy': typeof PrivacyRoute
@@ -295,6 +302,7 @@ export interface FileRoutesByTo {
   '/map': typeof MapRoute
   '/merchant': typeof MerchantRoute
   '/my-reservations': typeof MyReservationsRoute
+  '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/payment': typeof PaymentRoute
   '/privacy': typeof PrivacyRoute
@@ -336,6 +344,7 @@ export interface FileRoutesById {
   '/map': typeof MapRoute
   '/merchant': typeof MerchantRoute
   '/my-reservations': typeof MyReservationsRoute
+  '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/payment': typeof PaymentRoute
   '/privacy': typeof PrivacyRoute
@@ -378,6 +387,7 @@ export interface FileRouteTypes {
     | '/map'
     | '/merchant'
     | '/my-reservations'
+    | '/notifications'
     | '/onboarding'
     | '/payment'
     | '/privacy'
@@ -418,6 +428,7 @@ export interface FileRouteTypes {
     | '/map'
     | '/merchant'
     | '/my-reservations'
+    | '/notifications'
     | '/onboarding'
     | '/payment'
     | '/privacy'
@@ -458,6 +469,7 @@ export interface FileRouteTypes {
     | '/map'
     | '/merchant'
     | '/my-reservations'
+    | '/notifications'
     | '/onboarding'
     | '/payment'
     | '/privacy'
@@ -499,6 +511,7 @@ export interface RootRouteChildren {
   MapRoute: typeof MapRoute
   MerchantRoute: typeof MerchantRoute
   MyReservationsRoute: typeof MyReservationsRoute
+  NotificationsRoute: typeof NotificationsRoute
   OnboardingRoute: typeof OnboardingRoute
   PaymentRoute: typeof PaymentRoute
   PrivacyRoute: typeof PrivacyRoute
@@ -619,6 +632,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/my-reservations': {
@@ -824,6 +844,7 @@ const rootRouteChildren: RootRouteChildren = {
   MapRoute: MapRoute,
   MerchantRoute: MerchantRoute,
   MyReservationsRoute: MyReservationsRoute,
+  NotificationsRoute: NotificationsRoute,
   OnboardingRoute: OnboardingRoute,
   PaymentRoute: PaymentRoute,
   PrivacyRoute: PrivacyRoute,

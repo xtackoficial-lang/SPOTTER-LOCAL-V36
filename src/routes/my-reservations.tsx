@@ -239,7 +239,7 @@ function MyReservationsPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-4 backdrop-blur">
+      <div className="glass-bar sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-4 backdrop-blur">
         <button onClick={() => navigate({ to: "/home" })} className="press rounded-full p-1">
           <Icon name="chevronLeft" size={22} />
         </button>

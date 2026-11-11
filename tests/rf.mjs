@@ -1,6 +1,12 @@
 // src/lib/reservation-filters.ts
 function normalizeText(s) {
-  return (s ?? "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+  return (s ?? "")
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 }
 function normalizePhone(s) {
   const d = (s ?? "").replace(/\D/g, "");
@@ -31,13 +37,24 @@ var EMPTY_ROOM_FILTERS = {
   payment: "all",
   from: "",
   to: "",
-  sort: "pending"
+  sort: "pending",
 };
 function roomFiltersActive(f) {
-  return !!f.search.trim() || f.status !== "all" || f.payment !== "all" || !!f.from || !!f.to || f.sort !== EMPTY_ROOM_FILTERS.sort;
+  return (
+    !!f.search.trim() ||
+    f.status !== "all" ||
+    f.payment !== "all" ||
+    !!f.from ||
+    !!f.to ||
+    f.sort !== EMPTY_ROOM_FILTERS.sort
+  );
 }
 function isRoomOverdue(r, now = Date.now()) {
-  return r.status === "pending_approval" && !!r.responseDeadline && new Date(r.responseDeadline).getTime() < now;
+  return (
+    r.status === "pending_approval" &&
+    !!r.responseDeadline &&
+    new Date(r.responseDeadline).getTime() < now
+  );
 }
 function roomMatchesStatus(r, s, now) {
   switch (s) {
@@ -57,11 +74,15 @@ function roomMatchesStatus(r, s, now) {
 }
 function filterRoomReservations(list, f, now = Date.now()) {
   const out = list.filter(
-    (r) => roomMatchesStatus(r, f.status, now) && (f.payment === "all" || r.paymentOption === f.payment) && inRange(r.checkIn, f.from, f.to) && matchesQuery(
-      [r.clientName, r.clientEmail, r.roomName, r.specialRequest, r.id.slice(0, 8)],
-      r.clientPhone,
-      f.search
-    )
+    (r) =>
+      roomMatchesStatus(r, f.status, now) &&
+      (f.payment === "all" || r.paymentOption === f.payment) &&
+      inRange(r.checkIn, f.from, f.to) &&
+      matchesQuery(
+        [r.clientName, r.clientEmail, r.roomName, r.specialRequest, r.id.slice(0, 8)],
+        r.clientPhone,
+        f.search,
+      ),
   );
   const byRecent = (a, b) => b.createdAt.localeCompare(a.createdAt);
   const sorted = [...out];
@@ -69,7 +90,9 @@ function filterRoomReservations(list, f, now = Date.now()) {
   else if (f.sort === "amount") sorted.sort((a, b) => b.totalPrice - a.totalPrice);
   else if (f.sort === "pending")
     sorted.sort(
-      (a, b) => Number(b.status === "pending_approval") - Number(a.status === "pending_approval") || byRecent(a, b)
+      (a, b) =>
+        Number(b.status === "pending_approval") - Number(a.status === "pending_approval") ||
+        byRecent(a, b),
     );
   else sorted.sort(byRecent);
   return sorted;
@@ -81,7 +104,7 @@ function countRoomStatuses(list, now = Date.now()) {
     overdue: list.filter((r) => isRoomOverdue(r, now)).length,
     confirmed: list.filter((r) => r.status === "confirmed").length,
     rejected: list.filter((r) => r.status === "rejected").length,
-    refund_todo: list.filter((r) => r.status === "rejected" && !r.refunded).length
+    refund_todo: list.filter((r) => r.status === "rejected" && !r.refunded).length,
   };
 }
 function summarizeRooms(list) {
@@ -93,7 +116,9 @@ function summarizeRooms(list) {
     /** ainda a receber no check-in (confirmadas + pendentes) */
     balance: active.reduce((s, r) => s + r.balanceDue, 0),
     /** a devolver (recusadas ainda não reembolsadas) */
-    toRefund: list.filter((r) => r.status === "rejected" && !r.refunded).reduce((s, r) => s + r.amountPaid, 0)
+    toRefund: list
+      .filter((r) => r.status === "rejected" && !r.refunded)
+      .reduce((s, r) => s + r.amountPaid, 0),
   };
 }
 var EMPTY_TABLE_FILTERS = {
@@ -102,10 +127,17 @@ var EMPTY_TABLE_FILTERS = {
   tipo: "all",
   from: "",
   to: "",
-  sort: "recent"
+  sort: "recent",
 };
 function tableFiltersActive(f) {
-  return !!f.search.trim() || f.status !== "all" || f.tipo !== "all" || !!f.from || !!f.to || f.sort !== EMPTY_TABLE_FILTERS.sort;
+  return (
+    !!f.search.trim() ||
+    f.status !== "all" ||
+    f.tipo !== "all" ||
+    !!f.from ||
+    !!f.to ||
+    f.sort !== EMPTY_TABLE_FILTERS.sort
+  );
 }
 function tableMatchesStatus(r, s) {
   switch (s) {
@@ -121,23 +153,27 @@ function tableMatchesStatus(r, s) {
 }
 function filterTableReservations(list, f) {
   const out = list.filter(
-    (r) => tableMatchesStatus(r, f.status) && (f.tipo === "all" || r.tipo === f.tipo) && inRange(r.reservationDate, f.from, f.to) && matchesQuery(
-      [
-        r.clientName,
-        r.clientEmail,
-        r.specialRequest,
-        r.timeSlot,
-        r.reservationDate,
-        r.id.slice(0, 8)
-      ],
-      r.clientPhone,
-      f.search
-    )
+    (r) =>
+      tableMatchesStatus(r, f.status) &&
+      (f.tipo === "all" || r.tipo === f.tipo) &&
+      inRange(r.reservationDate, f.from, f.to) &&
+      matchesQuery(
+        [
+          r.clientName,
+          r.clientEmail,
+          r.specialRequest,
+          r.timeSlot,
+          r.reservationDate,
+          r.id.slice(0, 8),
+        ],
+        r.clientPhone,
+        f.search,
+      ),
   );
   const sorted = [...out];
   if (f.sort === "date")
-    sorted.sort(
-      (a, b) => (a.reservationDate + a.timeSlot).localeCompare(b.reservationDate + b.timeSlot)
+    sorted.sort((a, b) =>
+      (a.reservationDate + a.timeSlot).localeCompare(b.reservationDate + b.timeSlot),
     );
   else if (f.sort === "amount") sorted.sort((a, b) => b.price - a.price);
   else sorted.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -148,7 +184,7 @@ function countTableStatuses(list) {
     all: list.length,
     confirmed: list.filter((r) => r.status === "confirmed").length,
     cancelled: list.filter((r) => r.status === "cancelled").length,
-    payout_todo: list.filter((r) => r.status === "confirmed" && !r.repassado).length
+    payout_todo: list.filter((r) => r.status === "confirmed" && !r.repassado).length,
   };
 }
 function summarizeTables(list) {
@@ -158,7 +194,7 @@ function summarizeTables(list) {
     guests: ok.reduce((s, r) => s + r.guests, 0),
     paid: ok.reduce((s, r) => s + r.price, 0),
     /** a receber do Spotter (repasse ainda não feito) */
-    toReceive: ok.filter((r) => !r.repassado).reduce((s, r) => s + r.payoutAmount, 0)
+    toReceive: ok.filter((r) => !r.repassado).reduce((s, r) => s + r.payoutAmount, 0),
   };
 }
 function csvCell(v) {
@@ -188,7 +224,7 @@ function roomReservationsToCsv(list) {
       "Estado",
       "Responder at\xE9",
       "Reembolsado",
-      "Pedido especial"
+      "Pedido especial",
     ],
     ...list.map((r) => [
       r.id.slice(0, 8),
@@ -206,9 +242,9 @@ function roomReservationsToCsv(list) {
       r.balanceDue,
       r.status,
       r.responseDeadline ?? "",
-      r.status === "rejected" ? r.refunded ? "sim" : "n\xE3o" : "",
-      r.specialRequest ?? ""
-    ])
+      r.status === "rejected" ? (r.refunded ? "sim" : "n\xE3o") : "",
+      r.specialRequest ?? "",
+    ]),
   ]);
 }
 function tableReservationsToCsv(list) {
@@ -226,7 +262,7 @@ function tableReservationsToCsv(list) {
       "Pago (MT)",
       "A receber (MT)",
       "Repassado",
-      "Pedido especial"
+      "Pedido especial",
     ],
     ...list.map((r) => [
       r.id.slice(0, 8),
@@ -241,8 +277,8 @@ function tableReservationsToCsv(list) {
       r.price,
       r.payoutAmount,
       r.repassado ? "sim" : "n\xE3o",
-      r.specialRequest ?? ""
-    ])
+      r.specialRequest ?? "",
+    ]),
   ]);
 }
 export {
@@ -262,5 +298,5 @@ export {
   summarizeTables,
   tableFiltersActive,
   tableReservationsToCsv,
-  toCsv
+  toCsv,
 };

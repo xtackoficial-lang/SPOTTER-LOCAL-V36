@@ -34,6 +34,7 @@
 
 // @ts-nocheck — ambiente Deno (Supabase Edge Functions), tipos diferentes do projecto Vite/React.
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { LIMITS, rateLimit, tooManyRequests } from "../_shared/rate-limit.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -65,6 +66,9 @@ Deno.serve(async (req: Request) => {
         headers: { "Content-Type": "application/json" },
       });
     }
+
+    const rl = await rateLimit(admin, `delacc:${userId}`, LIMITS.deleteAccount.limit, LIMITS.deleteAccount.window);
+    if (!rl.allowed) return tooManyRequests(rl.retryAfter);
 
     // 1. Negócio(s) do utilizador — cascata trata do resto (produtos,
     //    comprovativos, boosts, e as reviews que este negócio recebeu

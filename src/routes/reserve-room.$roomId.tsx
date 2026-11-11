@@ -3,17 +3,25 @@
 // ------------------------------------------------------------
 // Passo 1 (datas/hóspedes) + Passo 2 (dados) ficam no mesmo ecrã, por
 // simplicidade — Passo 3 é a confirmação/pagamento. Exige login (a
-// comissão via ZumboPay e o chat/push a seguir precisam de um utilizador
-// autenticado — ver nota em create-zumbopay-payment).
+// cobrança M-Pesa e o chat/push a seguir precisam de um utilizador
+// autenticado — ver nota em create-mpesa-payment).
 // ============================================================
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Icon } from "@/components/Icon";
 import { supabase, SUPABASE_CONFIGURED } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { createZumboPayRoomPayment, type PaymentRequest } from "@/lib/payments-db";
+import { createMpesaRoomPayment, type PaymentRequest } from "@/lib/payments-db";
+import { MpesaPayerField } from "@/components/MpesaPayerField";
+import { useMpesaConfirmation } from "@/lib/use-mpesa-confirmation";
 import { fetchActiveRooms, roomPriceText, type BusinessRoom } from "@/lib/reservations-db";
 
+import {
+  normalizePhone,
+  normalizeWalletPhone,
+  validateEmail,
+  validatePersonName,
+} from "@/lib/validators";
 export const Route = createFileRoute("/reserve-room/$roomId")({
   head: () => ({ meta: [{ title: "Reservar quarto — Spotter Local" }] }),
   component: ReserveRoomPage,
@@ -37,6 +45,7 @@ function ReserveRoomPage() {
   const [hours, setHours] = useState("2");
   const [specialRequest, setSpecialRequest] = useState("");
   const [clientName, setClientName] = useState(user?.name ?? "");
+  const [payerPhone, setPayerPhone] = useState(""); // vazio = usa o telefone de contacto
   const [clientPhone, setClientPhone] = useState("");
   const [clientEmail, setClientEmail] = useState(user?.email ?? "");
   const [step, setStep] = useState<Step>("form");
@@ -100,74 +109,76 @@ function ReserveRoomPage() {
       setError("Escolhe datas de entrada e saída válidas.");
       return;
     }
-    if (!clientName.trim() || !clientPhone.trim()) {
-      setError("Preenche o nome e o telefone.");
+    // v41 (segurança): dados reais — nome só com letras, telemóvel válido (sem dígitos a mais)
+    const nameCheck = validatePersonName(clientName, "nome");
+    if (!nameCheck.ok) {
+      setError(nameCheck.error);
+      return;
+    }
+    const phoneCheck = normalizePhone(clientPhone);
+    if (!phoneCheck.ok) {
+      setError(phoneCheck.error);
+      return;
+    }
+    const guestsN = Number(guests);
+    if (!Number.isInteger(guestsN) || guestsN < 1 || guestsN > 50) {
+      setError("Indica um número de pessoas válido (1 a 50).");
+      return;
+    }
+    const emailCheck = clientEmail.trim() ? validateEmail(clientEmail) : null;
+    if (emailCheck && !emailCheck.ok) {
+      setError(emailCheck.error);
+      return;
+    }
+    const payerCheck = normalizeWalletPhone(payerPhone.trim() || clientPhone, "mpesa");
+    if (!payerCheck.ok) {
+      setError(payerCheck.error);
       return;
     }
     setError(null);
     setLoading(true);
+    setStep("waiting"); // "confirma no telemóvel" — a chamada só responde depois do PIN
     try {
-      const { payment, paymentUrl } = await createZumboPayRoomPayment(room.businessId, {
-        roomId: room.id,
-        paymentOption,
-        checkIn,
-        checkOut: unit === "hour" ? checkIn : checkOut,
-        bookingUnit: unit,
-        hours: unit === "hour" ? hoursN : undefined,
-        startTime: unit === "hour" ? startTime : undefined,
-        guests: Number(guests),
-        specialRequest: specialRequest.trim() || undefined,
-        clientName: clientName.trim(),
-        clientPhone: clientPhone.trim(),
-        clientEmail: clientEmail.trim() || undefined,
-      });
-      setReq(payment);
-      const opened = window.open(paymentUrl, "_blank", "noopener,noreferrer");
-      setStep("waiting");
-      if (!opened) window.location.href = paymentUrl;
+      const result = await createMpesaRoomPayment(
+        room.businessId,
+        {
+          roomId: room.id,
+          paymentOption,
+          checkIn,
+          checkOut: unit === "hour" ? checkIn : checkOut,
+          bookingUnit: unit,
+          hours: unit === "hour" ? hoursN : undefined,
+          startTime: unit === "hour" ? startTime : undefined,
+          guests: Number(guests),
+          specialRequest: specialRequest.trim() || undefined,
+          clientName: nameCheck.value,
+          clientPhone: phoneCheck.value,
+          clientEmail: emailCheck && emailCheck.ok ? emailCheck.value : undefined,
+        },
+        payerCheck.value,
+      );
+      setReq(result.payment);
+      if (result.status === "confirmed") setStep("done");
+      else if (result.status === "failed") {
+        setError(result.error ?? "O pagamento não foi concluído.");
+        setStep("form");
+      }
+      // "pending": continua em espera — useMpesaConfirmation volta a perguntar.
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível criar o pagamento.");
+      setStep("form");
     } finally {
       setLoading(false);
     }
   };
 
-  // Mesmo padrão de confirmação (Realtime + polling) usado em
-  // publish-post/publish-event/boost.
-  useEffect(() => {
-    if (step !== "waiting" || !req?.id || !SUPABASE_CONFIGURED || !supabase) return;
-    const client = supabase;
-    const channel = client
-      .channel(`zumbopay-room-${req.id}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "payments", filter: `id=eq.${req.id}` },
-        (payload) => {
-          if (payload.new.status === "confirmed") setStep("done");
-          else if (payload.new.status === "failed" || payload.new.status === "expired")
-            setStep("failed");
-        },
-      )
-      .subscribe();
-    return () => {
-      client.removeChannel(channel);
-    };
-  }, [step, req?.id]);
-
-  useEffect(() => {
-    if (step !== "waiting" || !req?.id || !SUPABASE_CONFIGURED || !supabase) return;
-    const client = supabase;
-    const interval = setInterval(async () => {
-      const { data } = await client
-        .from("payments")
-        .select("status")
-        .eq("id", req.id)
-        .maybeSingle();
-      if (data?.status === "confirmed") setStep("done");
-      else if (data?.status === "failed" || data?.status === "expired") setStep("failed");
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [step, req?.id]);
+  // Rede de segurança: se a resposta da cobrança ficou em dúvida, volta a perguntar à M-Pesa.
+  useMpesaConfirmation(
+    step === "waiting" && req?.status === "pending",
+    req?.id,
+    () => setStep("done"),
+    () => setStep("failed"),
+  );
 
   if (!authLoading && !user) {
     return (
@@ -188,7 +199,7 @@ function ReserveRoomPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-4 backdrop-blur">
+      <div className="glass-bar sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-4 backdrop-blur">
         <button onClick={() => navigate({ to: "/home" })} className="press rounded-full p-1">
           <Icon name="chevronLeft" size={22} />
         </button>
@@ -317,11 +328,15 @@ function ReserveRoomPage() {
               <p className="mb-1.5 text-xs font-semibold text-muted-foreground">Telefone</p>
               <input
                 value={clientPhone}
-                onChange={(e) => setClientPhone(e.target.value)}
-                placeholder="84xxxxxxx"
+                onChange={(e) => setClientPhone(e.target.value.replace(/[^\d\s+()-]/g, ""))}
+                inputMode="tel"
+                autoComplete="tel"
+                maxLength={20}
+                placeholder="84 123 4567"
                 className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
               />
             </div>
+            <MpesaPayerField value={payerPhone} onChange={setPayerPhone} optional />
             <div>
               <p className="mb-1.5 text-xs font-semibold text-muted-foreground">
                 Pedido especial (opcional)
@@ -404,7 +419,8 @@ function ReserveRoomPage() {
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <Icon name="clock" size={28} className="text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              A aguardar confirmação do pagamento… Se abriu numa nova aba, conclui o pagamento lá.
+              Enviámos um pedido de pagamento para o teu M-Pesa. Abre o pedido no telemóvel e digita
+              o teu PIN para confirmar. Não feches esta página.
             </p>
           </div>
         ) : step === "done" ? (

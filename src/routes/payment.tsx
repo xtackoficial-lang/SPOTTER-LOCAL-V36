@@ -4,7 +4,8 @@ import { Icon } from "@/components/Icon";
 import { ShimmerButton } from "@/components/ShimmerButton";
 import {
   createPaymentRequest,
-  createZumboPayPayment,
+  createMpesaPayment,
+  checkMpesaPayment,
   getPaymentInstructions,
   type PaymentRequest,
   type PaymentMethod,
@@ -20,7 +21,10 @@ import {
 import { useOnboarding } from "@/lib/onboarding-storage";
 import { RequireBusiness } from "@/components/RequireBusiness";
 import { useT } from "@/lib/i18n";
+import { isPlayStoreApp } from "@/lib/play-context";
+import { PlayPlansNotice } from "@/components/PlayPlansNotice";
 
+import { normalizeWalletPhone } from "@/lib/validators";
 export const Route = createFileRoute("/payment")({
   head: () => ({ meta: [{ title: "Pagamento — Spotter Local" }] }),
   validateSearch: (search: Record<string, unknown>): { plan?: PaidPlanId } => ({
@@ -30,29 +34,25 @@ export const Route = createFileRoute("/payment")({
         : undefined,
   }),
   component: () => (
-    <RequireBusiness>
-      <PaymentPage />
-    </RequireBusiness>
+    <RequireBusiness>{isPlayStoreApp() ? <PlayPlansNotice /> : <PaymentPage />}</RequireBusiness>
   ),
 });
 
 function getMethods(
   tr: (k: string) => string,
 ): { id: PaymentMethod; label: string; color: string; hint: string }[] {
-  // CONSERTO (pedido do Abrão, 2026-09-14): "remove a opção manual e
-  // deixa só os pagamentos online" — M-Pesa/e-Mola/Transferência
-  // manual deixam de aparecer para escolha; só fica o ZumboPay. O
-  // código dos métodos manuais (createPaymentRequest, ecrã de
-  // instruções/comprovativo) continua no ficheiro sem ser chamado —
-  // não foi apagado para não perder histórico de pagamentos antigos
-  // feitos por esses métodos (o admin ainda os lê em "Pagamentos").
+  // Só pagamento online pela M-Pesa (a cobrança é pedida directamente à Vodacom: o
+  // cliente recebe o pedido de PIN no telemóvel). O código dos métodos manuais
+  // (createPaymentRequest, ecrã de instruções/comprovativo) continua no ficheiro sem
+  // ser chamado — não foi apagado para não perder histórico de pagamentos antigos
+  // (o admin ainda os lê em "Pagamentos").
   void tr;
   return [
     {
-      id: "zumbopay",
-      label: "Pagar online (ZumboPay)",
-      color: "bg-emerald-600",
-      hint: "M-Pesa, e-Mola, mKesh ou cartão — confirmação automática",
+      id: "mpesa",
+      label: "Pagar com M-Pesa",
+      color: "bg-red-600",
+      hint: "Recebes o pedido de PIN no telemóvel — confirmação automática",
     },
   ];
 }
@@ -103,10 +103,9 @@ function PaymentPage() {
   const { draft, hydrated } = useOnboarding();
   const businessId = draft.business.businessId || "default";
   const [planId, setPlanId] = useState<PaidPlanId>(planFromSubscribe ?? "starter");
-  // Só há um método (ZumboPay) desde que os manuais foram removidos da
-  // escolha — já vem pré-seleccionado para não obrigar a tocar num
+  // Só há um método (M-Pesa) — já vem pré-seleccionado para não obrigar a tocar num
   // cartão único.
-  const [method, setMethod] = useState<PaymentMethod | null>("zumbopay");
+  const [method, setMethod] = useState<PaymentMethod | null>("mpesa");
   const [phone, setPhone] = useState("");
   const [step, setStep] = useState<Step>("select");
   const [req, setReq] = useState<PaymentRequest | null>(null);
@@ -149,51 +148,63 @@ function PaymentPage() {
   }, [step]);
 
   const [initError, setInitError] = useState<string | null>(null);
-  const [zumboPopupBlocked, setZumboPopupBlocked] = useState(false);
 
   const handleInitiate = async () => {
     if (!method) return;
     if ((method === "mpesa" || method === "emola") && !phone.trim()) return;
+    // v41 (segurança): o número tem de ser mesmo da carteira escolhida
+    // (M-Pesa = 84/85 · e-Mola = 86/87), sem dígitos a mais ou inventados.
+    let walletPhone = phone;
+    if (method === "mpesa" || method === "emola") {
+      const w = normalizeWalletPhone(phone, method);
+      if (!w.ok) {
+        setInitError(w.error);
+        return;
+      }
+      walletPhone = w.value;
+    }
     setLoading(true);
     setInitError(null);
     try {
-      // ZumboPay: sem USSD/comprovativo manual — abre o link de pagamento
-      // hospedado pela ZumboPay e fica a aguardar a confirmação automática
-      // via webhook (ver useEffect de subscrição abaixo).
-      if (method === "zumbopay") {
-        const { payment, paymentUrl } = await createZumboPayPayment(businessId, planId);
-        setReq(payment);
-        const opened = window.open(paymentUrl, "_blank", "noopener,noreferrer");
-        if (!opened) {
-          // Popup bloqueado pelo browser — guarda o link para o botão
-          // "Abrir link de pagamento" no passo "waiting" (ver abaixo).
-          setZumboPopupBlocked(true);
-        }
+      // M-Pesa online: vai para o ecrã de espera ("confirma no telemóvel") e fica ali
+      // até a cobrança responder. A chamada demora o tempo que o cliente levar a
+      // digitar o PIN (até ~60 s).
+      if (method === "mpesa") {
+        setCountdown(600);
         setStep("waiting");
+        const result = await createMpesaPayment(businessId, planId, walletPhone);
+        setReq(result.payment);
+        if (result.status === "confirmed") setStep("done");
+        else if (result.status === "failed") {
+          setInitError(result.error ?? tr("initPaymentError"));
+          setStep("select");
+        }
+        // "pending": fica em espera — o useEffect abaixo volta a perguntar à M-Pesa.
         return;
       }
 
-      const r = await createPaymentRequest(businessId, planId, method, phone);
+      const r = await createPaymentRequest(businessId, planId, method, walletPhone);
       setReq(r);
       setStep("instructions");
     } catch (err) {
       console.warn("Falha ao iniciar pagamento:", err);
-      setInitError(tr("initPaymentError"));
+      setInitError(err instanceof Error && err.message ? err.message : tr("initPaymentError"));
+      setStep("select");
     } finally {
       setLoading(false);
     }
   };
 
-  // Subscrição em tempo real: quando o webhook da ZumboPay confirma o
-  // pagamento (payments.status → "confirmed"), avançamos automaticamente
-  // para o passo "done" sem precisar do admin confirmar manualmente.
+  // Subscrição em tempo real: quando o servidor confirma o pagamento
+  // (payments.status → "confirmed"), avançamos automaticamente para o
+  // passo "done" sem precisar do admin confirmar manualmente.
   useEffect(() => {
-    if (step !== "waiting" || method !== "zumbopay" || !req?.id) return;
+    if (step !== "waiting" || method !== "mpesa" || !req?.id) return;
     if (!SUPABASE_CONFIGURED || !supabase) return;
     const client = supabase; // fixa a referência não-nula para os closures abaixo
 
     const channel = client
-      .channel(`zumbopay-payment-${req.id}`)
+      .channel(`mpesa-payment-${req.id}`)
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "payments", filter: `id=eq.${req.id}` },
@@ -212,30 +223,22 @@ function PaymentPage() {
     };
   }, [step, method, req?.id]);
 
-  // Fallback de segurança: se por algum motivo o Realtime não disparar
-  // (ex: publicação não activada na tabela, ligação instável), esta
-  // verificação por polling a cada 5s garante que a app não fica presa
-  // em "a aguardar" mesmo que o evento em tempo real se perca.
+  // Rede de segurança: se a resposta da cobrança ficou em dúvida (ligação caída,
+  // timeout), pergunta ao servidor de 6 em 6 s — ele consulta a M-Pesa e, se já foi
+  // pago, activa o plano.
   useEffect(() => {
-    if (step !== "waiting" || method !== "zumbopay" || !req?.id) return;
-    if (!SUPABASE_CONFIGURED || !supabase) return;
-    const client = supabase; // fixa a referência não-nula para o closure do setInterval
-
+    if (step !== "waiting" || method !== "mpesa" || !req?.id || req.status !== "pending") return;
+    const paymentId = req.id;
     const interval = setInterval(async () => {
-      const { data } = await client
-        .from("payments")
-        .select("status")
-        .eq("id", req.id)
-        .maybeSingle();
-      if (data?.status === "confirmed") {
-        setStep("done");
-      } else if (data?.status === "failed" || data?.status === "expired") {
+      const r = await checkMpesaPayment(paymentId);
+      if (r.status === "confirmed") setStep("done");
+      else if (r.status === "failed") {
+        setInitError(r.error ?? null);
         setStep("failed");
       }
-    }, 5000);
-
+    }, 6000);
     return () => clearInterval(interval);
-  }, [step, method, req?.id]);
+  }, [step, method, req?.id, req?.status]);
 
   // v24 — Dispara o alerta ao admin IMEDIATAMENTE ao clicar "Já paguei /
   // Comprovar", ainda no passo de instruções — antes disso o registo em
@@ -307,10 +310,10 @@ function PaymentPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card/90 px-5 pb-3 pt-12 backdrop-blur-xl">
+      <header className="glass-bar sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card/90 px-5 pb-3 pt-12 backdrop-blur-xl">
         <button
           onClick={() => (step === "select" ? navigate({ to: "/subscribe" }) : setStep("select"))}
-          className="press grid h-9 w-9 place-items-center rounded-full bg-muted text-muted-foreground"
+          className="press grid h-9 w-9 place-items-center rounded-full glass-btn text-muted-foreground"
         >
           <Icon name="arrowLeft" size={16} />
         </button>
@@ -403,7 +406,9 @@ function PaymentPage() {
                 </div>
                 <input
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(e.target.value.replace(/[^\d\s+()-]/g, ""))}
+                  inputMode="tel"
+                  maxLength={20}
                   placeholder={method === "mpesa" ? "+258 84x xxx xxxx" : "+258 86x xxx xxxx"}
                   className="h-11 w-full rounded-xl border border-input bg-transparent px-3 text-sm outline-none focus:border-primary"
                 />
@@ -573,27 +578,27 @@ function PaymentPage() {
               <Icon name="clock" size={36} className="text-amber-600" />
             </div>
             <h2 className="text-xl font-bold text-foreground">{tr("waitingConfirmationTitle")}</h2>
-            <p className="text-sm text-muted-foreground max-w-xs">
-              {proofSent ? tr("proofSentToXtack") : tr("paymentUnderReview")}
-            </p>
+            {method === "mpesa" ? (
+              <p className="text-sm text-muted-foreground max-w-xs">
+                Enviámos um pedido de pagamento de <strong>{plan.price} MT</strong> para o teu
+                M-Pesa{phone ? ` (${phone})` : ""}. Abre o pedido no telemóvel e digita o teu PIN
+                para confirmar. Não feches esta página.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground max-w-xs">
+                {proofSent ? tr("proofSentToXtack") : tr("paymentUnderReview")}
+              </p>
+            )}
             {!proofSent && (
               <div className="text-3xl font-mono font-bold text-primary">{fmt(countdown)}</div>
             )}
-            <div className="w-full rounded-2xl border border-border bg-card p-4 text-left space-y-1">
-              <div className="text-xs text-muted-foreground">{tr("referenceLabel")}</div>
-              <div className="font-mono font-semibold text-sm text-primary">{req?.merchantRef}</div>
-            </div>
-            {method === "zumbopay" && req?.paymentUrl && (
-              <ShimmerButton
-                onClick={() => {
-                  const opened = window.open(req.paymentUrl, "_blank", "noopener,noreferrer");
-                  if (opened) setZumboPopupBlocked(false);
-                }}
-                className="press h-12 w-full rounded-2xl text-sm font-semibold text-primary-foreground"
-                style={{ background: "var(--gradient-primary)" }}
-              >
-                {zumboPopupBlocked ? "Abrir link de pagamento" : "Reabrir link de pagamento"}
-              </ShimmerButton>
+            {req?.merchantRef && (
+              <div className="w-full rounded-2xl border border-border bg-card p-4 text-left space-y-1">
+                <div className="text-xs text-muted-foreground">{tr("referenceLabel")}</div>
+                <div className="font-mono font-semibold text-sm text-primary">
+                  {req.merchantRef}
+                </div>
+              </div>
             )}
             {initError && <p className="text-xs text-destructive">{initError}</p>}
           </div>
@@ -621,7 +626,7 @@ function PaymentPage() {
               {plan.name} {tr("planActiveNextBilling")}
             </p>
             <ShimmerButton
-              onClick={() => navigate({ to: "/business" })}
+              onClick={() => navigate({ to: "/business", replace: true })}
               className="press mt-8 h-12 w-full rounded-2xl text-sm font-semibold text-primary-foreground"
               style={{ background: "var(--gradient-primary)" }}
             >

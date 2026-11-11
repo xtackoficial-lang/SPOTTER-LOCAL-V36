@@ -38,7 +38,12 @@ function loadEnv() {
   return env;
 }
 
-const env = loadEnv();
+// No Cloudflare (e Vercel) as variáveis chegam como variáveis de ambiente do build, não num
+// ficheiro .env — por isso process.env tem prioridade sobre o .env local.
+const env = { ...loadEnv() };
+for (const [k, v] of Object.entries(process.env)) {
+  if (k.startsWith("VITE_FIREBASE_") && v) env[k] = v;
+}
 const keys = [
   "VITE_FIREBASE_API_KEY",
   "VITE_FIREBASE_AUTH_DOMAIN",

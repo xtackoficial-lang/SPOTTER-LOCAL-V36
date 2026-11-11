@@ -1,3 +1,5 @@
+> OBSOLETO desde a v47 (simula a ZumboPay, cujas funções foram removidas) — ver MPESA_INTEGRATION.md.
+
 # Testes locais das Edge Functions (2026-10-01)
 Resultado da última corrida: 93 testes, 0 falhas (create 31 · webhook+respond 34 · restantes 18 · segurança API 10).
 Imitam o Supabase (Postgres + PostgREST + gateway de auth) e a ZumboPay/Resend (mocks). NÃO falam com a ZumboPay real.

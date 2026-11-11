@@ -126,7 +126,7 @@ function QRScanner() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-10 border-b border-border bg-card/90 px-5 pb-3 pt-12 backdrop-blur-xl">
+      <header className="glass-bar sticky top-0 z-10 border-b border-border bg-card/90 px-5 pb-3 pt-12 backdrop-blur-xl">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">

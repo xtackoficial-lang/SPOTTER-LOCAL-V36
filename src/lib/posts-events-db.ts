@@ -2,9 +2,9 @@
 // XTACK SPOTTER — Publicações pagas (feed) e Eventos (Supabase)
 // ------------------------------------------------------------
 // Camada de LEITURA pública. A ESCRITA não passa por aqui — as linhas
-// só são criadas pelo zumbopay-webhook depois do pagamento confirmar
-// (ver create-zumbopay-payment / zumbopay-webhook + payments-db.ts
-// createZumboPayPostPayment / createZumboPayEventPayment).
+// só são criadas pelo servidor (create-mpesa-payment → _shared/fulfill-payment.ts)
+// depois do pagamento confirmar (ver payments-db.ts createMpesaPostPayment /
+// createMpesaEventPayment).
 // ============================================================
 import { supabase, SUPABASE_CONFIGURED, isUuid } from "./supabase";
 
@@ -30,7 +30,11 @@ export interface SpotterEvent {
   eventDate?: string;
   /** Último dia do evento (opcional). Sem isto, o evento acaba no dia do início. */
   eventEndDate?: string;
-  /** Quando termina o período pago de publicação. */
+  /** Todas as fotos da publicação (a 1.ª é a capa = posterUrl). */
+  photoUrls: string[];
+  /** Quando o evento começa a aparecer (agendado) — vazio = logo. */
+  publishAt?: string;
+  /** Quando o evento sai da aba (data e hora escolhidas). */
   expiresAt?: string;
   city?: string;
   tier: "standard" | "featured";
@@ -92,8 +96,10 @@ export async function fetchActivePosts(city?: string): Promise<BusinessPost[]> {
  */
 const EVENT_COLS_BASE =
   "id, business_id, poster_url, title, ticket_phone, ticket_link, event_date, city, tier, created_at, businesses(business_name)";
-const EVENT_COLS_FULL =
-  "id, business_id, poster_url, title, ticket_phone, ticket_link, event_date, event_end_date, expires_at, city, tier, created_at, businesses(business_name)";
+const EVENT_COLS_V17 =
+  "id, business_id, poster_url, title, ticket_phone, ticket_link, event_date, event_end_date, expires_at, city, tier, created_at, businesses(business_name), publish_at";
+// 018: várias fotos por publicação.
+const EVENT_COLS_FULL = `${EVENT_COLS_V17}, photo_urls`;
 
 /** Hoje (data local) em "YYYY-MM-DD". */
 export function todayLocalISO(): string {
@@ -119,22 +125,65 @@ type RawEventRow = {
   event_date: string | null;
   event_end_date?: string | null;
   expires_at?: string | null;
+  publish_at?: string | null;
+  photo_urls?: string[] | null;
   city: string | null;
   tier: "standard" | "featured";
   created_at: string;
   businesses: { business_name: string } | null;
 };
 
+/** Converte uma linha da BD num evento (a capa é sempre a 1.ª foto). */
+function mapEventRow(row: RawEventRow): SpotterEvent {
+  const photos = row.photo_urls && row.photo_urls.length > 0 ? row.photo_urls : [row.poster_url];
+  return {
+    id: row.id,
+    businessId: row.business_id,
+    businessName: row.businesses?.business_name ?? "Negócio",
+    posterUrl: photos[0],
+    photoUrls: photos,
+    title: row.title,
+    ticketPhone: row.ticket_phone ?? undefined,
+    ticketLink: row.ticket_link ?? undefined,
+    eventDate: row.event_date ?? undefined,
+    eventEndDate: row.event_end_date ?? undefined,
+    publishAt: row.publish_at ?? undefined,
+    expiresAt: row.expires_at ?? undefined,
+    city: row.city ?? undefined,
+    tier: row.tier,
+    createdAt: row.created_at,
+  };
+}
+
+/** Só o que o público pode ver agora: já publicado, ainda não removido, evento não terminado. */
+function isLiveEvent(ev: SpotterEvent, nowMs: number, today: string): boolean {
+  const lastDay = ev.eventEndDate ?? ev.eventDate;
+  if (lastDay && lastDay < today) return false;
+  if (ev.expiresAt && Date.parse(ev.expiresAt) <= nowMs) return false;
+  if (ev.publishAt && Date.parse(ev.publishAt) > nowMs) return false; // agendado, ainda não é hora
+  return true;
+}
+
+// Tenta primeiro com todas as colunas; se as migrações 012/013/017/018 ainda não foram
+// corridas, cai para a pesquisa mais antiga em vez de mostrar a aba vazia.
+const EVENT_COLUMN_LADDER: Array<{ cols: string; filtered: boolean }> = [
+  { cols: EVENT_COLS_FULL, filtered: true },
+  { cols: EVENT_COLS_V17, filtered: true },
+  { cols: EVENT_COLS_BASE, filtered: false },
+];
+
 export async function fetchActiveEvents(city?: string): Promise<SpotterEvent[]> {
   if (!SUPABASE_CONFIGURED || !supabase) return [];
   const client = supabase;
 
-  const run = (full: boolean) => {
-    let query = client
-      .from("events")
-      .select(full ? EVENT_COLS_FULL : EVENT_COLS_BASE)
-      .eq("status", "active");
-    if (full) query = query.or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
+  const run = (cols: string, filtered: boolean) => {
+    let query = client.from("events").select(cols).eq("status", "active");
+    if (filtered) {
+      const nowIso = new Date().toISOString();
+      query = query
+        .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+        .or(`publish_at.is.null,publish_at.lte.${nowIso}`);
+    }
     query = query
       .order("tier", { ascending: true }) // "featured" < "standard" alfabeticamente — featured primeiro
       .order("event_date", { ascending: true })
@@ -143,40 +192,46 @@ export async function fetchActiveEvents(city?: string): Promise<SpotterEvent[]> 
     return query;
   };
 
-  // Se as migrações 012/013 ainda não foram corridas, as colunas novas não existem:
-  // cai para a pesquisa antiga em vez de mostrar a aba vazia.
-  let { data, error } = await run(true);
-  if (error) ({ data, error } = await run(false));
+  let data: unknown = null;
+  let error: unknown = null;
+  for (const step of EVENT_COLUMN_LADDER) {
+    ({ data, error } = await run(step.cols, step.filtered));
+    if (!error) break;
+  }
   if (error || !data) {
     console.warn("fetchActiveEvents: falha ao carregar eventos", error);
     return [];
   }
-
   const today = todayLocalISO();
   const nowMs = Date.now();
-  return (data as unknown as RawEventRow[])
-    .map((row) => ({
-      id: row.id,
-      businessId: row.business_id,
-      businessName: row.businesses?.business_name ?? "Negócio",
-      posterUrl: row.poster_url,
-      title: row.title,
-      ticketPhone: row.ticket_phone ?? undefined,
-      ticketLink: row.ticket_link ?? undefined,
-      eventDate: row.event_date ?? undefined,
-      eventEndDate: row.event_end_date ?? undefined,
-      expiresAt: row.expires_at ?? undefined,
-      city: row.city ?? undefined,
-      tier: row.tier,
-      createdAt: row.created_at,
-    }))
-    .filter((ev) => {
-      // Esconde eventos que já terminaram ou cujos dias pagos acabaram.
-      const lastDay = ev.eventEndDate ?? ev.eventDate;
-      if (lastDay && lastDay < today) return false;
-      if (ev.expiresAt && Date.parse(ev.expiresAt) <= nowMs) return false;
-      return true;
-    });
+  return (data as RawEventRow[]).map(mapEventRow).filter((ev) => isLiveEvent(ev, nowMs, today));
+}
+
+/** As publicações visíveis de UM negócio (botão "Ver publicações" no perfil). */
+export async function fetchBusinessEvents(businessId: string): Promise<SpotterEvent[]> {
+  if (!SUPABASE_CONFIGURED || !supabase || !isUuid(businessId)) return [];
+  const client = supabase;
+  let data: unknown = null;
+  let error: unknown = null;
+  for (const step of EVENT_COLUMN_LADDER) {
+    let query = client
+      .from("events")
+      .select(step.cols)
+      .eq("business_id", businessId)
+      .eq("status", "active");
+    if (step.filtered) {
+      const nowIso = new Date().toISOString();
+      query = query
+        .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+        .or(`publish_at.is.null,publish_at.lte.${nowIso}`);
+    }
+    ({ data, error } = await query.order("created_at", { ascending: false }).limit(30));
+    if (!error) break;
+  }
+  if (error || !data) return [];
+  const today = todayLocalISO();
+  const nowMs = Date.now();
+  return (data as RawEventRow[]).map(mapEventRow).filter((ev) => isLiveEvent(ev, nowMs, today));
 }
 
 // ---------- Os eventos do próprio comerciante (gestão) ----------
@@ -190,6 +245,8 @@ export interface MyEvent {
   eventDate?: string;
   eventEndDate?: string;
   status: "pending" | "active" | "expired";
+  photoUrls: string[];
+  publishAt?: string;
   expiresAt?: string;
   createdAt: string;
 }
@@ -206,7 +263,9 @@ export async function fetchMyEvents(businessId: string): Promise<MyEvent[]> {
       .limit(20);
   const base =
     "id, title, poster_url, ticket_phone, ticket_link, city, event_date, status, created_at";
-  let { data, error } = await run(`${base}, event_end_date, expires_at`);
+  let { data, error } = await run(`${base}, event_end_date, expires_at, publish_at, photo_urls`);
+  if (error) ({ data, error } = await run(`${base}, event_end_date, expires_at, publish_at`));
+  if (error) ({ data, error } = await run(`${base}, event_end_date, expires_at`));
   if (error) ({ data, error } = await run(base));
   if (error || !data) return [];
   type Row = {
@@ -219,6 +278,8 @@ export async function fetchMyEvents(businessId: string): Promise<MyEvent[]> {
     event_date: string | null;
     event_end_date?: string | null;
     expires_at?: string | null;
+    publish_at?: string | null;
+    photo_urls?: string[] | null;
     status: "pending" | "active" | "expired";
     created_at: string;
   };
@@ -232,6 +293,8 @@ export async function fetchMyEvents(businessId: string): Promise<MyEvent[]> {
     eventDate: r.event_date ?? undefined,
     eventEndDate: r.event_end_date ?? undefined,
     status: r.status,
+    photoUrls: r.photo_urls && r.photo_urls.length > 0 ? r.photo_urls : [r.poster_url],
+    publishAt: r.publish_at ?? undefined,
     expiresAt: r.expires_at ?? undefined,
     createdAt: r.created_at,
   }));
@@ -240,8 +303,6 @@ export async function fetchMyEvents(businessId: string): Promise<MyEvent[]> {
 /** Remove um evento do próprio comerciante (a política da BD só deixa apagar os teus). */
 export async function deleteMyEvent(eventId: string): Promise<boolean> {
   if (!SUPABASE_CONFIGURED || !supabase) return false;
-  // A política de segurança (RLS) não dá erro quando bloqueia: devolve 0 linhas.
-  // Por isso só damos como removido se a linha foi mesmo apagada.
-  const { data, error } = await supabase.from("events").delete().eq("id", eventId).select("id");
-  return !error && (data?.length ?? 0) > 0;
+  const { error } = await supabase.from("events").delete().eq("id", eventId);
+  return !error;
 }

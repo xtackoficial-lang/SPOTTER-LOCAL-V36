@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { PublicationGuide } from "@/components/PublicationGuide";
 import { useState, useEffect } from "react";
 import { useOnboarding, BUSINESS_CATEGORIES } from "@/lib/onboarding-storage";
 import { fetchBusinessConversations, type ConversationSummary } from "@/lib/messages-db";
@@ -6,11 +7,6 @@ import { getAnalyticsSummary, type AnalyticsSummary } from "@/lib/analytics-db";
 import { useAuth } from "@/lib/auth-context";
 import { useSubscription } from "@/lib/subscription-storage";
 import { useProducts } from "@/lib/products-storage";
-import {
-  BOOST_PRICE_PER_DAY_MZN,
-  getActiveBoostForBusiness,
-  type BusinessBoost,
-} from "@/lib/boost-storage";
 import { BusinessBottomNav } from "@/components/BusinessBottomNav";
 import { fetchReservationSettings, type BusinessReservationSettings } from "@/lib/reservations-db";
 import { Icon } from "@/components/Icon";
@@ -18,6 +14,7 @@ import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { RequireBusiness } from "@/components/RequireBusiness";
 import { useScreenAppearance } from "@/lib/theme-storage";
 import { useT } from "@/lib/i18n";
+import { leavePanel } from "@/lib/panel-nav";
 import { ThemeAnimationOnly, resolveBackgroundStyle } from "@/components/ThemeBackdrop";
 
 export const Route = createFileRoute("/business")({
@@ -28,18 +25,6 @@ export const Route = createFileRoute("/business")({
     </RequireBusiness>
   ),
 });
-
-// Mostra o tempo restante de forma legível: em horas quando falta menos
-// de um dia (caso comum nos boosts de 1 dia perto do fim), em dias
-// inteiros para os pacotes mais longos.
-function formatBoostExpiry(expiresAtIso: string, tr: (k: string) => string): string {
-  const diffMs = new Date(expiresAtIso).getTime() - Date.now();
-  if (diffMs <= 0) return tr("soonLabel");
-  const hours = diffMs / 3_600_000;
-  if (hours < 24)
-    return `${tr("inHoursLabel")} ${Math.max(1, Math.round(hours))}${tr("hoursSuffix")}`;
-  return `${tr("inDaysLabel")} ${Math.ceil(hours / 24)} ${tr("daysSuffix")}`;
-}
 
 function BusinessDash() {
   const tr = useT();
@@ -52,23 +37,12 @@ function BusinessDash() {
   const [linkCopied, setLinkCopied] = useState(false);
   const { appearance } = useScreenAppearance("business");
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
-  const [activeBoost, setActiveBoost] = useState<BusinessBoost | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
   const [reservationSettings, setReservationSettings] =
     useState<BusinessReservationSettings | null>(null);
 
   useEffect(() => {
     fetchReservationSettings(businessId).then(setReservationSettings);
-  }, [businessId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    getActiveBoostForBusiness(businessId).then((b) => {
-      if (!cancelled) setActiveBoost(b);
-    });
-    return () => {
-      cancelled = true;
-    };
   }, [businessId]);
 
   useEffect(() => {
@@ -167,12 +141,22 @@ function BusinessDash() {
                 <Icon name={cat?.icon ?? "store"} size={13} /> {cat?.label ?? "—"} · {b.city}
               </div>
             </div>
-            <Link
-              to="/merchant"
-              className="press inline-flex items-center gap-1.5 rounded-full bg-primary-foreground/20 px-3 py-2 text-xs font-medium ring-1 ring-white/20 backdrop-blur-xl"
-            >
-              <Icon name="pencil" size={12} /> {tr("editAction")}
-            </Link>
+            <div className="flex flex-col items-end gap-2">
+              <Link
+                to="/merchant"
+                replace
+                className="press inline-flex items-center gap-1.5 rounded-full bg-primary-foreground/20 px-3 py-2 text-xs font-medium ring-1 ring-white/20 backdrop-blur-xl"
+              >
+                <Icon name="pencil" size={12} /> {tr("editAction")}
+              </Link>
+              <button
+                type="button"
+                onClick={() => leavePanel(navigate as never)}
+                className="press inline-flex items-center gap-1.5 rounded-full bg-primary-foreground/20 px-3 py-2 text-xs font-medium ring-1 ring-white/20 backdrop-blur-xl"
+              >
+                <Icon name="arrowLeft" size={12} /> {tr("exitPanel")}
+              </button>
+            </div>
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <div className="inline-flex items-center gap-2 rounded-full bg-primary-foreground/20 px-3 py-1.5 text-[11px] ring-1 ring-white/20 backdrop-blur-xl">
@@ -251,6 +235,7 @@ function BusinessDash() {
             ].map((a) => (
               <Link
                 key={a.l}
+                replace
                 to={
                   a.to as
                     | "/merchant"
@@ -277,6 +262,7 @@ function BusinessDash() {
             </h2>
             <Link
               to="/business-inbox"
+              replace
               className="inline-flex items-center gap-1 text-xs text-primary"
             >
               {tr("viewAllAction")} <Icon name="arrowRight" size={12} />
@@ -292,6 +278,7 @@ function BusinessDash() {
                 <li key={c.clientId}>
                   <Link
                     to="/business-inbox"
+                    replace
                     className="press flex items-center gap-3 px-4 py-3 text-sm hover:bg-accent/40"
                   >
                     <div className="grid h-10 w-10 place-items-center rounded-xl bg-accent text-accent-foreground">
@@ -350,7 +337,7 @@ function BusinessDash() {
               {isFree ? tr("freeLabel") : `${plan.price} ${tr("perMonthSuffix")}`}
             </p>
             <button
-              onClick={() => navigate({ to: "/subscribe" })}
+              onClick={() => navigate({ to: "/subscribe", replace: true })}
               className="press mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full text-sm font-semibold text-primary-foreground shadow-[var(--shadow-soft)]"
               style={{ background: "var(--gradient-primary)" }}
             >
@@ -362,31 +349,26 @@ function BusinessDash() {
                   : tr("changePlanAction")}
             </button>
             <button
-              onClick={() => navigate({ to: "/boost" })}
-              className={`press mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border text-sm font-semibold ${
-                activeBoost
-                  ? "border-emerald-400/50 bg-emerald-500/10 text-emerald-700"
-                  : "border-amber-400/50 bg-amber-500/10 text-amber-700"
-              }`}
-            >
-              <Icon name="flame" size={15} />{" "}
-              {activeBoost
-                ? `${tr("boostActiveExpires")} ${formatBoostExpiry(activeBoost.expiresAt, tr)}`
-                : `${tr("boostFromPrice")} ${BOOST_PRICE_PER_DAY_MZN} ${tr("perDaySuffix")}`}
-            </button>
-            <button
-              onClick={() => navigate({ to: "/publish-event" })}
+              onClick={() => navigate({ to: "/publish-event", replace: true })}
               className="press mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-card text-sm font-semibold text-foreground"
             >
-              <Icon name="calendar" size={15} /> Publicar evento — 50 MZN/dia
+              <Icon name="calendar" size={15} />{" "}
+              {plan.eventsPerMonth > 0
+                ? `Publicar eventos e mais — ${plan.eventsPerMonth} por mês incluídos`
+                : "Publicar eventos e mais — Pro e Premium"}
             </button>
             <p className="mt-1.5 px-3 text-center text-[11px] leading-snug text-muted-foreground">
-              Divulga a tua festa, concerto, inauguração ou promoção na aba Eventos, com cartaz e
-              contacto para bilhetes. Pagas só pelos dias que quiseres.
+              Publica festas, feiras, inaugurações, promoções e novidades com até 10 fotos
+              (carrossel, como no Instagram). Os teus seguidores recebem uma notificação. Incluído
+              no Pro (4 por mês) e no Premium (8 por mês): escolhes o dia e a hora de publicar e de
+              remover.
             </p>
+            <div className="mt-2">
+              <PublicationGuide />
+            </div>
             {reservationSettings?.acceptsRoomReservation && (
               <button
-                onClick={() => navigate({ to: "/manage-rooms" })}
+                onClick={() => navigate({ to: "/manage-rooms", replace: true })}
                 className="press mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-card text-sm font-semibold text-foreground"
               >
                 <Icon name="bed" size={15} /> Gerir quartos
@@ -395,7 +377,7 @@ function BusinessDash() {
             {(reservationSettings?.acceptsRoomReservation ||
               reservationSettings?.acceptsTableReservation) && (
               <button
-                onClick={() => navigate({ to: "/reservations-dashboard" })}
+                onClick={() => navigate({ to: "/reservations-dashboard", replace: true })}
                 className="press mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-card text-sm font-semibold text-foreground"
               >
                 <Icon name="calendar-check" size={15} /> Reservas
@@ -403,7 +385,7 @@ function BusinessDash() {
             )}
             {(reservationSettings?.roomEligible || reservationSettings?.tableEligible) && (
               <button
-                onClick={() => navigate({ to: "/reservation-settings" })}
+                onClick={() => navigate({ to: "/reservation-settings", replace: true })}
                 className="press mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-dashed border-border text-sm font-semibold text-muted-foreground"
               >
                 <Icon name="info" size={15} /> Definições de reserva

@@ -227,33 +227,56 @@ function matchesLocation(b: BusinessDB, location?: LocationFilter): boolean {
   return city ? b.city.toLowerCase().includes(city.toLowerCase()) : true;
 }
 
+// Cache curto + pedido partilhado: a Home chama a lista duas vezes (cidade e
+// "online"), a busca e as notificações de proximidade também. Sem isto eram
+// 2–4 pedidos iguais, com todas as colunas, a cada abertura de ecrã.
+const BUSINESSES_TTL_MS = 30_000;
+let businessesCache: { at: number; data: BusinessDB[] } | null = null;
+let businessesInflight: Promise<BusinessDB[]> | null = null;
+
+// Chamar depois de qualquer alteração a um negócio, para o próximo ecrã ver
+// os dados novos em vez de esperar 30 s.
+export function invalidateBusinessesCache() {
+  businessesCache = null;
+}
+
+async function fetchRealBusinessesCached(): Promise<BusinessDB[]> {
+  if (!SUPABASE_CONFIGURED || !supabase) return [];
+  if (businessesCache && Date.now() - businessesCache.at < BUSINESSES_TTL_MS) {
+    return businessesCache.data;
+  }
+  if (businessesInflight) return businessesInflight;
+  const client = supabase;
+  businessesInflight = (async () => {
+    try {
+      // Lê de "businesses_public" (sem dados sensíveis da conta). A filtragem
+      // por localização é feita depois, em matchesLocation().
+      const { data, error } = await client
+        .from("businesses_public")
+        .select("*")
+        .in("plan_status", ["active", "trial"])
+        .order("rating", { ascending: false });
+      if (!error && data) {
+        businessesCache = { at: Date.now(), data: data as BusinessDB[] };
+        return data as BusinessDB[];
+      }
+      return [];
+    } catch (err) {
+      console.warn("fetchBusinesses: Supabase indisponível, a usar apenas dados locais.", err);
+      return [];
+    } finally {
+      businessesInflight = null;
+    }
+  })();
+  return businessesInflight;
+}
+
 export async function fetchBusinesses(location?: string | LocationFilter): Promise<BusinessDB[]> {
   // Aceita tanto uma string simples (compatibilidade com chamadas
   // antigas, ex: fetchMapPins) como {province, city}.
   const loc: LocationFilter | undefined =
     typeof location === "string" ? { city: location } : location;
-  let real: BusinessDB[] = [];
-  if (SUPABASE_CONFIGURED && supabase) {
-    try {
-      // Filtragem por localização já não é feita aqui em SQL — ver
-      // matchesLocation() e o comentário acima.
-      // CONSERTO (auditoria de segurança, bloco v36/v37): lê de
-      // "businesses_public" em vez de "businesses" — desde o bloco v37,
-      // owner_name/email nem sequer estão mais na tabela "businesses"
-      // (vivem em "business_accounts", RLS só dono/admin), mas a view
-      // continua a existir como camada extra de segurança para o
-      // caminho público, caso a tabela volte a ganhar colunas
-      // sensíveis no futuro.
-      const { data, error } = await supabase
-        .from("businesses_public")
-        .select("*")
-        .in("plan_status", ["active", "trial"])
-        .order("rating", { ascending: false });
-      if (!error && data) real = data as BusinessDB[];
-    } catch (err) {
-      console.warn("fetchBusinesses: Supabase indisponível, a usar apenas dados locais.", err);
-    }
-  }
+  const real = await fetchRealBusinessesCached();
   const demo = PLACES.map(placeToBusinessDB);
   return [...real, ...demo].filter((b) => matchesLocation(b, loc));
 }
@@ -428,6 +451,7 @@ export async function upsertBusiness(
       .select()
       .single();
     if (error) throw new Error(error.message);
+    invalidateBusinessesCache();
     return data as BusinessDB;
   }
   return null;
@@ -529,7 +553,7 @@ export function useDiscoverPlaces(location?: string | LocationFilter) {
   const locKey =
     typeof location === "string" ? location : `${location?.province ?? ""}|${location?.city ?? ""}`;
 
-  const reload = useCallback(() => {
+  const load = useCallback(() => {
     setLoading(true);
     fetchBusinesses(location)
       .then((list) => setPlaces(list.map(businessToPlace)))
@@ -542,8 +566,14 @@ export function useDiscoverPlaces(location?: string | LocationFilter) {
   }, [locKey]);
 
   useEffect(() => {
-    reload();
-  }, [reload]);
+    load();
+  }, [load]);
+
+  // Recarregamento pedido pelo utilizador: ignora a cache de 30 s.
+  const reload = useCallback(() => {
+    invalidateBusinessesCache();
+    load();
+  }, [load]);
 
   return { places, loading, reload };
 }

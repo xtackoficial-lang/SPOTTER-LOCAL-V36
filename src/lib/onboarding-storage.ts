@@ -64,6 +64,7 @@ export interface BusinessProfile {
   themeId?: string;
   backgroundId?: string;
   blockOrder?: string[];
+  galleryLayout?: string; // "strip" | "mosaic" | "grid" (ver profile-styles.ts)
 }
 
 export interface OnboardingDraft {

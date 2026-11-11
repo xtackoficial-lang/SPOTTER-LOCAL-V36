@@ -60,7 +60,7 @@ export function StatusChips<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1" role="tablist">
+    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 py-2" role="tablist">
       {options.map((o) => {
         const active = o.id === value;
         return (
@@ -75,7 +75,7 @@ export function StatusChips<T extends string>({
                 ? "border-primary bg-primary text-primary-foreground"
                 : o.urgent && (o.count ?? 0) > 0
                   ? "border-red-500/40 bg-red-500/10 text-red-700"
-                  : "border-border bg-card text-foreground"
+                  : "glass-btn text-foreground"
             }`}
           >
             {o.label}

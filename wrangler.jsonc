@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // O "name" tem de ser IGUAL ao nome do Worker no painel da Cloudflare.
+  "name": "spotter-local",
+  "compatibility_date": "2025-01-01",
+  "assets": {
+    "directory": "./dist",
+    // App de página única: /admin, /privacy, /place/123… abrem ao recarregar em vez de dar 404.
+    "not_found_handling": "single-page-application"
+  }
+}

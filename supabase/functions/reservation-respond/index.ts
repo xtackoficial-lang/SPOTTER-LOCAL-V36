@@ -21,6 +21,7 @@
 
 // @ts-nocheck — ambiente Deno (Supabase Edge Functions).
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { LIMITS, rateLimit, tooManyRequests } from "../_shared/rate-limit.ts";
 import {
   sendReservationChatMessage,
   sendReservationPush,
@@ -73,6 +74,9 @@ Deno.serve(async (req: Request) => {
         headers: CORS_HEADERS,
       });
     }
+
+    const rl = await rateLimit(supabase, `resp:${callerId}`, LIMITS.reservationRespond.limit, LIMITS.reservationRespond.window);
+    if (!rl.allowed) return tooManyRequests(rl.retryAfter, CORS_HEADERS);
 
     const body = await req.json().catch(() => ({}));
     const { reservationId, action, reason } = body as {

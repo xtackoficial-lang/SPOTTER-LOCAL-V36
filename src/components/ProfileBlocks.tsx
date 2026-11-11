@@ -8,11 +8,13 @@
 // sempre sobre uma camada escura sólida antes do brilho, nunca
 // brilho-sobre-brilho).
 // ============================================================
+import { useState } from "react";
 import { Icon } from "./Icon";
+import { ImageViewer } from "./ImageViewer";
 import { VerifiedBadge } from "./VerifiedBadge";
 import { priceText, type Place } from "@/lib/places-data";
 import type { ProductDB } from "@/lib/businesses-db";
-import type { ProfileTheme } from "@/lib/profile-styles";
+import { galleryLayoutFromBlockOrder, type ProfileTheme } from "@/lib/profile-styles";
 import { provinceForCity } from "@/lib/mozambique-locations";
 import { useT } from "@/lib/i18n";
 
@@ -55,6 +57,7 @@ export function glowShadow(theme: ProfileTheme) {
 
 export function BlockCover({ ctx }: { ctx: BlockContext }) {
   const { place, theme, fav, onBack, onToggleFavorite } = ctx;
+  const [viewCover, setViewCover] = useState(false);
   return (
     <div className="relative h-64 w-full overflow-hidden" style={{ background: theme.card }}>
       <img
@@ -62,16 +65,24 @@ export function BlockCover({ ctx }: { ctx: BlockContext }) {
         decoding="async"
         src={place.cover}
         alt={place.name}
-        className="h-full w-full object-cover"
+        className="h-full w-full cursor-zoom-in object-cover"
+        onClick={() => place.cover && setViewCover(true)}
       />
       <div
-        className="absolute inset-0"
+        className="pointer-events-none absolute inset-0"
         style={{ background: `linear-gradient(180deg, rgba(0,0,0,0.05) 0%, ${theme.bg}E6 92%)` }}
       />
+      {viewCover && place.cover && (
+        <ImageViewer
+          images={[place.cover, ...(place.gallery ?? [])]}
+          alt={place.name}
+          onClose={() => setViewCover(false)}
+        />
+      )}
       <div className="absolute left-4 top-12 right-4 flex justify-between">
         <button
           onClick={onBack}
-          className="press grid h-10 w-10 place-items-center rounded-full backdrop-blur"
+          className="press theme-glass grid h-10 w-10 place-items-center rounded-full"
           style={{
             background: "rgba(20,18,16,0.55)",
             border: `1px solid ${theme.border}`,
@@ -82,7 +93,7 @@ export function BlockCover({ ctx }: { ctx: BlockContext }) {
         </button>
         <button
           onClick={onToggleFavorite}
-          className="press grid h-10 w-10 place-items-center rounded-full backdrop-blur"
+          className="press theme-glass grid h-10 w-10 place-items-center rounded-full"
           style={{
             background: "rgba(20,18,16,0.55)",
             border: `1px solid ${theme.border}`,
@@ -213,7 +224,7 @@ export function BlockContactRow({ ctx }: { ctx: BlockContext }) {
         <button
           key={it.label}
           onClick={it.onClick}
-          className="press flex flex-1 flex-col items-center gap-1.5 rounded-2xl p-3 text-xs font-medium"
+          className="press theme-glass theme-glass-wide flex flex-1 flex-col items-center gap-1.5 rounded-2xl p-3 text-xs font-medium"
           style={{
             background: theme.card,
             border: `1px solid ${theme.border}`,
@@ -243,7 +254,7 @@ export function BlockRouteBig({ ctx }: { ctx: BlockContext }) {
     <div className="px-4 pb-3">
       <button
         onClick={onRoute}
-        className="press flex w-full items-center gap-3 rounded-2xl p-4"
+        className="press theme-glass theme-glass-wide flex w-full items-center gap-3 rounded-2xl p-4"
         style={{
           border: `1px solid ${theme.border}`,
           background: theme.glow
@@ -301,7 +312,7 @@ export function BlockRouteHero({ ctx }: { ctx: BlockContext }) {
         </div>
         <button
           onClick={onRoute}
-          className="press w-full rounded-xl py-3 text-sm font-bold"
+          className="press theme-gloss w-full rounded-xl py-3 text-sm font-bold"
           style={{ background: theme.accent, color: theme.bg }}
         >
           {tr("startRouteAction")}
@@ -353,7 +364,7 @@ export function BlockReserve({
           <button
             disabled={!msg.trim()}
             onClick={() => onSend(msg.trim())}
-            className="press grid h-11 w-11 shrink-0 place-items-center rounded-xl"
+            className="press theme-glass theme-gloss grid h-11 w-11 shrink-0 place-items-center rounded-xl"
             style={{
               background: msg.trim() ? theme.accent : theme.border,
               color: theme.bg,
@@ -368,7 +379,7 @@ export function BlockReserve({
             <button
               key={s}
               onClick={() => onSend(s)}
-              className="press rounded-full px-3 py-1.5 text-xs"
+              className="press theme-glass rounded-full px-3 py-1.5 text-xs"
               style={{ border: `1px solid ${theme.border}`, color: theme.text }}
             >
               {s}
@@ -380,24 +391,149 @@ export function BlockReserve({
   );
 }
 
+// Galeria do perfil — o comerciante escolhe a forma (Editar perfil → Visual → "Forma da galeria"):
+//   strip  → fila deslizante de quadrados (a forma original, é a predefinida)
+//   mosaic → 1 foto grande + até 4 pequenas, "+N" na última (precisa de 4+ fotos; com menos, fila)
+//   grid   → grelha de quadrados, 3 por linha, como o perfil do Instagram (1 foto = grande, 2 = duas colunas)
+// A escolha vem em place.blockOrder (etiqueta "galeria:<forma>", ver profile-styles.ts).
+// Em todas, tocar numa foto abre o visualizador (deslizar, pinça, duplo toque).
+const GALLERY_FIRST_PAGE = 9;
+
 export function BlockGallery({ ctx }: { ctx: BlockContext }) {
   const { place, theme } = ctx;
-  if (!place.gallery || place.gallery.length === 0) return null;
+  const tr = useT();
+  const [open, setOpen] = useState<number | null>(null);
+  const [all, setAll] = useState(false);
+  const gallery = place.gallery ?? [];
+  if (gallery.length === 0) return null;
+
+  const n = gallery.length;
+  const chosen = galleryLayoutFromBlockOrder(place.blockOrder);
+  const layout = chosen === "mosaic" && n < 4 ? "strip" : chosen;
+
+  const viewer =
+    open !== null ? (
+      <ImageViewer
+        images={gallery}
+        startIndex={open}
+        alt={place.name}
+        onClose={() => setOpen(null)}
+      />
+    ) : null;
+
+  // ── Mosaico ──
+  if (layout === "mosaic") {
+    const small = Math.min(4, n - 1);
+    const hidden = n - 1 - small; // fotos que ficam fora do mosaico
+    // Com 4 fotos (3 pequenas) a 1.ª pequena ocupa a linha de cima inteira.
+    const spanFor = (k: number) => (n === 4 && k === 0 ? "col-span-2" : "");
+    const tile = (idx: number, cls: string, extra?: string) => (
+      <button
+        type="button"
+        key={idx}
+        onClick={() => setOpen(idx)}
+        aria-label={`${place.name} — foto ${idx + 1}`}
+        className={`press relative overflow-hidden rounded-2xl ${cls}`}
+        style={{ border: `1px solid ${theme.border}` }}
+      >
+        <img
+          loading="lazy"
+          decoding="async"
+          src={gallery[idx]}
+          alt={`${place.name} — foto ${idx + 1}`}
+          draggable={false}
+          className="h-full w-full object-cover"
+        />
+        {extra && (
+          <span className="absolute inset-0 grid place-items-center bg-black/55 text-xl font-bold text-white">
+            {extra}
+          </span>
+        )}
+      </button>
+    );
+    return (
+      <div className="px-4 pb-3" data-gallery="mosaic">
+        <div className="grid h-56 grid-cols-4 grid-rows-2 gap-1.5">
+          {tile(0, "col-span-2 row-span-2")}
+          {Array.from({ length: small }, (_, k) =>
+            tile(k + 1, spanFor(k), hidden > 0 && k === small - 1 ? `+${hidden + 1}` : undefined),
+          )}
+        </div>
+        {viewer}
+      </div>
+    );
+  }
+
+  // ── Grelha (estilo perfil do Instagram) ──
+  if (layout === "grid") {
+    const shown = all ? gallery : gallery.slice(0, GALLERY_FIRST_PAGE);
+    const cols = n === 1 ? "grid-cols-1" : n === 2 ? "grid-cols-2" : "grid-cols-3";
+    const ratio = n === 1 ? "aspect-[4/5]" : "aspect-square";
+    return (
+      <div className="px-4 pb-3" data-gallery="grid">
+        <div
+          className={`grid ${cols} gap-0.5 overflow-hidden rounded-2xl`}
+          style={{ border: `1px solid ${theme.border}` }}
+        >
+          {shown.map((src, i) => (
+            <button
+              type="button"
+              key={`${src}-${i}`}
+              onClick={() => setOpen(i)}
+              aria-label={`${place.name} — foto ${i + 1}`}
+              className={`press relative block w-full overflow-hidden bg-black/5 ${ratio}`}
+            >
+              <img
+                loading={i < 6 ? "eager" : "lazy"}
+                decoding="async"
+                src={src}
+                alt={`${place.name} — foto ${i + 1}`}
+                draggable={false}
+                className="h-full w-full object-cover"
+              />
+            </button>
+          ))}
+        </div>
+        {n > GALLERY_FIRST_PAGE && (
+          <button
+            type="button"
+            onClick={() => setAll((v) => !v)}
+            className="press mt-2 w-full rounded-xl py-2 text-xs font-semibold"
+            style={{ color: theme.accent, background: theme.accentSoft }}
+          >
+            {all ? "▲" : `${tr("seeAll")} (${n})`}
+          </button>
+        )}
+        {viewer}
+      </div>
+    );
+  }
+
+  // ── Fila deslizante (a forma original) ──
   return (
-    <div className="px-4 pb-3">
+    <div className="px-4 pb-3" data-gallery="strip">
       <div className="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {place.gallery.map((src, i) => (
-          <img
-            loading="lazy"
-            decoding="async"
-            key={i}
-            src={src}
-            alt={`${place.name} — foto ${i + 1}`}
-            className="h-24 w-24 shrink-0 rounded-2xl object-cover"
-            style={{ border: `1px solid ${theme.border}` }}
-          />
+        {gallery.map((src, i) => (
+          <button
+            type="button"
+            key={`${src}-${i}`}
+            onClick={() => setOpen(i)}
+            aria-label={`${place.name} — foto ${i + 1}`}
+            className="press shrink-0 rounded-2xl"
+          >
+            <img
+              loading="lazy"
+              decoding="async"
+              src={src}
+              alt={`${place.name} — foto ${i + 1}`}
+              draggable={false}
+              className="h-24 w-24 rounded-2xl object-cover"
+              style={{ border: `1px solid ${theme.border}` }}
+            />
+          </button>
         ))}
       </div>
+      {viewer}
     </div>
   );
 }
@@ -417,6 +553,7 @@ function BlockProductList({
   icon: string;
 }) {
   const { theme, products, onProductClick } = ctx;
+  const [viewProd, setViewProd] = useState<{ url: string; name: string } | null>(null);
   if (products.length === 0) return null;
   return (
     <div className="px-4 pb-3">
@@ -431,10 +568,21 @@ function BlockProductList({
           <button
             key={p.id}
             onClick={() => onProductClick(p)}
-            className="press flex flex-col overflow-hidden rounded-2xl text-left"
+            className="press theme-glass theme-glass-wide flex flex-col overflow-hidden rounded-2xl text-left"
             style={{ border: `1px solid ${theme.border}`, background: theme.card }}
           >
-            <div className="h-20 w-full overflow-hidden" style={{ background: theme.bg }}>
+            <div
+              className="h-20 w-full overflow-hidden"
+              style={{ background: theme.bg }}
+              onClick={
+                p.image_url
+                  ? (e) => {
+                      e.stopPropagation();
+                      setViewProd({ url: p.image_url as string, name: p.name });
+                    }
+                  : undefined
+              }
+            >
               {p.image_url ? (
                 <img
                   loading="lazy"
@@ -463,6 +611,13 @@ function BlockProductList({
           </button>
         ))}
       </div>
+      {viewProd && (
+        <ImageViewer
+          images={[viewProd.url]}
+          alt={viewProd.name}
+          onClose={() => setViewProd(null)}
+        />
+      )}
     </div>
   );
 }

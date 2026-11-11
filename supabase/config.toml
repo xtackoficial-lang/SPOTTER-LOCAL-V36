@@ -4,21 +4,17 @@
 # IMPORTANTE: por omissão o Supabase só deixa passar pedidos com um JWT
 # de utilizador válido. Estas 4 funções são chamadas por SERVIDORES (não
 # por utilizadores) e fazem a sua própria autenticação:
-#   - zumbopay-webhook ........ a ZumboPay chama sem JWT; a função valida a
-#                               assinatura HMAC (x-zumbopay-signature)
-#   - run-billing-engine, reactivate-rooms, send-scheduled-notifications
+#   - run-billing-engine, reactivate-rooms, send-scheduled-notifications,
+#     notify-new-events (v45)
 #                               chamadas pelo pg_cron com FUNCTION_SECRET
 # Sem verify_jwt = false, o pedido é recusado com 401 ANTES de chegar ao
-# código — o pagamento fica pago na ZumboPay mas NUNCA é confirmado na app.
+# código.
 #
-# As restantes (create-zumbopay-payment, reservation-respond,
+# As restantes (create-mpesa-payment, reservation-respond,
 # delete-own-account, send-merchant-promo) usam o JWT do utilizador e
 # mantêm a verificação ligada.
 # ============================================================
 project_id = "spotter-local"
-
-[functions.zumbopay-webhook]
-verify_jwt = false
 
 [functions.run-billing-engine]
 verify_jwt = false
@@ -27,4 +23,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.send-scheduled-notifications]
+verify_jwt = false
+
+[functions.notify-new-events]
 verify_jwt = false

@@ -4,10 +4,13 @@
 // conta. Pede o email e manda o link via sendPasswordReset() (auth.ts).
 // ============================================================
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { ShimmerButton } from "@/components/ShimmerButton";
-import { sendPasswordReset } from "@/lib/auth";
+import { TurnstileWidget, type TurnstileHandle } from "@/components/TurnstileWidget";
+import { TURNSTILE_ENABLED } from "@/lib/turnstile";
+import { sendPasswordReset, verifyRecoveryCode } from "@/lib/auth";
+import { OtpInput } from "@/components/OtpInput";
 import { useT } from "@/lib/i18n";
 
 export const Route = createFileRoute("/forgot-password")({
@@ -21,18 +24,48 @@ function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
   const [error, setError] = useState("");
+  // v41: captcha Turnstile (só activo com VITE_TURNSTILE_SITE_KEY)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<TurnstileHandle>(null);
+  // Código de 6 dígitos que chega por e-mail (31/10/2026: substitui o link).
+  const [otp, setOtp] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
 
   const handleSend = async () => {
     if (!email) return;
     setStatus("sending");
     setError("");
-    const { error: sendError } = await sendPasswordReset(email);
+    const { error: sendError } = await sendPasswordReset(email, captchaToken);
+    captchaRef.current?.reset(); // o token só serve uma vez
     if (sendError) {
       setError(sendError);
       setStatus("idle");
     } else {
+      setOtp("");
+      setCooldown(60);
       setStatus("sent");
     }
+  };
+
+  const handleVerify = async (code: string) => {
+    if (verifying) return;
+    setVerifying(true);
+    setError("");
+    const { user, error: verifyError } = await verifyRecoveryCode(email, code);
+    setVerifying(false);
+    if (verifyError || !user) {
+      setError(verifyError ?? tr("otpWrong"));
+      setOtp("");
+      return;
+    }
+    // Sessão de recuperação aberta: a página seguinte pede só a senha nova.
+    navigate({ to: "/reset-password" });
   };
 
   return (
@@ -51,13 +84,47 @@ function ForgotPasswordPage() {
           </div>
           <h1 className="text-lg font-bold text-foreground">{tr("forgotPasswordSentTitle")}</h1>
           <p className="text-sm text-muted-foreground">
-            {tr("forgotPasswordSentBody").replace("{email}", email)}
+            {tr("otpRecoveryBody").replace("{email}", email)}
           </p>
-          <button
-            className="mt-2 text-xs text-muted-foreground hover:text-primary transition"
-            onClick={handleSend}
+          <OtpInput
+            value={otp}
+            onChange={setOtp}
+            onComplete={handleVerify}
+            disabled={verifying}
+            invalid={!!error}
+          />
+          <p className="text-[11px] text-muted-foreground">{tr("otpSpamHint")}</p>
+          {error && (
+            <div className="flex items-center gap-2 rounded-xl bg-destructive/10 border border-destructive/20 px-3 py-2.5 text-xs text-destructive animate-slide-up">
+              <Icon name="x" size={12} /> {error}
+            </div>
+          )}
+          <ShimmerButton
+            className="press ripple h-12 w-full rounded-2xl text-sm font-bold text-primary-foreground disabled:opacity-40 transition hover:opacity-90"
+            style={{ background: "var(--gradient-primary)" }}
+            disabled={otp.length !== 6 || verifying}
+            onClick={() => handleVerify(otp)}
           >
-            {tr("forgotPasswordResend")}
+            {verifying ? tr("otpVerifying") : tr("otpVerifyButton")}
+          </ShimmerButton>
+          <button
+            className="mt-2 text-xs text-muted-foreground hover:text-primary transition disabled:opacity-50"
+            disabled={cooldown > 0}
+            onClick={() => {
+              // Com captcha, o token é de uso único: volta ao formulário para
+              // fazer a verificação outra vez antes de reenviar.
+              if (TURNSTILE_ENABLED) {
+                setCaptchaToken(null);
+                setError("");
+                setStatus("idle");
+              } else {
+                handleSend();
+              }
+            }}
+          >
+            {cooldown > 0
+              ? tr("otpResendIn").replace("{s}", String(cooldown))
+              : tr("forgotPasswordResend")}
           </button>
           <Link to="/" className="mt-6 text-xs font-medium text-primary hover:underline">
             {tr("backToLogin")}
@@ -73,6 +140,11 @@ function ForgotPasswordPage() {
               <div className="mb-1 text-xs font-semibold text-foreground">Email</div>
               <input
                 type="email"
+                inputMode="email"
+                autoComplete="email"
+                autoCapitalize="none"
+                spellCheck={false}
+                maxLength={254}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
@@ -81,6 +153,7 @@ function ForgotPasswordPage() {
                 autoFocus
               />
             </div>
+            <TurnstileWidget ref={captchaRef} onToken={setCaptchaToken} />
             {error && (
               <div className="flex items-center gap-2 rounded-xl bg-destructive/10 border border-destructive/20 px-3 py-2.5 text-xs text-destructive animate-slide-up">
                 <Icon name="x" size={12} /> {error}
@@ -89,7 +162,7 @@ function ForgotPasswordPage() {
             <ShimmerButton
               className="press ripple h-12 w-full rounded-2xl text-sm font-bold text-primary-foreground disabled:opacity-40 transition hover:opacity-90"
               style={{ background: "var(--gradient-primary)" }}
-              disabled={!email || status === "sending"}
+              disabled={!email || status === "sending" || (TURNSTILE_ENABLED && !captchaToken)}
               onClick={handleSend}
             >
               {tr("forgotPasswordSendButton")}

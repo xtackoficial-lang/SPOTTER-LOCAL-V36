@@ -279,7 +279,7 @@ function MerchantModal({
           </div>
           <button
             onClick={onClose}
-            className="press grid h-8 w-8 place-items-center rounded-full bg-muted"
+            className="press grid h-8 w-8 place-items-center rounded-full glass-btn"
           >
             <Icon name="x" size={14} />
           </button>

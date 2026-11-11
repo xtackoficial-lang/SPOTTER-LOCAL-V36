@@ -33,10 +33,10 @@ function check(name, cond) {
 
 console.log("\n=== TESTE 1: valores exatos que pediste hoje ===");
 const expected = {
-  free: { fotos: 2, produtos: 3 },
-  starter: { fotos: 6, produtos: 8 },
-  pro: { fotos: 10, produtos: 14 },
-  premium: { fotos: 15, produtos: 20 },
+  free: { fotos: 6, produtos: 3 },
+  starter: { fotos: 13, produtos: 8 },
+  pro: { fotos: 17, produtos: 14 },
+  premium: { fotos: 26, produtos: 20 },
 };
 for (const [id, exp] of Object.entries(expected)) {
   const plan = getPlanById(id);
@@ -46,7 +46,7 @@ for (const [id, exp] of Object.entries(expected)) {
 
 console.log("\n=== TESTE 2: plano inexistente cai em segurança no Free (não crasha) ===");
 const fallback = getPlanById("plano_que_nao_existe");
-check("plano desconhecido devolve o Free (2 fotos)", fallback.galleryLimit === 2);
+check("plano desconhecido devolve o Free (6 fotos)", fallback.galleryLimit === 6);
 check("plano desconhecido devolve o Free (3 produtos)", fallback.maxProducts === 3);
 
 console.log("\n=== TESTE 3: simulação real do limite de upload de galeria (merchant.tsx) ===");
@@ -60,20 +60,20 @@ function simulateGalleryUpload(planId, currentGalleryCount, filesToUpload) {
   return { accepted, blocked: accepted < filesToUpload };
 }
 
-let sim = simulateGalleryUpload("free", 0, 5); // Free só tem 2 fotos, tenta enviar 5
-check("Free com galeria vazia + 5 ficheiros → aceita só 2", sim.accepted === 2);
-check("Free com galeria vazia + 5 ficheiros → fica bloqueado para o resto", sim.blocked === true);
+let sim = simulateGalleryUpload("free", 0, 9); // Free só tem 6 fotos, tenta enviar 9
+check("Free com galeria vazia + 9 ficheiros → aceita só 6", sim.accepted === 6);
+check("Free com galeria vazia + 9 ficheiros → fica bloqueado para o resto", sim.blocked === true);
 
-sim = simulateGalleryUpload("free", 2, 1); // já no limite
-check("Free já no limite (2/2) → bloqueia upload novo", sim.accepted === 0 && sim.blocked === true);
+sim = simulateGalleryUpload("free", 6, 1); // já no limite
+check("Free já no limite (6/6) → bloqueia upload novo", sim.accepted === 0 && sim.blocked === true);
 
-sim = simulateGalleryUpload("premium", 10, 3); // Premium 15, tem 10, manda 3
-check("Premium com 10/15 + 3 ficheiros → aceita os 3", sim.accepted === 3 && sim.blocked === false);
+sim = simulateGalleryUpload("premium", 10, 3); // Premium 26, tem 10, manda 3
+check("Premium com 10/26 + 3 ficheiros → aceita os 3", sim.accepted === 3 && sim.blocked === false);
 
-sim = simulateGalleryUpload("pro", 9, 5); // Pro 10, tem 9, manda 5 → só cabe 1
+sim = simulateGalleryUpload("pro", 15, 5); // Pro 17, tem 15, manda 5 → só cabem 2
 check(
-  "Pro com 9/10 + 5 ficheiros → aceita só 1, resto bloqueado",
-  sim.accepted === 1 && sim.blocked === true,
+  "Pro com 15/17 + 5 ficheiros → aceita só 2, resto bloqueado",
+  sim.accepted === 2 && sim.blocked === true,
 );
 
 console.log(
@@ -83,16 +83,16 @@ function simulateVisibleGallery(planId, galleryUrls) {
   const limit = getPlanById(planId).galleryLimit;
   return galleryUrls.slice(0, limit);
 }
-const galeriaCom20Fotos = Array.from({ length: 20 }, (_, i) => `foto${i + 1}.jpg`);
+const galeriaCom20Fotos = Array.from({ length: 30 }, (_, i) => `foto${i + 1}.jpg`);
 let visible = simulateVisibleGallery("pro", galeriaCom20Fotos); // tinha Premium(15), desceu p/ Pro(10)... aqui simula Pro directo
-check("negócio com 20 fotos no Pro (limite 10) → só mostra 10", visible.length === 10);
+check("negócio com 30 fotos no Pro (limite 17) → só mostra 17", visible.length === 17);
 check(
-  "mostra exatamente as 10 primeiras, não apaga as outras 10 do array original",
-  galeriaCom20Fotos.length === 20,
+  "mostra exatamente as 17 primeiras, não apaga as outras 13 do array original",
+  galeriaCom20Fotos.length === 30,
 );
 
 visible = simulateVisibleGallery("free", galeriaCom20Fotos);
-check("mesmo negócio, se cair para Free (limite 2) → só mostra 2", visible.length === 2);
+check("mesmo negócio, se cair para Free (limite 6) → só mostra 6", visible.length === 6);
 
 console.log(
   `\n${"=".repeat(50)}\nRESULTADO: ${pass} passaram, ${fail} falharam\n${"=".repeat(50)}`,

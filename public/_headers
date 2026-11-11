@@ -1,0 +1,17 @@
+# Cabeçalhos no Cloudflare (equivalem ao vercel.json). Ficheiro lido pelo Workers e pelo Pages.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(self), microphone=(self), camera=(self), payment=(self)
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/backgrounds/*
+  Cache-Control: public, max-age=2592000
+
+# O service worker nunca pode ficar em cache longa, senão as actualizações não chegam aos telemóveis.
+/sw.js
+  Cache-Control: no-cache

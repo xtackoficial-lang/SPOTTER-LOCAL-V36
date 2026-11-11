@@ -21,6 +21,7 @@ import { syncProfileToSupabase } from "@/lib/auth";
 import { upsertBusiness, upsertBusinessAccount } from "@/lib/businesses-db";
 import { ShimmerButton } from "@/components/ShimmerButton";
 import { SUPABASE_CONFIGURED } from "@/lib/supabase";
+import { normalizePhone, validatePersonName, validateWebsite } from "@/lib/validators";
 import {
   extractCoordinatesFromGoogleMaps,
   resolveLocationInput,
@@ -372,7 +373,7 @@ function Onboarding() {
               // trial, sem pagamento) e vai directo para o painel. A
               // escolha de um plano pago é opcional e fica disponível no
               // painel ("Fazer upgrade"), não é forçada aqui.
-              navigate({ to: "/business" });
+              navigate({ to: "/business", replace: true });
             }}
           />
         )}
@@ -1232,7 +1233,18 @@ function DetailsStep({
   syncError?: string | null;
 }) {
   const tr = useT();
-  const ok = business.description && business.phone && business.ownerName;
+  // v41 (segurança): dados reais — telemóvel válido (sem dígitos a mais), nome só com
+  // letras, site (se escrito) com endereço verdadeiro.
+  const phoneCheck = business.phone ? normalizePhone(business.phone) : null;
+  const ownerCheck = business.ownerName ? validatePersonName(business.ownerName, "nome") : null;
+  const siteCheck = business.website ? validateWebsite(business.website) : null;
+  const ok =
+    business.description &&
+    business.phone &&
+    business.ownerName &&
+    phoneCheck?.ok &&
+    ownerCheck?.ok &&
+    (siteCheck === null || siteCheck.ok);
   return (
     <>
       <StepTitle title={tr("finalDetailsTitle")} subtitle={tr("moreCompleteMoreVisible")} />
@@ -1249,11 +1261,19 @@ function DetailsStep({
         <div>
           <Label className="text-xs">{tr("attendanceNumberLabel")}</Label>
           <Input
-            placeholder="+258 ..."
+            placeholder="+258 84 123 4567"
             value={business.phone ?? ""}
-            onChange={(e) => onChange({ phone: e.target.value })}
+            onChange={(e) => onChange({ phone: e.target.value.replace(/[^\d\s+()-]/g, "") })}
+            onBlur={() => {
+              if (phoneCheck?.ok) onChange({ phone: phoneCheck.value });
+            }}
+            inputMode="tel"
+            maxLength={20}
             className="mt-1 h-11 rounded-xl"
           />
+          {phoneCheck && !phoneCheck.ok && (
+            <p className="mt-1 text-[11px] text-destructive">{phoneCheck.error}</p>
+          )}
         </div>
         <div>
           <Label className="text-xs">{tr("ownerManagerLabel")}</Label>
@@ -1261,8 +1281,12 @@ function DetailsStep({
             placeholder={tr("yourNamePlaceholder")}
             value={business.ownerName ?? ""}
             onChange={(e) => onChange({ ownerName: e.target.value })}
+            maxLength={80}
             className="mt-1 h-11 rounded-xl"
           />
+          {ownerCheck && !ownerCheck.ok && (
+            <p className="mt-1 text-[11px] text-destructive">{ownerCheck.error}</p>
+          )}
         </div>
         <div>
           <Label className="text-xs">{tr("officialWebsiteLabel")}</Label>
@@ -1272,6 +1296,9 @@ function DetailsStep({
             onChange={(e) => onChange({ website: e.target.value })}
             className="mt-1 h-11 rounded-xl"
           />
+          {siteCheck && !siteCheck.ok && (
+            <p className="mt-1 text-[11px] text-destructive">{siteCheck.error}</p>
+          )}
         </div>
         <div>
           <Label className="text-xs">{tr("coverImageLabel")}</Label>

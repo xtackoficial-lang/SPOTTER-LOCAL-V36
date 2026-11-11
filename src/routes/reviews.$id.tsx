@@ -193,10 +193,10 @@ function ReviewsPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card/90 px-5 pb-3 pt-12 backdrop-blur-xl">
+      <header className="glass-bar sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card/90 px-5 pb-3 pt-12 backdrop-blur-xl">
         <button
           onClick={() => navigate({ to: "/place/$id", params: { id: businessId } })}
-          className="press grid h-9 w-9 place-items-center rounded-full bg-muted text-muted-foreground"
+          className="press grid h-9 w-9 place-items-center rounded-full glass-btn text-muted-foreground"
         >
           <Icon name="arrowLeft" size={16} />
         </button>

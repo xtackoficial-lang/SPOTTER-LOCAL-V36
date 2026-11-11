@@ -87,6 +87,7 @@ function QRBusinessPage() {
       <header className="flex items-center gap-3 border-b border-border px-5 py-4">
         <Link
           to="/business"
+          replace
           className="press grid h-9 w-9 place-items-center rounded-xl border border-border bg-card"
         >
           <Icon name="arrowLeft" size={16} />

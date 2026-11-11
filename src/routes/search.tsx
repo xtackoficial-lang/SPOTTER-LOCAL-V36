@@ -136,7 +136,7 @@ function SearchPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-10 border-b border-border bg-card/90 px-5 pb-3 pt-12 backdrop-blur-xl">
+      <header className="glass-bar sticky top-0 z-10 border-b border-border bg-card/90 px-5 pb-3 pt-12 backdrop-blur-xl">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">{tr("searchTitle")}</h1>
 
         {/* Campo de pesquisa */}
@@ -164,7 +164,7 @@ function SearchPage() {
         </div>
 
         {/* Filtro por categoria */}
-        <div className="-mx-5 mt-3 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="-mx-5 mt-1 flex gap-2 overflow-x-auto px-5 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {CATEGORY_FILTERS.map((c) => {
             const on = cat === c.id;
             return (
@@ -174,7 +174,7 @@ function SearchPage() {
                 className={`press flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
                   on
                     ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-card text-foreground"
+                    : "glass-btn text-foreground"
                 }`}
               >
                 <Icon name={c.icon} size={12} /> {c.label}
@@ -205,7 +205,7 @@ function SearchPage() {
               className={`press flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
                 openOnly
                   ? "border-emerald-500 bg-emerald-500/10 text-emerald-700"
-                  : "border-border bg-card text-muted-foreground"
+                  : "glass-btn text-muted-foreground"
               }`}
             >
               <span
@@ -215,7 +215,7 @@ function SearchPage() {
             </button>
 
             {/* Botões de ordenação */}
-            <div className="flex flex-1 gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="-my-2 flex flex-1 gap-1.5 overflow-x-auto py-2 pr-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {SORT_OPTIONS.map((o) => (
                 <button
                   key={o.value}
@@ -223,7 +223,7 @@ function SearchPage() {
                   className={`press flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1.5 text-[11px] font-medium transition ${
                     sort === o.value
                       ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-card text-muted-foreground"
+                      : "glass-btn text-muted-foreground"
                   }`}
                 >
                   <Icon name={o.icon} size={11} /> {o.label}

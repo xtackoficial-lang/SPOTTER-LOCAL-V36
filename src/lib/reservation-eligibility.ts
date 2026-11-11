@@ -7,7 +7,7 @@
 //
 // Esta lista existe em 3 sítios que têm de ficar iguais:
 //   1) aqui (esconde botões e definições na app)
-//   2) supabase/functions/create-zumbopay-payment (recusa o pagamento)
+//   2) supabase/functions/create-mpesa-payment (recusa o pagamento)
 //   3) supabase/migrations/009_reservation_categories.sql (BD)
 // Para mudar quem pode reservar, altera os três.
 // ============================================================
