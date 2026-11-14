@@ -34,6 +34,7 @@ import {
   type AccountRecord,
   checkSupabaseAdminAuthorized,
   type AdminAuthStatus,
+  addAuditLog,
 } from "@/lib/admin-storage";
 import { Icon } from "@/components/Icon";
 import {
@@ -259,8 +260,47 @@ function MerchantModal({
     setForm((f) => ({ ...f, [k]: v }));
 
   const save = () => {
-    if (!form.businessName || !form.ownerName || !form.phone) return;
+    // Só um negócio NOVO precisa de dono e telefone. Ao editar um existente
+    // (muitos não têm o nome do dono preenchido) exigir isto fazia o botão
+    // "Guardar" não fazer nada, sem mensagem.
+    if (!form.businessName) return;
+    if (isNew && (!form.ownerName || !form.phone)) return;
     onSave(isNew ? "__new__" : merchant!.id, form);
+    onClose();
+  };
+
+  // Ativação manual do pacote (pago em mão, oferta, cortesia): define o
+  // plano, põe o estado "ativo" e calcula a data de renovação. Se o plano
+  // ainda estiver válido, a duração soma-se ao tempo que já resta.
+  const [grantPlan, setGrantPlan] = useState<MerchantRecord["planId"]>(
+    merchant && merchant.planId !== "free" ? merchant.planId : "starter",
+  );
+  const [grantMonths, setGrantMonths] = useState(1);
+  const [grantMethod, setGrantMethod] = useState<"manual" | "mpesa" | "emola">("manual");
+  const grantNow = () => {
+    if (!merchant) return;
+    const now = new Date();
+    const current = merchant.renewsAt ? new Date(merchant.renewsAt) : now;
+    const base =
+      merchant.status === "active" &&
+      merchant.planId === grantPlan &&
+      current.getTime() > now.getTime()
+        ? current
+        : now;
+    const renews = new Date(base);
+    renews.setMonth(renews.getMonth() + grantMonths);
+    onSave(merchant.id, {
+      planId: grantPlan,
+      status: "active",
+      renewsAt: renews.toISOString(),
+      lastPaymentAt: now.toISOString(),
+      paymentMethod: grantMethod,
+    });
+    void addAuditLog(
+      "change_plan",
+      merchant.id,
+      `Pacote ${grantPlan} ativado manualmente por ${grantMonths} mês(es) (${grantMethod}) — ${merchant.businessName}`,
+    );
     onClose();
   };
 
@@ -369,6 +409,55 @@ function MerchantModal({
             />
           </Field>
         </div>
+
+        {!isNew && (
+          <div className="mt-4 space-y-2.5 rounded-2xl border border-primary/30 bg-primary/5 p-3.5">
+            <div className="text-xs font-bold text-foreground">Ativar pacote manualmente</div>
+            <div className="text-[11px] text-muted-foreground">
+              Para pagamentos em mão, ofertas ou cortesias. Ativa já o pacote escolhido.
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <select
+                value={grantPlan}
+                onChange={(e) => setGrantPlan(e.target.value as MerchantRecord["planId"])}
+                className="h-10 rounded-xl border border-input bg-background px-3 text-sm outline-none focus:border-primary"
+              >
+                {PLANS.filter((p) => p !== "free").map((p) => (
+                  <option key={p} value={p}>
+                    {PLAN_LABELS[p]}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={grantMonths}
+                onChange={(e) => setGrantMonths(Number(e.target.value))}
+                className="h-10 rounded-xl border border-input bg-background px-3 text-sm outline-none focus:border-primary"
+              >
+                {[1, 2, 3, 6, 12].map((n) => (
+                  <option key={n} value={n}>
+                    {n} {n === 1 ? "mês" : "meses"}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <select
+              value={grantMethod}
+              onChange={(e) => setGrantMethod(e.target.value as "manual" | "mpesa" | "emola")}
+              className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus:border-primary"
+            >
+              <option value="manual">Pago em mão / banco / oferta</option>
+              <option value="mpesa">M-Pesa</option>
+              <option value="emola">e-Mola</option>
+            </select>
+            <button
+              onClick={grantNow}
+              className="press ripple h-11 w-full rounded-xl text-sm font-bold text-primary-foreground"
+              style={{ background: "var(--gradient-primary)" }}
+            >
+              Ativar agora
+            </button>
+          </div>
+        )}
 
         <button
           onClick={save}
@@ -1101,8 +1190,13 @@ function PushTab({ merchants }: { merchants: MerchantRecord[] }) {
       error
         ? { ok: false, text: error }
         : {
-            ok: true,
-            text: `Enviado a ${result?.success ?? 0} de ${result?.recipients ?? 0} destinatários.`,
+            ok: (result?.success ?? 0) > 0,
+            text:
+              (result?.recipients ?? 0) === 0
+                ? "Ninguém recebeu: não há utilizadores com notificações ativadas neste segmento/cidade. Cada pessoa tem de tocar em «Ativar» no aviso da app."
+                : (result?.success ?? 0) === 0
+                  ? `0 de ${result?.recipients} enviados. Confirma que o segredo FIREBASE_SERVICE_ACCOUNT_JSON está criado no Supabase.`
+                  : `Enviado a ${result?.success} de ${result?.recipients} destinatários.`,
           },
     );
     if (!error) {
@@ -2605,7 +2699,9 @@ function AdminDashboard() {
                             >
                               Editar
                             </button>
-                            {m.status === "blocked" || m.status === "overdue" ? (
+                            {m.status === "blocked" ||
+                            m.status === "overdue" ||
+                            m.status === "trial" ? (
                               <button
                                 onClick={() => quickAction(m.id, "activate")}
                                 className="press ripple flex h-9 items-center justify-center gap-1 px-3 rounded-xl text-[11px] font-semibold text-primary-foreground"

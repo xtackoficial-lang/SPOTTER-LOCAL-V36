@@ -56,10 +56,24 @@ if (FIREBASE_CONFIG_SW.apiKey && !FIREBASE_CONFIG_SW.apiKey.startsWith("__")) {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  const d = event.notification.data || {};
+  const raw = (d.FCM_MSG && d.FCM_MSG.data && d.FCM_MSG.data.url) || d.url || "/";
+  let target = "/";
+  try {
+    const u = new URL(raw, self.location.origin);
+    if (u.origin === self.location.origin) target = u.pathname + u.search;
+  } catch (_) {}
   event.waitUntil(
-    self.clients.matchAll({ type: "window" }).then((clients) => {
-      if (clients.length > 0) return clients[0].focus();
-      return self.clients.openWindow("/");
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const c of clients) {
+        if ("navigate" in c) {
+          return c
+            .focus()
+            .then(() => c.navigate(target))
+            .catch(() => self.clients.openWindow(target));
+        }
+      }
+      return self.clients.openWindow(target);
     }),
   );
 });

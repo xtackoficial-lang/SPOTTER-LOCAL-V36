@@ -9,6 +9,7 @@ import {
 import { useEffect } from "react";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { usePushAutoRegister, useForegroundPushToast } from "../lib/push-storage";
+import { PushPrompt } from "../components/PushPrompt";
 import { useProximityNotifications } from "../lib/use-proximity-notifications";
 import { Icon } from "../components/Icon";
 import { useT } from "../lib/i18n";
@@ -130,6 +131,7 @@ function RootComponent() {
         }
       >
         <Outlet />
+        <PushPrompt />
         {toast && (
           <div
             role="status"

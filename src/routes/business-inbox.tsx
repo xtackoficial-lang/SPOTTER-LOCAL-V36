@@ -5,6 +5,7 @@ import { useSubscription } from "@/lib/subscription-storage";
 import { useAuth } from "@/lib/auth-context";
 import {
   fetchBusinessConversations,
+  fetchClientNames,
   markAsRead,
   useRealtimeChat,
   type ConversationSummary,
@@ -58,6 +59,7 @@ function BusinessInbox() {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [clientNames, setClientNames] = useState<Record<string, string>>({});
   const [activeClientId, setActiveClientId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -93,6 +95,19 @@ function BusinessInbox() {
     };
   }, [hydrated, user, businessId]);
 
+  // Nomes reais dos clientes (o servidor só devolve quem já escreveu a este negócio).
+  const clientIdsKey = conversations.map((c) => c.clientId).join(",");
+  useEffect(() => {
+    if (!clientIdsKey) return;
+    let alive = true;
+    fetchClientNames(businessId, clientIdsKey.split(",")).then((n) => {
+      if (alive) setClientNames((prev) => ({ ...prev, ...n }));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [businessId, clientIdsKey]);
+
   if (!hydrated || !user) {
     return <div className="min-h-screen bg-background" />;
   }
@@ -103,6 +118,7 @@ function BusinessInbox() {
         businessId={businessId}
         ownerId={user.id}
         clientId={activeClientId}
+        clientName={clientNames[activeClientId]}
         canReply={!isFree}
         onBack={() => setActiveClientId(null)}
         onRead={() =>
@@ -190,7 +206,7 @@ function BusinessInbox() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between">
                       <div className="truncate font-semibold text-foreground">
-                        {tr("clientLabel")}
+                        {clientNames[c.clientId] || tr("clientLabel")}
                       </div>
                       <div className="text-[10px] text-muted-foreground">
                         {new Date(c.lastAt).toLocaleTimeString([], {
@@ -226,6 +242,7 @@ function ConversationView({
   businessId,
   ownerId,
   clientId,
+  clientName,
   canReply,
   onBack,
   onRead,
@@ -233,6 +250,7 @@ function ConversationView({
   businessId: string;
   ownerId: string;
   clientId: string;
+  clientName?: string;
   canReply: boolean;
   onBack: () => void;
   onRead: () => void;
@@ -277,7 +295,9 @@ function ConversationView({
           <Icon name="user" size={18} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold text-foreground">{tr("clientLabel")}</div>
+          <div className="truncate text-sm font-semibold text-foreground">
+            {clientName || tr("clientLabel")}
+          </div>
         </div>
       </header>
 

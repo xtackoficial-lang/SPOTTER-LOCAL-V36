@@ -79,7 +79,13 @@ export async function sendMessage(
   if (SUPABASE_CONFIGURED && supabase) {
     try {
       const { data, error } = await supabase.from("messages").insert(newMsg).select().single();
-      if (!error && data) return data as MessageDB;
+      if (!error && data) {
+        // Avisa o destinatário por push (não bloqueia nem faz falhar o envio).
+        void supabase.functions
+          .invoke("notify-chat-message", { body: { messageId: (data as MessageDB).id } })
+          .catch(() => {});
+        return data as MessageDB;
+      }
     } catch (err) {
       console.warn("sendMessage: Supabase indisponível, a guardar localmente.", err);
     }
@@ -302,4 +308,29 @@ export function useRealtimeChat(
   };
 
   return { messages, loading, sendChatMessage };
+}
+
+// ---------- Nomes dos clientes (vista do comerciante) ----------
+// O comerciante só pode ver o nome de quem já lhe escreveu: a função do
+// servidor get_chat_client_names confirma que ele é o dono do negócio e que
+// o cliente tem mensagens com esse negócio.
+export async function fetchClientNames(
+  businessId: string,
+  clientIds: string[],
+): Promise<Record<string, string>> {
+  if (!SUPABASE_CONFIGURED || !supabase || clientIds.length === 0) return {};
+  try {
+    const { data, error } = await supabase.rpc("get_chat_client_names", {
+      p_business_id: businessId,
+      p_client_ids: clientIds,
+    });
+    if (error || !data) return {};
+    const out: Record<string, string> = {};
+    for (const r of data as { id: string; name: string | null }[]) {
+      if (r.name && r.name.trim()) out[r.id] = r.name.trim();
+    }
+    return out;
+  } catch {
+    return {};
+  }
 }

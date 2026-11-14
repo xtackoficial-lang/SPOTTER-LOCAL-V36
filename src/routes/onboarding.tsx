@@ -38,6 +38,7 @@ type Step =
   | "terms"
   | "profileType"
   | "p-language"
+  | "p-name"
   | "p-location"
   | "p-visitor"
   | "p-interests"
@@ -92,6 +93,7 @@ function Onboarding() {
       "terms",
       "profileType",
       "p-language",
+      "p-name",
       "p-location",
       "p-visitor",
       "p-interests",
@@ -120,13 +122,14 @@ function Onboarding() {
     if (draft.completed) navigate({ to: "/home" });
   }, [hydrated, draft.completed, navigate]);
 
-  const totalSteps = step.startsWith("p-") ? 4 : step.startsWith("b-") ? 6 : 1;
+  const totalSteps = step.startsWith("p-") ? 5 : step.startsWith("b-") ? 6 : 1;
   const currentStepNum = useMemo(() => {
     const map: Record<string, number> = {
       "p-language": 1,
-      "p-location": 2,
-      "p-visitor": 3,
-      "p-interests": 4,
+      "p-name": 2,
+      "p-location": 3,
+      "p-visitor": 4,
+      "p-interests": 5,
       "b-language": 1,
       "b-location": 2,
       "b-category": 3,
@@ -203,6 +206,13 @@ function Onboarding() {
               // ficava guardado no draft e nunca mudava nada no ecrã.
               setAppLocale(v as AppLocale);
             }}
+            onNext={() => setStep("p-name")}
+          />
+        )}
+        {step === "p-name" && (
+          <NameStep
+            value={draft.personal.name ?? user?.name ?? ""}
+            onChange={(v) => updatePersonal({ name: v })}
             onNext={() => setStep("p-location")}
           />
         )}
@@ -230,7 +240,7 @@ function Onboarding() {
               update({ completed: true });
               // best-effort: não bloqueia a navegação se falhar
               syncProfileToSupabase({
-                name: draft.personal.name,
+                name: draft.personal.name || user?.name || undefined,
                 province: draft.personal.province,
                 city: draft.personal.city,
                 country: draft.personal.country,
@@ -393,6 +403,7 @@ function goBack(
     "terms",
     "profileType",
     "p-language",
+    "p-name",
     "p-location",
     "p-visitor",
     "p-interests",
@@ -1018,6 +1029,49 @@ function VisitorStep({
       </div>
       <PrimaryButton disabled={!value} onClick={onNext}>
         Continuar
+      </PrimaryButton>
+    </>
+  );
+}
+
+function NameStep({
+  value,
+  onChange,
+  onNext,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onNext: () => void;
+}) {
+  const tr = useT();
+  const [touched, setTouched] = useState(false);
+  const check = validatePersonName(value, "nome");
+  const showError = touched && !check.ok;
+  const submit = () => {
+    setTouched(true);
+    if (!check.ok) return;
+    onChange(check.value);
+    onNext();
+  };
+  return (
+    <>
+      <StepTitle title={tr("nameStepTitle")} subtitle={tr("nameStepSubtitle")} />
+      <Label className="text-xs">{tr("nameStepLabel")}</Label>
+      <Input
+        autoComplete="name"
+        placeholder={tr("nameStepPlaceholder")}
+        value={value}
+        maxLength={80}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={() => setTouched(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") submit();
+        }}
+        className="mt-1 h-11 rounded-xl"
+      />
+      {showError && !check.ok && <p className="mt-2 text-xs text-destructive">{check.error}</p>}
+      <PrimaryButton disabled={!check.ok} onClick={submit}>
+        {tr("continueAction")}
       </PrimaryButton>
     </>
   );

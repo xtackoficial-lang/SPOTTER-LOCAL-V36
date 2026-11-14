@@ -143,7 +143,7 @@ async function sendFcmMessage(
   token: string,
   title: string,
   body: string,
-): Promise<boolean> {
+): Promise<{ ok: boolean; unregistered: boolean }> {
   try {
     const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
       method: "POST",
@@ -155,6 +155,7 @@ async function sendFcmMessage(
         message: {
           token,
           notification: { title, body },
+          data: { url: "/" },
           webpush: {
             fcm_options: { link: "/" },
             notification: { icon: "/icon-192.png" },
@@ -162,9 +163,9 @@ async function sendFcmMessage(
         },
       }),
     });
-    return res.ok;
+    return { ok: res.ok, unregistered: res.status === 404 };
   } catch {
-    return false;
+    return { ok: false, unregistered: false };
   }
 }
 
@@ -181,39 +182,81 @@ async function resolveRecipients(
   target: string,
   city: string | null | undefined,
 ): Promise<Recipient[]> {
-  // Junta push_tokens com profiles (para nome/cidade/categoria) e, quando
-  // o segmento é sobre comerciantes, com businesses (para saber o plano).
-  let query = supabase
+  // push_tokens.user_id aponta para auth.users (não para profiles), por isso
+  // o PostgREST não consegue juntar as duas tabelas num só select — a versão
+  // anterior devolvia SEMPRE zero destinatários. Agora faz-se em passos:
+  // 1) tokens, 2) perfis desses utilizadores, 3) negócios (plano/cidade).
+  const { data: tokens, error } = await supabase
     .from("push_tokens")
-    .select("user_id, token, profiles!inner(name, city, favorite_category, profile_type)");
+    .select("user_id, token, last_seen_at");
+  if (error || !tokens || tokens.length === 0) return [];
 
-  if (city) {
-    query = query.eq("profiles.city", city);
-  }
-  if (target === "personal_users") {
-    query = query.eq("profiles.profile_type", "personal");
-  }
-  // Nota: "premium_merchants" usa o mesmo filtro base que "merchants"
-  // (profile_type = business). Filtrar apenas os do plano Pro/Premium
-  // exigiria cruzar com a tabela businesses pelo owner_id, o que o
-  // PostgREST não faz directamente num único select encadeado como este.
-  // Para esse refinamento, ver TODO em FIREBASE_SETUP.md.
-  if (target === "merchants" || target === "premium_merchants") {
-    query = query.eq("profiles.profile_type", "business");
+  const ids = [...new Set(tokens.map((t: any) => t.user_id).filter(Boolean))] as string[];
+  const profiles = new Map<string, any>();
+  const businesses = new Map<string, any[]>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const chunk = ids.slice(i, i + 200);
+    const { data: ps } = await supabase
+      .from("profiles")
+      .select("id, name, city, favorite_category, profile_type, suspended")
+      .in("id", chunk);
+    for (const p of ps ?? []) profiles.set(p.id, p);
+    const { data: bs } = await supabase
+      .from("businesses")
+      .select("owner_id, city, plan_id, plan_status")
+      .in("owner_id", chunk);
+    for (const b of bs ?? []) {
+      const list = businesses.get(b.owner_id) ?? [];
+      list.push(b);
+      businesses.set(b.owner_id, list);
+    }
   }
 
-  const { data, error } = await query;
-  if (error || !data) return [];
+  const norm = (v: unknown) =>
+    String(v ?? "")
+      .trim()
+      .toLowerCase();
+  const wantCity = norm(city);
+  const sevenDaysAgo = Date.now() - 7 * 24 * 3600 * 1000;
+  const out: Recipient[] = [];
+  const seen = new Set<string>();
 
-  return data
-    .filter((row: any) => row.token)
-    .map((row: any) => ({
-      userId: row.user_id,
-      token: row.token,
-      name: row.profiles?.name ?? null,
-      city: row.profiles?.city ?? null,
-      favoriteCategory: row.profiles?.favorite_category ?? null,
-    }));
+  for (const t of tokens as any[]) {
+    if (!t.token || seen.has(t.token)) continue;
+    const prof = profiles.get(t.user_id);
+    if (prof?.suspended) continue;
+    const biz = businesses.get(t.user_id) ?? [];
+    const isMerchant = prof?.profile_type === "business" || biz.length > 0;
+
+    if (target === "personal_users" && isMerchant) continue;
+    if (target === "merchants" && !isMerchant) continue;
+    if (target === "premium_merchants") {
+      const ok = biz.some(
+        (b) => (b.plan_id === "premium" || b.plan_id === "pro") && b.plan_status === "active",
+      );
+      if (!ok) continue;
+    }
+    if (target === "inactive_users") {
+      const last = t.last_seen_at ? new Date(t.last_seen_at).getTime() : 0;
+      if (last > sevenDaysAgo) continue;
+    }
+    // Cidade: vale a cidade do perfil OU a de algum negócio do utilizador.
+    const userCity = prof?.city || biz.find((b) => b.city)?.city || null;
+    if (wantCity) {
+      const match = norm(prof?.city) === wantCity || biz.some((b) => norm(b.city) === wantCity);
+      if (!match) continue;
+    }
+
+    seen.add(t.token);
+    out.push({
+      userId: t.user_id,
+      token: t.token,
+      name: prof?.name ?? null,
+      city: userCity,
+      favoriteCategory: prof?.favorite_category ?? null,
+    });
+  }
+  return out;
 }
 
 // Escolhe um negócio para sugerir, idealmente na cidade do destinatário e
@@ -308,6 +351,7 @@ async function processCampaign(campaign: {
   let projectId: string | null = null;
   let success = 0;
   let failure = 0;
+  const dead: string[] = [];
 
   if (FIREBASE_SERVICE_ACCOUNT_JSON) {
     try {
@@ -332,13 +376,16 @@ async function processCampaign(campaign: {
     }
 
     if (accessToken && projectId) {
-      const ok = await sendFcmMessage(accessToken, projectId, r.token, title, body);
-      if (ok) success++;
+      const res = await sendFcmMessage(accessToken, projectId, r.token, title, body);
+      if (res.ok) success++;
       else failure++;
+      if (res.unregistered) dead.push(r.token);
     } else {
       failure++;
     }
   }
+
+  if (dead.length) await supabase.from("push_tokens").delete().in("token", dead);
 
   await supabase.from("push_log").insert({
     scheduled_id: campaign.id,
