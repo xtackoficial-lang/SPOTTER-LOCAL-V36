@@ -30,6 +30,7 @@ import { Route as MapRouteImport } from './routes/map'
 import { Route as ManageRoomsRouteImport } from './routes/manage-rooms'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as HistoryRouteImport } from './routes/history'
+import { Route as Gestao748e397dRouteImport } from './routes/gestao-748e397d'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as EventsRouteImport } from './routes/events'
 import { Route as ChatsRouteImport } from './routes/chats'
@@ -37,7 +38,6 @@ import { Route as BusinessInboxRouteImport } from './routes/business-inbox'
 import { Route as BusinessRouteImport } from './routes/business'
 import { Route as BoostRouteImport } from './routes/boost'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RoomsBusinessIdRouteImport } from './routes/rooms.$businessId'
 import { Route as ReviewsIdRouteImport } from './routes/reviews.$id'
@@ -154,6 +154,11 @@ const HistoryRoute = HistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Gestao748e397dRoute = Gestao748e397dRouteImport.update({
+  id: '/gestao-748e397d',
+  path: '/gestao-748e397d',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
@@ -187,11 +192,6 @@ const BoostRoute = BoostRouteImport.update({
 const AnalyticsRoute = AnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -247,7 +247,6 @@ const BusinessCouponsRoute = BusinessCouponsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
   '/analytics': typeof AnalyticsRoute
   '/boost': typeof BoostRoute
   '/business': typeof BusinessRouteWithChildren
@@ -255,6 +254,7 @@ export interface FileRoutesByFullPath {
   '/chats': typeof ChatsRoute
   '/events': typeof EventsRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/gestao-748e397d': typeof Gestao748e397dRoute
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
   '/manage-rooms': typeof ManageRoomsRoute
@@ -288,7 +288,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
   '/analytics': typeof AnalyticsRoute
   '/boost': typeof BoostRoute
   '/business': typeof BusinessRouteWithChildren
@@ -296,6 +295,7 @@ export interface FileRoutesByTo {
   '/chats': typeof ChatsRoute
   '/events': typeof EventsRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/gestao-748e397d': typeof Gestao748e397dRoute
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
   '/manage-rooms': typeof ManageRoomsRoute
@@ -330,7 +330,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
   '/analytics': typeof AnalyticsRoute
   '/boost': typeof BoostRoute
   '/business': typeof BusinessRouteWithChildren
@@ -338,6 +337,7 @@ export interface FileRoutesById {
   '/chats': typeof ChatsRoute
   '/events': typeof EventsRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/gestao-748e397d': typeof Gestao748e397dRoute
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
   '/manage-rooms': typeof ManageRoomsRoute
@@ -373,7 +373,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/admin'
     | '/analytics'
     | '/boost'
     | '/business'
@@ -381,6 +380,7 @@ export interface FileRouteTypes {
     | '/chats'
     | '/events'
     | '/forgot-password'
+    | '/gestao-748e397d'
     | '/history'
     | '/home'
     | '/manage-rooms'
@@ -414,7 +414,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/admin'
     | '/analytics'
     | '/boost'
     | '/business'
@@ -422,6 +421,7 @@ export interface FileRouteTypes {
     | '/chats'
     | '/events'
     | '/forgot-password'
+    | '/gestao-748e397d'
     | '/history'
     | '/home'
     | '/manage-rooms'
@@ -455,7 +455,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/admin'
     | '/analytics'
     | '/boost'
     | '/business'
@@ -463,6 +462,7 @@ export interface FileRouteTypes {
     | '/chats'
     | '/events'
     | '/forgot-password'
+    | '/gestao-748e397d'
     | '/history'
     | '/home'
     | '/manage-rooms'
@@ -497,7 +497,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRoute
   AnalyticsRoute: typeof AnalyticsRoute
   BoostRoute: typeof BoostRoute
   BusinessRoute: typeof BusinessRouteWithChildren
@@ -505,6 +504,7 @@ export interface RootRouteChildren {
   ChatsRoute: typeof ChatsRoute
   EventsRoute: typeof EventsRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
+  Gestao748e397dRoute: typeof Gestao748e397dRoute
   HistoryRoute: typeof HistoryRoute
   HomeRoute: typeof HomeRoute
   ManageRoomsRoute: typeof ManageRoomsRoute
@@ -683,6 +683,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gestao-748e397d': {
+      id: '/gestao-748e397d'
+      path: '/gestao-748e397d'
+      fullPath: '/gestao-748e397d'
+      preLoaderRoute: typeof Gestao748e397dRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/forgot-password': {
       id: '/forgot-password'
       path: '/forgot-password'
@@ -730,13 +737,6 @@ declare module '@tanstack/react-router' {
       path: '/analytics'
       fullPath: '/analytics'
       preLoaderRoute: typeof AnalyticsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -830,7 +830,6 @@ const BusinessRouteWithChildren = BusinessRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRoute,
   AnalyticsRoute: AnalyticsRoute,
   BoostRoute: BoostRoute,
   BusinessRoute: BusinessRouteWithChildren,
@@ -838,6 +837,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChatsRoute: ChatsRoute,
   EventsRoute: EventsRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
+  Gestao748e397dRoute: Gestao748e397dRoute,
   HistoryRoute: HistoryRoute,
   HomeRoute: HomeRoute,
   ManageRoomsRoute: ManageRoomsRoute,

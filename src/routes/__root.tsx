@@ -90,7 +90,7 @@ const WIDE_ROUTES = [
   "/events",
   "/place",
   "/chats",
-  "/admin",
+  "/gestao-748e397d",
   "/analytics",
   "/business",
   "/merchant",

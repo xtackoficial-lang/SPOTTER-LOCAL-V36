@@ -5,7 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 // mode "store" e usado pelo scripts/store-build.mjs, que ja retirou
-// fisicamente src/routes/admin.tsx e src/lib/admin-storage.ts antes
+// fisicamente src/routes/gestao-748e397d.tsx e src/lib/admin-storage.ts antes
 // deste config correr.
 export default defineConfig(({ mode }) => ({
   plugins: [
