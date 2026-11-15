@@ -8,12 +8,16 @@ async function rateLimit(sb, key, limit, windowSeconds) {
     const { data, error } = await sb.rpc("check_rate_limit", {
       p_key: key,
       p_limit: limit,
-      p_window_seconds: windowSeconds
+      p_window_seconds: windowSeconds,
     });
     if (error) throw new Error(error.message);
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) throw new Error("resposta vazia");
-    return { allowed: !!row.allowed, remaining: row.remaining ?? 0, retryAfter: row.retry_after ?? 0 };
+    return {
+      allowed: !!row.allowed,
+      remaining: row.remaining ?? 0,
+      retryAfter: row.retry_after ?? 0,
+    };
   } catch (e) {
     console.error("rate-limit: falha ao verificar (pedido deixado passar)", e);
     return { allowed: true, remaining: limit, retryAfter: 0 };
@@ -23,12 +27,25 @@ function tooManyRequests(retryAfter, headers2 = {}) {
   const secs = Math.max(1, Math.ceil(retryAfter));
   const wait = secs >= 120 ? `${Math.ceil(secs / 60)} minutos` : `${secs} segundos`;
   return new Response(
-    JSON.stringify({ error: `Fizeste demasiados pedidos. Tenta de novo daqui a ${wait}.`, code: "rate_limited", retryAfter: secs }),
-    { status: 429, headers: { ...headers2, "Content-Type": "application/json", "Retry-After": String(secs) } }
+    JSON.stringify({
+      error: `Fizeste demasiados pedidos. Tenta de novo daqui a ${wait}.`,
+      code: "rate_limited",
+      retryAfter: secs,
+    }),
+    {
+      status: 429,
+      headers: { ...headers2, "Content-Type": "application/json", "Retry-After": String(secs) },
+    },
   );
 }
 function clientIp(req) {
-  return (req.headers.get("cf-connecting-ip") ?? req.headers.get("x-real-ip") ?? (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() ?? "unknown") || "unknown";
+  return (
+    (req.headers.get("cf-connecting-ip") ??
+      req.headers.get("x-real-ip") ??
+      (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() ??
+      "unknown") ||
+    "unknown"
+  );
 }
 var LIMITS = {
   r2Put: { limit: 60, window: 60 },
@@ -41,7 +58,7 @@ var LIMITS = {
   reservationRespond: { limit: 30, window: 60 },
   merchantPromo: { limit: 10, window: 3600 },
   // 10 promoções / hora
-  translate: { limit: 40, window: 60 }
+  translate: { limit: 40, window: 60 },
   // 40 traduções / minuto por utilizador
 };
 
@@ -72,11 +89,17 @@ function normalizePhone(raw) {
     if (national.length !== 9) {
       return {
         ok: false,
-        error: national.length > 9 ? "O n\xFAmero tem d\xEDgitos a mais. Em Mo\xE7ambique s\xE3o 9 d\xEDgitos (ex: 84 123 4567)." : "O n\xFAmero tem d\xEDgitos a menos. Em Mo\xE7ambique s\xE3o 9 d\xEDgitos (ex: 84 123 4567)."
+        error:
+          national.length > 9
+            ? "O n\xFAmero tem d\xEDgitos a mais. Em Mo\xE7ambique s\xE3o 9 d\xEDgitos (ex: 84 123 4567)."
+            : "O n\xFAmero tem d\xEDgitos a menos. Em Mo\xE7ambique s\xE3o 9 d\xEDgitos (ex: 84 123 4567).",
       };
     }
     if (!MZ_MOBILE.test(national) || looksFake(national)) {
-      return { ok: false, error: "N\xFAmero inv\xE1lido. Tem de come\xE7ar por 82, 83, 84, 85, 86 ou 87." };
+      return {
+        ok: false,
+        error: "N\xFAmero inv\xE1lido. Tem de come\xE7ar por 82, 83, 84, 85, 86 ou 87.",
+      };
     }
     return { ok: true, value: `+258${national}` };
   }
@@ -85,22 +108,30 @@ function normalizePhone(raw) {
     if (d.length < 9) {
       return {
         ok: false,
-        error: "O n\xFAmero tem d\xEDgitos a menos. Em Mo\xE7ambique s\xE3o 9 d\xEDgitos (ex: 84 123 4567)."
+        error:
+          "O n\xFAmero tem d\xEDgitos a menos. Em Mo\xE7ambique s\xE3o 9 d\xEDgitos (ex: 84 123 4567).",
       };
     }
     if (!MZ_MOBILE.test(d) || looksFake(d)) {
-      return { ok: false, error: "N\xFAmero inv\xE1lido. Tem de come\xE7ar por 82, 83, 84, 85, 86 ou 87." };
+      return {
+        ok: false,
+        error: "N\xFAmero inv\xE1lido. Tem de come\xE7ar por 82, 83, 84, 85, 86 ou 87.",
+      };
     }
     return { ok: true, value: `+258${d}` };
   }
   if (!hasPlus && !input.trim().startsWith("00")) {
     return {
       ok: false,
-      error: "O n\xFAmero tem d\xEDgitos a mais. Em Mo\xE7ambique s\xE3o 9 d\xEDgitos (ex: 84 123 4567)."
+      error:
+        "O n\xFAmero tem d\xEDgitos a mais. Em Mo\xE7ambique s\xE3o 9 d\xEDgitos (ex: 84 123 4567).",
     };
   }
   if (d.length < 8 || d.length > 15 || d.startsWith("0") || looksFake(d)) {
-    return { ok: false, error: "N\xFAmero internacional inv\xE1lido. Usa o formato +indicativo n\xFAmero." };
+    return {
+      ok: false,
+      error: "N\xFAmero internacional inv\xE1lido. Usa o formato +indicativo n\xFAmero.",
+    };
   }
   return { ok: true, value: `+${d}` };
 }
@@ -108,7 +139,8 @@ function normalizeWalletPhone(raw, method) {
   const r = normalizePhone(raw);
   if (!r.ok) return r;
   const m = /^\+258(8\d)\d{7}$/.exec(r.value);
-  if (!m) return { ok: false, error: "Para pagar por telem\xF3vel usa um n\xFAmero de Mo\xE7ambique." };
+  if (!m)
+    return { ok: false, error: "Para pagar por telem\xF3vel usa um n\xFAmero de Mo\xE7ambique." };
   const prefix = m[1];
   if (method === "mpesa" && !["84", "85"].includes(prefix)) {
     return { ok: false, error: "M-Pesa s\xF3 funciona com n\xFAmeros 84 ou 85." };
@@ -118,7 +150,8 @@ function normalizeWalletPhone(raw, method) {
   }
   return r;
 }
-var EMAIL_RE = /^[a-z0-9](?:[a-z0-9._%+-]{0,62}[a-z0-9])?@(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/i;
+var EMAIL_RE =
+  /^[a-z0-9](?:[a-z0-9._%+-]{0,62}[a-z0-9])?@(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/i;
 var DOMAIN_TYPOS = {
   "gmial.com": "gmail.com",
   "gmai.com": "gmail.com",
@@ -143,7 +176,7 @@ var DOMAIN_TYPOS = {
   "yahoo.con": "yahoo.com",
   "yhoo.com": "yahoo.com",
   "icloud.co": "icloud.com",
-  "icloud.con": "icloud.com"
+  "icloud.con": "icloud.com",
 };
 var DISPOSABLE = /* @__PURE__ */ new Set([
   "mailinator.com",
@@ -177,7 +210,7 @@ var DISPOSABLE = /* @__PURE__ */ new Set([
   "asdf.com",
   "abc.com",
   "xxx.com",
-  "a.com"
+  "a.com",
 ]);
 function validateEmail(raw) {
   const email = (raw ?? "").trim().toLowerCase();
@@ -194,11 +227,14 @@ function validateEmail(raw) {
   if (DOMAIN_TYPOS[domain]) {
     return {
       ok: false,
-      error: `Ser\xE1 que queres dizer ${local}@${DOMAIN_TYPOS[domain]}? Confirma o email.`
+      error: `Ser\xE1 que queres dizer ${local}@${DOMAIN_TYPOS[domain]}? Confirma o email.`,
     };
   }
   if (DISPOSABLE.has(domain)) {
-    return { ok: false, error: "N\xE3o aceitamos emails tempor\xE1rios. Usa o teu email verdadeiro." };
+    return {
+      ok: false,
+      error: "N\xE3o aceitamos emails tempor\xE1rios. Usa o teu email verdadeiro.",
+    };
   }
   return { ok: true, value: email };
 }
@@ -207,7 +243,10 @@ function validatePersonName(raw, label = "nome") {
   if (name.length < 2) return { ok: false, error: `Indica o teu ${label}.` };
   if (name.length > 80) return { ok: false, error: `O ${label} \xE9 demasiado longo.` };
   if (!/^[\p{L}][\p{L}\p{M}' .-]*$/u.test(name)) {
-    return { ok: false, error: `O ${label} s\xF3 pode ter letras (sem n\xFAmeros ou s\xEDmbolos).` };
+    return {
+      ok: false,
+      error: `O ${label} s\xF3 pode ter letras (sem n\xFAmeros ou s\xEDmbolos).`,
+    };
   }
   if (/(.)\1{3,}/u.test(name)) {
     return { ok: false, error: `Escreve o teu ${label} verdadeiro.` };
@@ -220,7 +259,8 @@ import { Buffer } from "node:buffer";
 import { constants, publicEncrypt } from "node:crypto";
 var ENV = (Deno.env.get("MPESA_ENV") ?? "sandbox").toLowerCase();
 var MPESA_IS_PRODUCTION = ENV === "production";
-var HOST = Deno.env.get("MPESA_HOST") ?? (MPESA_IS_PRODUCTION ? "api.vm.co.mz" : "api.sandbox.vm.co.mz");
+var HOST =
+  Deno.env.get("MPESA_HOST") ?? (MPESA_IS_PRODUCTION ? "api.vm.co.mz" : "api.sandbox.vm.co.mz");
 var C2B_PORT = Deno.env.get("MPESA_C2B_PORT") ?? "18352";
 var QUERY_PORT = Deno.env.get("MPESA_QUERY_PORT") ?? "18353";
 var ORIGIN = Deno.env.get("MPESA_ORIGIN") ?? "developer.mpesa.vm.co.mz";
@@ -244,7 +284,7 @@ ${lines.join("\n")}
 function buildBearerToken(apiKey = API_KEY, publicKey = PUBLIC_KEY) {
   const encrypted = publicEncrypt(
     { key: toPem(publicKey), padding: constants.RSA_PKCS1_PADDING },
-    Buffer.from(apiKey, "utf8")
+    Buffer.from(apiKey, "utf8"),
   );
   return encrypted.toString("base64");
 }
@@ -252,7 +292,7 @@ function headers() {
   return {
     "Content-Type": "application/json",
     Authorization: `Bearer ${buildBearerToken()}`,
-    Origin: ORIGIN
+    Origin: ORIGIN,
   };
 }
 function toMsisdn(phone) {
@@ -264,7 +304,8 @@ function toMsisdn(phone) {
 var FAILED_MESSAGES = {
   "INS-5": "O pagamento foi cancelado no telem\xF3vel.",
   "INS-6": "O pagamento falhou. Tenta outra vez.",
-  "INS-9": "N\xE3o confirmaste o pagamento a tempo. Tenta outra vez e digita o PIN quando aparecer.",
+  "INS-9":
+    "N\xE3o confirmaste o pagamento a tempo. Tenta outra vez e digita o PIN quando aparecer.",
   "INS-10": "J\xE1 existe um pagamento igual em curso. Espera um minuto e tenta outra vez.",
   "INS-13": "Pagamento indispon\xEDvel de momento (configura\xE7\xE3o).",
   "INS-15": "Valor inv\xE1lido.",
@@ -272,7 +313,7 @@ var FAILED_MESSAGES = {
   "INS-2051": "N\xFAmero M-Pesa inv\xE1lido. Confirma o n\xFAmero (84 ou 85).",
   "INS-996": "A tua conta M-Pesa n\xE3o est\xE1 activa.",
   "INS-995": "H\xE1 um problema com a tua conta M-Pesa. Contacta a Vodacom.",
-  "INS-4": "Este n\xFAmero n\xE3o tem conta M-Pesa activa."
+  "INS-4": "Este n\xFAmero n\xE3o tem conta M-Pesa activa.",
 };
 var UNKNOWN_CODES = /* @__PURE__ */ new Set(["INS-1", "INS-9", "INS-16", "INS-23"]);
 function interpret(json2) {
@@ -283,7 +324,7 @@ function interpret(json2) {
       state: "success",
       transactionId: json2?.output_TransactionID ?? null,
       code,
-      description
+      description,
     };
   }
   if (!code || UNKNOWN_CODES.has(code)) return { state: "unknown", code, description };
@@ -291,7 +332,7 @@ function interpret(json2) {
     state: "failed",
     code,
     description,
-    userMessage: FAILED_MESSAGES[code] ?? "O pagamento n\xE3o foi conclu\xEDdo. Tenta outra vez."
+    userMessage: FAILED_MESSAGES[code] ?? "O pagamento n\xE3o foi conclu\xEDdo. Tenta outra vez.",
   };
 }
 async function postJson(url, body, timeoutMs) {
@@ -299,13 +340,12 @@ async function postJson(url, body, timeoutMs) {
     method: "POST",
     headers: headers(),
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(timeoutMs)
+    signal: AbortSignal.timeout(timeoutMs),
   });
   let json2 = null;
   try {
     json2 = await res.json();
-  } catch {
-  }
+  } catch {}
   return { status: res.status, json: json2 };
 }
 async function c2bSingleStage(opts) {
@@ -316,9 +356,9 @@ async function c2bSingleStage(opts) {
       input_CustomerMSISDN: opts.msisdn,
       input_Amount: Number.isInteger(opts.amount) ? String(opts.amount) : opts.amount.toFixed(2),
       input_ThirdPartyReference: opts.thirdPartyReference,
-      input_ServiceProviderCode: SERVICE_PROVIDER_CODE
+      input_ServiceProviderCode: SERVICE_PROVIDER_CODE,
     },
-    C2B_TIMEOUT_MS
+    C2B_TIMEOUT_MS,
   );
   console.log("mpesa c2b", status, json2?.output_ResponseCode, json2?.output_ResponseDesc);
   return { ...interpret(json2), httpStatus: status };
@@ -327,13 +367,13 @@ async function queryTransactionStatus(thirdPartyReference, queryReference) {
   const qs = new URLSearchParams({
     input_QueryReference: queryReference,
     input_ServiceProviderCode: SERVICE_PROVIDER_CODE,
-    input_ThirdPartyReference: thirdPartyReference
+    input_ThirdPartyReference: thirdPartyReference,
   });
   try {
     const res = await fetch(`https://${HOST}:${QUERY_PORT}/ipg/v1x/queryTransactionStatus/?${qs}`, {
       method: "GET",
       headers: headers(),
-      signal: AbortSignal.timeout(QUERY_TIMEOUT_MS)
+      signal: AbortSignal.timeout(QUERY_TIMEOUT_MS),
     });
     const json2 = await res.json().catch(() => null);
     console.log("mpesa query", res.status, JSON.stringify(json2));
@@ -358,7 +398,11 @@ var FIREBASE_SERVICE_ACCOUNT_JSON = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON"
 var supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 async function sendReservationChatMessage(businessId, receiverId, text) {
   try {
-    const { data: biz } = await supabase.from("businesses").select("owner_id").eq("id", businessId).maybeSingle();
+    const { data: biz } = await supabase
+      .from("businesses")
+      .select("owner_id")
+      .eq("id", businessId)
+      .maybeSingle();
     if (!biz?.owner_id) {
       console.warn("sendReservationChatMessage: neg\xF3cio sem owner_id, mensagem n\xE3o enviada");
       return;
@@ -368,7 +412,7 @@ async function sendReservationChatMessage(businessId, receiverId, text) {
       sender_id: biz.owner_id,
       receiver_id: receiverId,
       text,
-      read: false
+      read: false,
     });
   } catch (err) {
     console.warn("sendReservationChatMessage: falhou, n\xE3o bloqueia o resto do fluxo", err);
@@ -385,33 +429,40 @@ async function getGoogleAccessToken() {
       scope: "https://www.googleapis.com/auth/firebase.messaging",
       aud: "https://oauth2.googleapis.com/token",
       iat: now,
-      exp: now + 3600
+      exp: now + 3600,
     };
-    const encode = (obj) => btoa(JSON.stringify(obj)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    const encode = (obj) =>
+      btoa(JSON.stringify(obj)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     const unsigned = `${encode(header)}.${encode(claimSet)}`;
-    const pem = serviceAccount.private_key.replace(/-----BEGIN PRIVATE KEY-----/, "").replace(/-----END PRIVATE KEY-----/, "").replace(/\s/g, "");
+    const pem = serviceAccount.private_key
+      .replace(/-----BEGIN PRIVATE KEY-----/, "")
+      .replace(/-----END PRIVATE KEY-----/, "")
+      .replace(/\s/g, "");
     const binaryKey = Uint8Array.from(atob(pem), (c) => c.charCodeAt(0));
     const cryptoKey = await crypto.subtle.importKey(
       "pkcs8",
       binaryKey,
       { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
       false,
-      ["sign"]
+      ["sign"],
     );
     const signatureBuffer = await crypto.subtle.sign(
       "RSASSA-PKCS1-v1_5",
       cryptoKey,
-      new TextEncoder().encode(unsigned)
+      new TextEncoder().encode(unsigned),
     );
-    const signature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    const signature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
     const jwt = `${unsigned}.${signature}`;
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-        assertion: jwt
-      })
+        assertion: jwt,
+      }),
     });
     const tokenData = await tokenRes.json();
     return tokenData.access_token ?? null;
@@ -422,7 +473,10 @@ async function getGoogleAccessToken() {
 }
 async function sendReservationPush(userId, title, body) {
   try {
-    const { data: tokens } = await supabase.from("push_tokens").select("token").eq("user_id", userId);
+    const { data: tokens } = await supabase
+      .from("push_tokens")
+      .select("token")
+      .eq("user_id", userId);
     if (!tokens || tokens.length === 0) return;
     const accessToken = await getGoogleAccessToken();
     if (!accessToken) return;
@@ -432,8 +486,12 @@ async function sendReservationPush(userId, title, body) {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: { token, notification: { title, body }, webpush: { fcm_options: { link: "/" } } }
-        })
+          message: {
+            token,
+            notification: { title, body },
+            webpush: { fcm_options: { link: "/" } },
+          },
+        }),
       }).catch(() => null);
     }
   } catch (err) {
@@ -442,7 +500,9 @@ async function sendReservationPush(userId, title, body) {
 }
 async function sendReservationAdminEmail(subject, html) {
   if (!RESEND_API_KEY) {
-    console.warn("sendReservationAdminEmail: RESEND_API_KEY n\xE3o configurada, e-mail n\xE3o enviado.");
+    console.warn(
+      "sendReservationAdminEmail: RESEND_API_KEY n\xE3o configurada, e-mail n\xE3o enviado.",
+    );
     return;
   }
   try {
@@ -450,21 +510,26 @@ async function sendReservationAdminEmail(subject, html) {
       method: "POST",
       headers: {
         Authorization: `Bearer ${RESEND_API_KEY}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         from: RESEND_FROM,
         to: [ADMIN_NOTIFY_EMAIL],
         subject,
-        html
-      })
+        html,
+      }),
     });
   } catch (err) {
     console.warn("sendReservationAdminEmail: falhou, n\xE3o bloqueia o resto do fluxo", err);
   }
 }
 function buildReservationEmailHtml(rows) {
-  const items = rows.map(([label, value]) => `<tr><td style="padding:4px 12px;color:#666;">${label}</td><td style="padding:4px 12px;"><b>${value}</b></td></tr>`).join("");
+  const items = rows
+    .map(
+      ([label, value]) =>
+        `<tr><td style="padding:4px 12px;color:#666;">${label}</td><td style="padding:4px 12px;"><b>${value}</b></td></tr>`,
+    )
+    .join("");
   return `<table style="font-family:sans-serif;border-collapse:collapse;">${items}</table>`;
 }
 var RESPONSE_DEADLINE_HOURS = 24;
@@ -477,13 +542,13 @@ function formatDeadline(d) {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",
-    minute: "2-digit"
+    minute: "2-digit",
   });
 }
 
 // _shared/fulfill-payment.ts
 async function fulfillPayment(supabase3, payment) {
-  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const now = /* @__PURE__ */ new Date().toISOString();
   if (payment.plan_id === "boost") {
     const BOOST_DAYS2 = { "1d": 1, "7d": 7, "30d": 30 };
     const packageId = payment.boost_package_id ?? "1d";
@@ -492,7 +557,7 @@ async function fulfillPayment(supabase3, payment) {
     const nowDate = /* @__PURE__ */ new Date();
     const catNow = new Date(nowDate.getTime() + CAT_OFFSET_MIN * 60 * 1e3);
     const targetDayCAT = new Date(
-      Date.UTC(catNow.getUTCFullYear(), catNow.getUTCMonth(), catNow.getUTCDate() + days, 0, 0, 0)
+      Date.UTC(catNow.getUTCFullYear(), catNow.getUTCMonth(), catNow.getUTCDate() + days, 0, 0, 0),
     );
     const expiresAt = new Date(targetDayCAT.getTime() - CAT_OFFSET_MIN * 60 * 1e3);
     await supabase3.from("business_boosts").insert({
@@ -501,7 +566,7 @@ async function fulfillPayment(supabase3, payment) {
       package_id: packageId,
       duration_days: days,
       activated_at: now,
-      expires_at: expiresAt.toISOString()
+      expires_at: expiresAt.toISOString(),
     });
   } else if (payment.plan_id === "post") {
     const POST_HOURS2 = { "24h": 24, "3d": 72, "7d": 168 };
@@ -519,12 +584,13 @@ async function fulfillPayment(supabase3, payment) {
       payment_id: payment.id,
       status: "active",
       published_at: now,
-      expires_at: expiresAt.toISOString()
+      expires_at: expiresAt.toISOString(),
     });
   } else if (payment.plan_id === "event") {
     const meta = payment.content_metadata ?? {};
     const eventDays = Number(meta.days);
-    const eventExpiresAt = eventDays >= 1 ? new Date(Date.now() + eventDays * 864e5).toISOString() : null;
+    const eventExpiresAt =
+      eventDays >= 1 ? new Date(Date.now() + eventDays * 864e5).toISOString() : null;
     const endRaw = String(meta.event_end_date ?? meta.eventEndDate ?? "");
     const eventEndDate = /^\d{4}-\d{2}-\d{2}$/.test(endRaw) ? endRaw : null;
     const eventRow = {
@@ -539,7 +605,7 @@ async function fulfillPayment(supabase3, payment) {
       tier: payment.boost_package_id ?? "standard",
       payment_id: payment.id,
       status: "active",
-      expires_at: eventExpiresAt
+      expires_at: eventExpiresAt,
     };
     const evInsert = await supabase3.from("events").insert(eventRow);
     if (evInsert.error && /expires_at|event_end_date/.test(evInsert.error.message ?? "")) {
@@ -549,54 +615,68 @@ async function fulfillPayment(supabase3, payment) {
     }
   } else if (payment.plan_id === "room") {
     const meta = payment.content_metadata ?? {};
-    const { data: room } = await supabase3.from("business_rooms").select("business_id").eq("id", meta.roomId).maybeSingle();
-    const { data: biz } = await supabase3.from("businesses").select("business_name, owner_id").eq("id", payment.business_id).maybeSingle();
+    const { data: room } = await supabase3
+      .from("business_rooms")
+      .select("business_id")
+      .eq("id", meta.roomId)
+      .maybeSingle();
+    const { data: biz } = await supabase3
+      .from("businesses")
+      .select("business_name, owner_id")
+      .eq("id", payment.business_id)
+      .maybeSingle();
     const deadline = responseDeadlineFrom();
     const isFull = meta.paymentOption === "full";
     const isHourly = meta.bookingUnit === "hour";
-    const stayText = isHourly ? `${meta.checkIn} \xE0s ${meta.startTime} (${meta.hours}h)` : `${meta.checkIn} a ${meta.checkOut}`;
-    const { data: reservation } = await supabase3.from("room_reservations").insert({
-      business_id: payment.business_id,
-      room_id: meta.roomId,
-      client_user_id: meta.clientUserId,
-      client_name: meta.clientName,
-      client_phone: meta.clientPhone,
-      client_email: meta.clientEmail ?? null,
-      check_in: meta.checkIn,
-      check_out: meta.checkOut,
-      guests: meta.guests,
-      special_request: meta.specialRequest ?? null,
-      nights: meta.nights,
-      booking_unit: meta.bookingUnit ?? "night",
-      hours: meta.hours ?? null,
-      start_time: meta.startTime ?? null,
-      total_price: meta.totalPrice,
-      commission_amount: meta.commissionAmount,
-      payment_option: meta.paymentOption ?? "deposit",
-      amount_paid: meta.amountPaid ?? payment.amount,
-      balance_due: meta.balanceDue ?? 0,
-      response_deadline: deadline.toISOString(),
-      payment_id: payment.id,
-      status: "pending_approval"
-    }).select().single();
+    const stayText = isHourly
+      ? `${meta.checkIn} \xE0s ${meta.startTime} (${meta.hours}h)`
+      : `${meta.checkIn} a ${meta.checkOut}`;
+    const { data: reservation } = await supabase3
+      .from("room_reservations")
+      .insert({
+        business_id: payment.business_id,
+        room_id: meta.roomId,
+        client_user_id: meta.clientUserId,
+        client_name: meta.clientName,
+        client_phone: meta.clientPhone,
+        client_email: meta.clientEmail ?? null,
+        check_in: meta.checkIn,
+        check_out: meta.checkOut,
+        guests: meta.guests,
+        special_request: meta.specialRequest ?? null,
+        nights: meta.nights,
+        booking_unit: meta.bookingUnit ?? "night",
+        hours: meta.hours ?? null,
+        start_time: meta.startTime ?? null,
+        total_price: meta.totalPrice,
+        commission_amount: meta.commissionAmount,
+        payment_option: meta.paymentOption ?? "deposit",
+        amount_paid: meta.amountPaid ?? payment.amount,
+        balance_due: meta.balanceDue ?? 0,
+        response_deadline: deadline.toISOString(),
+        payment_id: payment.id,
+        status: "pending_approval",
+      })
+      .select()
+      .single();
     const businessName = biz?.business_name ?? "o neg\xF3cio";
     if (meta.clientUserId) {
       await sendReservationChatMessage(
         payment.business_id,
         meta.clientUserId,
-        `Recebemos o seu pedido de reserva \u2014 ${meta.roomName}, ${stayText}, ${meta.guests} h\xF3spede(s). Pagou ${meta.amountPaid} MT (${isFull ? "valor total" : "sinal de 20%"}). ${businessName} responde at\xE9 ${formatDeadline(deadline)}.`
+        `Recebemos o seu pedido de reserva \u2014 ${meta.roomName}, ${stayText}, ${meta.guests} h\xF3spede(s). Pagou ${meta.amountPaid} MT (${isFull ? "valor total" : "sinal de 20%"}). ${businessName} responde at\xE9 ${formatDeadline(deadline)}.`,
       );
       await sendReservationPush(
         meta.clientUserId,
         "Pedido de reserva enviado",
-        `A aguardar confirma\xE7\xE3o de ${businessName}.`
+        `A aguardar confirma\xE7\xE3o de ${businessName}.`,
       );
     }
     if (biz?.owner_id) {
       await sendReservationPush(
         biz.owner_id,
         "Nova reserva de quarto pendente",
-        `${meta.roomName} \u2014 ${stayText} \u2014 responda at\xE9 ${formatDeadline(deadline)}.`
+        `${meta.roomName} \u2014 ${stayText} \u2014 responda at\xE9 ${formatDeadline(deadline)}.`,
       );
     }
     await sendReservationAdminEmail(
@@ -604,7 +684,10 @@ async function fulfillPayment(supabase3, payment) {
       buildReservationEmailHtml([
         ["Neg\xF3cio", businessName],
         ["Quarto", String(meta.roomName ?? "")],
-        [isHourly ? "Reserva por hora" : "Check-in / Check-out", isHourly ? stayText : `${meta.checkIn} \u2192 ${meta.checkOut} (${meta.nights} noites)`],
+        [
+          isHourly ? "Reserva por hora" : "Check-in / Check-out",
+          isHourly ? stayText : `${meta.checkIn} \u2192 ${meta.checkOut} (${meta.nights} noites)`,
+        ],
         ["H\xF3spedes", String(meta.guests ?? "")],
         ["Cliente", `${meta.clientName} \u2014 ${meta.clientPhone}`],
         ["E-mail do cliente", String(meta.clientEmail ?? "\u2014")],
@@ -613,14 +696,21 @@ async function fulfillPayment(supabase3, payment) {
         ["Pago agora", `${meta.amountPaid} MT`],
         ["Restante a pagar no hotel", `${meta.balanceDue} MT`],
         ["Comiss\xE3o Spotter (10% do total)", `${meta.commissionAmount} MT`],
-        ["A repassar ao hotel", `${Math.round((Number(meta.amountPaid) - Number(meta.commissionAmount)) * 100) / 100} MT`],
+        [
+          "A repassar ao hotel",
+          `${Math.round((Number(meta.amountPaid) - Number(meta.commissionAmount)) * 100) / 100} MT`,
+        ],
         ["Pedido especial", String(meta.specialRequest ?? "\u2014")],
-        ["Estado", `Pendente \u2014 hotel responde at\xE9 ${formatDeadline(deadline)}`]
-      ])
+        ["Estado", `Pendente \u2014 hotel responde at\xE9 ${formatDeadline(deadline)}`],
+      ]),
     );
   } else if (payment.plan_id === "table") {
     const meta = payment.content_metadata ?? {};
-    const { data: biz } = await supabase3.from("businesses").select("business_name, owner_id").eq("id", payment.business_id).maybeSingle();
+    const { data: biz } = await supabase3
+      .from("businesses")
+      .select("business_name, owner_id")
+      .eq("id", payment.business_id)
+      .maybeSingle();
     await supabase3.from("table_reservations").insert({
       business_id: payment.business_id,
       client_user_id: meta.clientUserId,
@@ -636,26 +726,26 @@ async function fulfillPayment(supabase3, payment) {
       commission_amount: meta.commissionAmount,
       payout_amount: meta.payoutAmount,
       payment_id: payment.id,
-      status: "confirmed"
+      status: "confirmed",
     });
     const businessName = biz?.business_name ?? "o neg\xF3cio";
     if (meta.clientUserId) {
       await sendReservationChatMessage(
         payment.business_id,
         meta.clientUserId,
-        `A sua reserva est\xE1 confirmada \u2014 Mesa para ${meta.guests}, ${meta.reservationDate} \xE0s ${meta.timeSlot}. Vemo-nos l\xE1!`
+        `A sua reserva est\xE1 confirmada \u2014 Mesa para ${meta.guests}, ${meta.reservationDate} \xE0s ${meta.timeSlot}. Vemo-nos l\xE1!`,
       );
       await sendReservationPush(
         meta.clientUserId,
         "Reserva de mesa confirmada",
-        `${businessName} \u2014 ${meta.reservationDate} \xE0s ${meta.timeSlot}.`
+        `${businessName} \u2014 ${meta.reservationDate} \xE0s ${meta.timeSlot}.`,
       );
     }
     if (biz?.owner_id) {
       await sendReservationPush(
         biz.owner_id,
         "Nova reserva de mesa confirmada",
-        `${meta.reservationDate} \xE0s ${meta.timeSlot} \u2014 ${meta.guests} pessoa(s).`
+        `${meta.reservationDate} \xE0s ${meta.timeSlot} \u2014 ${meta.guests} pessoa(s).`,
       );
     }
     await sendReservationAdminEmail(
@@ -670,24 +760,27 @@ async function fulfillPayment(supabase3, payment) {
         ["A tua comiss\xE3o", `${meta.commissionAmount} MT`],
         ["A repassar ao neg\xF3cio", `${meta.payoutAmount} MT (repassado: n\xE3o)`],
         ["Pedido especial", String(meta.specialRequest ?? "\u2014")],
-        ["Estado", "Confirmada automaticamente"]
-      ])
+        ["Estado", "Confirmada automaticamente"],
+      ]),
     );
   } else if (payment.plan_id) {
     const renewsAt = /* @__PURE__ */ new Date();
     renewsAt.setMonth(renewsAt.getMonth() + 1);
-    const { error: planUpdateError } = await supabase3.from("businesses").update({
-      plan_status: "active",
-      plan_id: payment.plan_id,
-      last_payment_at: now,
-      plan_renews_at: renewsAt.toISOString()
-    }).eq("id", payment.business_id);
+    const { error: planUpdateError } = await supabase3
+      .from("businesses")
+      .update({
+        plan_status: "active",
+        plan_id: payment.plan_id,
+        last_payment_at: now,
+        plan_renews_at: renewsAt.toISOString(),
+      })
+      .eq("id", payment.business_id);
     if (planUpdateError) {
       console.error(
         "fulfillPayment: pagamento confirmado mas falhou activar o plano",
         payment.business_id,
         payment.plan_id,
-        planUpdateError
+        planUpdateError,
       );
     }
   }
@@ -704,7 +797,7 @@ async function getAuthenticatedUserId(req) {
   if (!token || !SUPABASE_ANON_KEY) return null;
   try {
     const userClient = createClient2(SUPABASE_URL2, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: `Bearer ${token}` } }
+      global: { headers: { Authorization: `Bearer ${token}` } },
     });
     const { data, error } = await userClient.auth.getUser();
     if (error || !data?.user) return null;
@@ -716,7 +809,7 @@ async function getAuthenticatedUserId(req) {
 var PLAN_PRICES = {
   starter: 300,
   pro: 500,
-  premium: 900
+  premium: 900,
 };
 var BOOST_PRICE_PER_DAY = 60;
 var BOOST_DAYS = { "1d": 1, "7d": 7, "30d": 30 };
@@ -730,13 +823,16 @@ var ROOM_COMMISSION_PCT = 0.1;
 var CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Content-Type": "application/json"
+  "Content-Type": "application/json",
 };
 var ROOM_CATEGORIES = ["hotel", "hotel_restaurant", "pension"];
 var TABLE_CATEGORIES = ["hotel", "hotel_restaurant", "restaurant", "snack_bar", "tourism_site"];
 function makeRef(businessId, planId) {
   const ts = Date.now().toString(36).toUpperCase();
-  const bid = businessId.replace(/[^a-z0-9]/gi, "").slice(0, 3).toUpperCase();
+  const bid = businessId
+    .replace(/[^a-z0-9]/gi, "")
+    .slice(0, 3)
+    .toUpperCase();
   const rnd = Math.random().toString(36).slice(2, 5).toUpperCase();
   return `XL${bid}${planId.slice(0, 1).toUpperCase()}${ts}${rnd}`.slice(0, 20);
 }
@@ -747,7 +843,7 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "method_not_allowed" }), {
       status: 405,
-      headers: CORS_HEADERS
+      headers: CORS_HEADERS,
     });
   }
   {
@@ -760,7 +856,7 @@ Deno.serve(async (req) => {
   } catch {
     return new Response(JSON.stringify({ error: "corpo do pedido inv\xE1lido (JSON esperado)" }), {
       status: 400,
-      headers: CORS_HEADERS
+      headers: CORS_HEADERS,
     });
   }
   if (body.action === "check") {
@@ -794,7 +890,7 @@ Deno.serve(async (req) => {
     reservationDate,
     timeSlot,
     tableTipo,
-    payerPhone
+    payerPhone,
   } = body;
   try {
     const isBoost = planId === "boost";
@@ -806,26 +902,56 @@ Deno.serve(async (req) => {
     const postHours = isPost ? POST_HOURS[postPackageId ?? ""] : void 0;
     const eventDaysNum = isEvent && eventDays != null ? Math.round(Number(eventDays)) : null;
     const eventDaysOk = eventDaysNum != null && eventDaysNum >= 1 && eventDaysNum <= EVENT_MAX_DAYS;
-    const eventPrice = isEvent ? eventDays != null ? eventDaysOk ? eventDaysNum * EVENT_PRICE_PER_DAY : void 0 : EVENT_PRICES[eventTier ?? "standard"] : void 0;
+    const eventPrice = isEvent
+      ? eventDays != null
+        ? eventDaysOk
+          ? eventDaysNum * EVENT_PRICE_PER_DAY
+          : void 0
+        : EVENT_PRICES[eventTier ?? "standard"]
+      : void 0;
     let authenticatedUserId = null;
     if (isRoom || isTable) {
       authenticatedUserId = await getAuthenticatedUserId(req);
       if (!authenticatedUserId) {
         return new Response(
           JSON.stringify({ error: "\xC9 preciso estar autenticado para fazer uma reserva" }),
-          { status: 401, headers: CORS_HEADERS }
+          { status: 401, headers: CORS_HEADERS },
         );
       }
       {
-        const rl = await rateLimit(supabase2, `pay:${authenticatedUserId}`, LIMITS.payment.limit, LIMITS.payment.window);
+        const rl = await rateLimit(
+          supabase2,
+          `pay:${authenticatedUserId}`,
+          LIMITS.payment.limit,
+          LIMITS.payment.window,
+        );
         if (!rl.allowed) return tooManyRequests(rl.retryAfter, CORS_HEADERS);
       }
     }
-    const validoBase = businessId && typeof businessId === "string" && planId && (isBoost ? !!boostDays : isPost ? !!postHours : isEvent ? !!eventPrice : isRoom ? !!roomId && !!checkIn && (!!checkOut || bookingUnit === "hour") && !!guests && !!clientName && !!clientPhone : isTable ? !!reservationDate && !!timeSlot && !!guests && !!clientName && !!clientPhone : !!PLAN_PRICES[planId]);
+    const validoBase =
+      businessId &&
+      typeof businessId === "string" &&
+      planId &&
+      (isBoost
+        ? !!boostDays
+        : isPost
+          ? !!postHours
+          : isEvent
+            ? !!eventPrice
+            : isRoom
+              ? !!roomId &&
+                !!checkIn &&
+                (!!checkOut || bookingUnit === "hour") &&
+                !!guests &&
+                !!clientName &&
+                !!clientPhone
+              : isTable
+                ? !!reservationDate && !!timeSlot && !!guests && !!clientName && !!clientPhone
+                : !!PLAN_PRICES[planId]);
     if (!validoBase) {
       return new Response(
         JSON.stringify({ error: "businessId, planId, ou dados da reserva incompletos" }),
-        { status: 400, headers: CORS_HEADERS }
+        { status: 400, headers: CORS_HEADERS },
       );
     }
     const payerCheck = normalizeWalletPhone(payerPhone ?? "", "mpesa");
@@ -836,25 +962,37 @@ Deno.serve(async (req) => {
     if (isRoom || isTable) {
       const nameCheck = validatePersonName(clientName ?? "", "nome");
       if (!nameCheck.ok) {
-        return new Response(JSON.stringify({ error: nameCheck.error }), { status: 400, headers: CORS_HEADERS });
+        return new Response(JSON.stringify({ error: nameCheck.error }), {
+          status: 400,
+          headers: CORS_HEADERS,
+        });
       }
       const phoneCheck = normalizePhone(clientPhone ?? "");
       if (!phoneCheck.ok) {
-        return new Response(JSON.stringify({ error: phoneCheck.error }), { status: 400, headers: CORS_HEADERS });
+        return new Response(JSON.stringify({ error: phoneCheck.error }), {
+          status: 400,
+          headers: CORS_HEADERS,
+        });
       }
       if (clientEmail) {
         const emailCheck = validateEmail(clientEmail);
         if (!emailCheck.ok) {
-          return new Response(JSON.stringify({ error: emailCheck.error }), { status: 400, headers: CORS_HEADERS });
+          return new Response(JSON.stringify({ error: emailCheck.error }), {
+            status: 400,
+            headers: CORS_HEADERS,
+          });
         }
         clientEmail = emailCheck.value;
       }
       const guestsNum = Number(guests);
       if (!Number.isInteger(guestsNum) || guestsNum < 1 || guestsNum > 50) {
-        return new Response(JSON.stringify({ error: "N\xFAmero de pessoas inv\xE1lido (1 a 50)." }), {
-          status: 400,
-          headers: CORS_HEADERS
-        });
+        return new Response(
+          JSON.stringify({ error: "N\xFAmero de pessoas inv\xE1lido (1 a 50)." }),
+          {
+            status: 400,
+            headers: CORS_HEADERS,
+          },
+        );
       }
       clientName = nameCheck.value;
       clientPhone = phoneCheck.value;
@@ -863,25 +1001,39 @@ Deno.serve(async (req) => {
     let tableReservationMeta = null;
     let amount;
     if (isRoom) {
-      const { data: room, error: roomErr } = await supabase2.from("business_rooms").select("id, business_id, name, price_per_night, price_per_hour, active").eq("id", roomId).eq("business_id", businessId).maybeSingle();
-      const { data: roomBiz } = await supabase2.from("businesses").select("category, accepts_room_reservation").eq("id", businessId).maybeSingle();
-      if (!roomBiz || !ROOM_CATEGORIES.includes(roomBiz.category) || !roomBiz.accepts_room_reservation) {
+      const { data: room, error: roomErr } = await supabase2
+        .from("business_rooms")
+        .select("id, business_id, name, price_per_night, price_per_hour, active")
+        .eq("id", roomId)
+        .eq("business_id", businessId)
+        .maybeSingle();
+      const { data: roomBiz } = await supabase2
+        .from("businesses")
+        .select("category, accepts_room_reservation")
+        .eq("id", businessId)
+        .maybeSingle();
+      if (
+        !roomBiz ||
+        !ROOM_CATEGORIES.includes(roomBiz.category) ||
+        !roomBiz.accepts_room_reservation
+      ) {
         return new Response(
           JSON.stringify({ error: "Este neg\xF3cio n\xE3o aceita reservas de quarto" }),
-          { status: 400, headers: CORS_HEADERS }
+          { status: 400, headers: CORS_HEADERS },
         );
       }
       if (roomErr || !room || !room.active) {
         return new Response(
           JSON.stringify({ error: "Quarto n\xE3o encontrado ou indispon\xEDvel" }),
-          { status: 400, headers: CORS_HEADERS }
+          { status: 400, headers: CORS_HEADERS },
         );
       }
       const unit = bookingUnit === "hour" ? "hour" : "night";
       let nights = 0;
       let hoursCount = 0;
       let totalPrice = 0;
-      const bad = (msg) => new Response(JSON.stringify({ error: msg }), { status: 400, headers: CORS_HEADERS });
+      const bad = (msg) =>
+        new Response(JSON.stringify({ error: msg }), { status: 400, headers: CORS_HEADERS });
       if (unit === "hour") {
         const pph = Number(room.price_per_hour ?? 0);
         if (!pph || pph <= 0) return bad("Este quarto n\xE3o tem pre\xE7o por hora");
@@ -897,19 +1049,27 @@ Deno.serve(async (req) => {
         const ppn = Number(room.price_per_night ?? 0);
         if (!ppn || ppn <= 0) return bad("Este quarto n\xE3o tem pre\xE7o por dia");
         nights = Math.round(
-          (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1e3 * 60 * 60 * 24)
+          (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1e3 * 60 * 60 * 24),
         );
         if (!nights || nights < 1) return bad("Datas de entrada/sa\xEDda inv\xE1lidas");
         totalPrice = ppn * nights;
       }
-      const option = paymentOption === "full" ? "full" : paymentOption === "deposit" || paymentOption == null ? "deposit" : null;
+      const option =
+        paymentOption === "full"
+          ? "full"
+          : paymentOption === "deposit" || paymentOption == null
+            ? "deposit"
+            : null;
       if (!option) {
         return new Response(
           JSON.stringify({ error: "Op\xE7\xE3o de pagamento inv\xE1lida (full ou deposit)" }),
-          { status: 400, headers: CORS_HEADERS }
+          { status: 400, headers: CORS_HEADERS },
         );
       }
-      amount = option === "full" ? Math.round(totalPrice * 100) / 100 : Math.round(totalPrice * ROOM_DEPOSIT_PCT * 100) / 100;
+      amount =
+        option === "full"
+          ? Math.round(totalPrice * 100) / 100
+          : Math.round(totalPrice * ROOM_DEPOSIT_PCT * 100) / 100;
       const commissionAmount = Math.round(totalPrice * ROOM_COMMISSION_PCT * 100) / 100;
       roomReservationMeta = {
         roomId: room.id,
@@ -932,14 +1092,23 @@ Deno.serve(async (req) => {
         paymentOption: option,
         amountPaid: amount,
         balanceDue: Math.round((totalPrice - amount) * 100) / 100,
-        commissionAmount
+        commissionAmount,
       };
     } else if (isTable) {
-      const { data: biz, error: bizErr } = await supabase2.from("businesses").select("id, category, mesa_preco_normal, mesa_preco_evento, accepts_table_reservation").eq("id", businessId).maybeSingle();
-      if (bizErr || !biz || !biz.accepts_table_reservation || !TABLE_CATEGORIES.includes(biz.category)) {
+      const { data: biz, error: bizErr } = await supabase2
+        .from("businesses")
+        .select("id, category, mesa_preco_normal, mesa_preco_evento, accepts_table_reservation")
+        .eq("id", businessId)
+        .maybeSingle();
+      if (
+        bizErr ||
+        !biz ||
+        !biz.accepts_table_reservation ||
+        !TABLE_CATEGORIES.includes(biz.category)
+      ) {
         return new Response(
           JSON.stringify({ error: "Este neg\xF3cio n\xE3o aceita reservas de mesa" }),
-          { status: 400, headers: CORS_HEADERS }
+          { status: 400, headers: CORS_HEADERS },
         );
       }
       const tipo = tableTipo === "evento" ? "evento" : "normal";
@@ -956,54 +1125,95 @@ Deno.serve(async (req) => {
         clientEmail: clientEmail ?? null,
         tipo,
         price,
-        commissionAmount: Math.round(price / 2 * 100) / 100,
-        payoutAmount: Math.round(price / 2 * 100) / 100
+        commissionAmount: Math.round((price / 2) * 100) / 100,
+        payoutAmount: Math.round((price / 2) * 100) / 100,
       };
     } else {
-      amount = isBoost ? boostDays * BOOST_PRICE_PER_DAY : isPost ? POST_PRICES[postPackageId] : isEvent ? eventPrice : PLAN_PRICES[planId];
+      amount = isBoost
+        ? boostDays * BOOST_PRICE_PER_DAY
+        : isPost
+          ? POST_PRICES[postPackageId]
+          : isEvent
+            ? eventPrice
+            : PLAN_PRICES[planId];
     }
     const now = /* @__PURE__ */ new Date();
     const expiresAt = new Date(now.getTime() + 10 * 60 * 1e3);
     {
       const since = new Date(now.getTime() - 90 * 1e3).toISOString();
-      const { data: inflight } = await supabase2.from("payments").select("id").eq("method", "mpesa").eq("status", "pending").eq("phone", payerCheck.value).gt("created_at", since).limit(1).maybeSingle();
+      const { data: inflight } = await supabase2
+        .from("payments")
+        .select("id")
+        .eq("method", "mpesa")
+        .eq("status", "pending")
+        .eq("phone", payerCheck.value)
+        .gt("created_at", since)
+        .limit(1)
+        .maybeSingle();
       if (inflight) {
         return json(
-          { error: "J\xE1 h\xE1 um pagamento \xE0 espera de confirma\xE7\xE3o neste n\xFAmero. Confirma no telem\xF3vel ou espera um minuto." },
-          409
+          {
+            error:
+              "J\xE1 h\xE1 um pagamento \xE0 espera de confirma\xE7\xE3o neste n\xFAmero. Confirma no telem\xF3vel ou espera um minuto.",
+          },
+          409,
         );
       }
     }
     const merchantRef = makeRef(businessId, planId);
-    const { data: paymentRow, error: insertError } = await supabase2.from("payments").insert({
-      business_id: businessId,
-      merchant_ref: merchantRef,
-      plan_id: planId,
-      boost_package_id: isBoost ? boostPackageId : isPost ? postPackageId : isEvent ? eventTier ?? "standard" : null,
-      content_metadata: isEvent ? { ...contentMetadata ?? {}, days: eventDaysOk ? eventDaysNum : null } : isPost ? contentMetadata ?? null : isRoom ? roomReservationMeta : isTable ? tableReservationMeta : null,
-      amount,
-      currency: "MZN",
-      method: "mpesa",
-      phone: payerCheck.value,
-      status: "pending",
-      expires_at: expiresAt.toISOString()
-    }).select().single();
+    const { data: paymentRow, error: insertError } = await supabase2
+      .from("payments")
+      .insert({
+        business_id: businessId,
+        merchant_ref: merchantRef,
+        plan_id: planId,
+        boost_package_id: isBoost
+          ? boostPackageId
+          : isPost
+            ? postPackageId
+            : isEvent
+              ? (eventTier ?? "standard")
+              : null,
+        content_metadata: isEvent
+          ? { ...(contentMetadata ?? {}), days: eventDaysOk ? eventDaysNum : null }
+          : isPost
+            ? (contentMetadata ?? null)
+            : isRoom
+              ? roomReservationMeta
+              : isTable
+                ? tableReservationMeta
+                : null,
+        amount,
+        currency: "MZN",
+        method: "mpesa",
+        phone: payerCheck.value,
+        status: "pending",
+        expires_at: expiresAt.toISOString(),
+      })
+      .select()
+      .single();
     if (insertError || !paymentRow) {
       if (insertError?.code === "23505") {
         return new Response(
-          JSON.stringify({ error: "J\xE1 existe um pagamento em curso para este plano. Aguarda uns segundos e tenta novamente." }),
-          { status: 409, headers: CORS_HEADERS }
+          JSON.stringify({
+            error:
+              "J\xE1 existe um pagamento em curso para este plano. Aguarda uns segundos e tenta novamente.",
+          }),
+          { status: 409, headers: CORS_HEADERS },
         );
       }
       console.error("create-mpesa-payment: falha ao criar linha payments", insertError);
       return new Response(JSON.stringify({ error: "Falha ao registar o pagamento" }), {
         status: 500,
-        headers: CORS_HEADERS
+        headers: CORS_HEADERS,
       });
     }
     if (!mpesaConfigured()) {
       console.error("create-mpesa-payment: faltam secrets MPESA_*");
-      await supabase2.from("payments").update({ status: "failed", fail_reason: "Configura\xE7\xE3o M-Pesa incompleta" }).eq("id", paymentRow.id);
+      await supabase2
+        .from("payments")
+        .update({ status: "failed", fail_reason: "Configura\xE7\xE3o M-Pesa incompleta" })
+        .eq("id", paymentRow.id);
       return json({ error: "Pagamento M-Pesa indispon\xEDvel de momento" }, 500);
     }
     let outcome;
@@ -1012,7 +1222,7 @@ Deno.serve(async (req) => {
         amount,
         msisdn,
         transactionReference: merchantRef,
-        thirdPartyReference: merchantRef
+        thirdPartyReference: merchantRef,
       });
     } catch (netErr) {
       console.error("create-mpesa-payment: falha de rede/timeout na M-Pesa", netErr);
@@ -1020,8 +1230,20 @@ Deno.serve(async (req) => {
     }
     if (outcome.state === "unknown") {
       const q = await queryTransactionStatus(merchantRef, merchantRef);
-      if (q === "success") outcome = { state: "success", transactionId: null, code: outcome.code, description: "confirmado por consulta" };
-      else if (q === "failed") outcome = { state: "failed", code: outcome.code, description: "falhou (consulta)", userMessage: "O pagamento n\xE3o foi conclu\xEDdo. Tenta outra vez." };
+      if (q === "success")
+        outcome = {
+          state: "success",
+          transactionId: null,
+          code: outcome.code,
+          description: "confirmado por consulta",
+        };
+      else if (q === "failed")
+        outcome = {
+          state: "failed",
+          code: outcome.code,
+          description: "falhou (consulta)",
+          userMessage: "O pagamento n\xE3o foi conclu\xEDdo. Tenta outra vez.",
+        };
     }
     const result = await settlePayment(paymentRow, outcome);
     return json({
@@ -1030,7 +1252,7 @@ Deno.serve(async (req) => {
       amount,
       createdAt: paymentRow.created_at,
       expiresAt: expiresAt.toISOString(),
-      ...result
+      ...result,
     });
   } catch (err) {
     console.error("create-mpesa-payment: erro inesperado", err);
@@ -1042,23 +1264,44 @@ function json(obj, status = 200) {
 }
 async function settlePayment(payment, outcome) {
   if (outcome.state === "success") {
-    const { data: claimed } = await supabase2.from("payments").update({
-      status: "confirmed",
-      operator_ref: outcome.transactionId ?? payment.merchant_ref,
-      confirmed_at: (/* @__PURE__ */ new Date()).toISOString()
-    }).eq("id", payment.id).eq("status", "pending").select().maybeSingle();
+    const { data: claimed } = await supabase2
+      .from("payments")
+      .update({
+        status: "confirmed",
+        operator_ref: outcome.transactionId ?? payment.merchant_ref,
+        confirmed_at: /* @__PURE__ */ new Date().toISOString(),
+      })
+      .eq("id", payment.id)
+      .eq("status", "pending")
+      .select()
+      .maybeSingle();
     if (claimed) {
       try {
         await fulfillPayment(supabase2, claimed);
       } catch (err) {
-        console.error("PAGO MAS N\xC3O ACTIVADO \u2014 verificar \xE0 m\xE3o:", payment.id, payment.plan_id, err);
-        await supabase2.from("payments").update({ fail_reason: `fulfil_error: ${String(err?.message ?? err).slice(0, 180)}` }).eq("id", payment.id);
+        console.error(
+          "PAGO MAS N\xC3O ACTIVADO \u2014 verificar \xE0 m\xE3o:",
+          payment.id,
+          payment.plan_id,
+          err,
+        );
+        await supabase2
+          .from("payments")
+          .update({ fail_reason: `fulfil_error: ${String(err?.message ?? err).slice(0, 180)}` })
+          .eq("id", payment.id);
       }
     }
     return { status: "confirmed" };
   }
   if (outcome.state === "failed") {
-    await supabase2.from("payments").update({ status: "failed", fail_reason: `M-Pesa ${outcome.code}: ${outcome.description}`.slice(0, 250) }).eq("id", payment.id).eq("status", "pending");
+    await supabase2
+      .from("payments")
+      .update({
+        status: "failed",
+        fail_reason: `M-Pesa ${outcome.code}: ${outcome.description}`.slice(0, 250),
+      })
+      .eq("id", payment.id)
+      .eq("status", "pending");
     return { status: "failed", error: outcome.userMessage };
   }
   return { status: "pending" };
@@ -1067,17 +1310,27 @@ async function handleCheck(req, paymentId) {
   if (!paymentId) return json({ error: "paymentId em falta" }, 400);
   const uid = await getAuthenticatedUserId(req);
   if (!uid) return json({ error: "Sess\xE3o inv\xE1lida" }, 401);
-  const { data: payment } = await supabase2.from("payments").select("*").eq("id", paymentId).maybeSingle();
-  if (!payment || payment.method !== "mpesa") return json({ error: "Pagamento n\xE3o encontrado" }, 404);
+  const { data: payment } = await supabase2
+    .from("payments")
+    .select("*")
+    .eq("id", paymentId)
+    .maybeSingle();
+  if (!payment || payment.method !== "mpesa")
+    return json({ error: "Pagamento n\xE3o encontrado" }, 404);
   const meta = payment.content_metadata ?? {};
   let allowed = meta.clientUserId === uid;
   if (!allowed) {
-    const { data: biz } = await supabase2.from("businesses").select("owner_id").eq("id", payment.business_id).maybeSingle();
+    const { data: biz } = await supabase2
+      .from("businesses")
+      .select("owner_id")
+      .eq("id", payment.business_id)
+      .maybeSingle();
     allowed = biz?.owner_id === uid;
   }
   if (!allowed) return json({ error: "Sem permiss\xE3o" }, 403);
   if (payment.status === "confirmed") return json({ status: "confirmed" });
-  if (payment.status === "failed") return json({ status: "failed", error: payment.fail_reason ?? void 0 });
+  if (payment.status === "failed")
+    return json({ status: "failed", error: payment.fail_reason ?? void 0 });
   const q = await queryTransactionStatus(payment.merchant_ref, payment.merchant_ref);
   if (q === "success") {
     return json(await settlePayment(payment, { state: "success", transactionId: null }));
@@ -1088,8 +1341,8 @@ async function handleCheck(req, paymentId) {
         state: "failed",
         code: q === "failed" ? "QUERY" : "EXPIRED",
         description: q === "failed" ? "falhou (consulta)" : "expirou sem confirma\xE7\xE3o",
-        userMessage: "O pagamento n\xE3o foi confirmado. Tenta outra vez."
-      })
+        userMessage: "O pagamento n\xE3o foi confirmado. Tenta outra vez.",
+      }),
     );
   }
   return json({ status: "pending" });

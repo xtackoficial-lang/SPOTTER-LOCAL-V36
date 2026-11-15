@@ -1,4 +1,3 @@
-import { usePostHog } from "@posthog/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Icon } from "@/components/Icon";
@@ -26,7 +25,6 @@ import { isPlayStoreApp } from "@/lib/play-context";
 import { PlayPlansNotice } from "@/components/PlayPlansNotice";
 
 import { normalizeWalletPhone } from "@/lib/validators";
-
 export const Route = createFileRoute("/payment")({
   head: () => ({ meta: [{ title: "Pagamento — Spotter Local" }] }),
   validateSearch: (search: Record<string, unknown>): { plan?: PaidPlanId } => ({
@@ -99,7 +97,6 @@ function CopyButton({ value, label }: { value: string; label: string }) {
 
 function PaymentPage() {
   const tr = useT();
-  const posthog = usePostHog();
   const METHODS = getMethods(tr);
   const navigate = useNavigate();
   const { plan: planFromSubscribe } = Route.useSearch();
@@ -177,16 +174,6 @@ function PaymentPage() {
         setStep("waiting");
         const result = await createMpesaPayment(businessId, planId, walletPhone);
         setReq(result.payment);
-        if (result.status !== "failed") {
-          posthog.capture("subscription_checkout_started", {
-            plan_id: planId,
-            payment_method: method,
-          });
-          posthog.logger.info("subscription checkout initiated", {
-            plan_id: planId,
-            payment_method: method,
-          });
-        }
         if (result.status === "confirmed") setStep("done");
         else if (result.status === "failed") {
           setInitError(result.error ?? tr("initPaymentError"));

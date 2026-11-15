@@ -400,7 +400,24 @@ async function processCampaign(campaign: {
   return { recipients: recipients.length, success, failure };
 }
 
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+// O browser faz primeiro um pedido OPTIONS (sem Authorization). Sem responder
+// a ele com cabeçalhos CORS, o botão "Enviar agora" do /admin falhava sempre
+// com "Failed to send a request to the Edge Function".
 Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  const res = await handle(req);
+  const headers = new Headers(res.headers);
+  for (const [k, v] of Object.entries(CORS)) headers.set(k, v);
+  return new Response(res.body, { status: res.status, headers });
+});
+
+async function handle(req: Request): Promise<Response> {
   try {
     if (!(await isAuthorized(req))) {
       return new Response(JSON.stringify({ error: "unauthorized" }), {
@@ -458,4 +475,4 @@ Deno.serve(async (req: Request) => {
       headers: { "Content-Type": "application/json" },
     });
   }
-});
+}

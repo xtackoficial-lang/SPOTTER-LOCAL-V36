@@ -9,12 +9,16 @@ async function rateLimit(sb, key, limit, windowSeconds) {
     const { data, error } = await sb.rpc("check_rate_limit", {
       p_key: key,
       p_limit: limit,
-      p_window_seconds: windowSeconds
+      p_window_seconds: windowSeconds,
     });
     if (error) throw new Error(error.message);
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) throw new Error("resposta vazia");
-    return { allowed: !!row.allowed, remaining: row.remaining ?? 0, retryAfter: row.retry_after ?? 0 };
+    return {
+      allowed: !!row.allowed,
+      remaining: row.remaining ?? 0,
+      retryAfter: row.retry_after ?? 0,
+    };
   } catch (e) {
     console.error("rate-limit: falha ao verificar (pedido deixado passar)", e);
     return { allowed: true, remaining: limit, retryAfter: 0 };
@@ -24,8 +28,15 @@ function tooManyRequests(retryAfter, headers = {}) {
   const secs = Math.max(1, Math.ceil(retryAfter));
   const wait = secs >= 120 ? `${Math.ceil(secs / 60)} minutos` : `${secs} segundos`;
   return new Response(
-    JSON.stringify({ error: `Fizeste demasiados pedidos. Tenta de novo daqui a ${wait}.`, code: "rate_limited", retryAfter: secs }),
-    { status: 429, headers: { ...headers, "Content-Type": "application/json", "Retry-After": String(secs) } }
+    JSON.stringify({
+      error: `Fizeste demasiados pedidos. Tenta de novo daqui a ${wait}.`,
+      code: "rate_limited",
+      retryAfter: secs,
+    }),
+    {
+      status: 429,
+      headers: { ...headers, "Content-Type": "application/json", "Retry-After": String(secs) },
+    },
   );
 }
 var LIMITS = {
@@ -39,7 +50,7 @@ var LIMITS = {
   reservationRespond: { limit: 30, window: 60 },
   merchantPromo: { limit: 10, window: 3600 },
   // 10 promoções / hora
-  translate: { limit: 40, window: 60 }
+  translate: { limit: 40, window: 60 },
   // 40 traduções / minuto por utilizador
 };
 
@@ -48,7 +59,7 @@ var PUBLIC_KINDS = ["cover", "gallery", "product", "post", "event", "room"];
 var ALLOWED_TYPES = {
   "image/jpeg": "jpg",
   "image/png": "png",
-  "image/webp": "webp"
+  "image/webp": "webp",
 };
 var MAX_BYTES = 6 * 1024 * 1024;
 function isPublicKind(k) {
@@ -74,7 +85,7 @@ var CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json"
+  "Content-Type": "application/json",
 };
 var json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: CORS });
 Deno.serve(async (req) => {
@@ -103,7 +114,12 @@ Deno.serve(async (req) => {
   } catch {
     return json({ error: "JSON inv\xE1lido" }, 400);
   }
-  const r2 = new AwsClient({ accessKeyId: KEY_ID, secretAccessKey: SECRET, service: "s3", region: "auto" });
+  const r2 = new AwsClient({
+    accessKeyId: KEY_ID,
+    secretAccessKey: SECRET,
+    service: "s3",
+    region: "auto",
+  });
   const objectUrl = (key) => `https://${ACCOUNT}.r2.cloudflarestorage.com/${BUCKET}/${key}`;
   if (body.action === "put") {
     if (!isPublicKind(body.kind)) return json({ error: "tipo de imagem inv\xE1lido" }, 400);
@@ -119,7 +135,7 @@ Deno.serve(async (req) => {
     const signed = await r2.sign(url.toString(), {
       method: "PUT",
       headers: { "Content-Type": body.contentType, "Content-Length": String(body.size) },
-      aws: { signQuery: true, allHeaders: true }
+      aws: { signQuery: true, allHeaders: true },
     });
     return json({ uploadUrl: signed.url, publicUrl: `${PUBLIC_URL}/${key}`, key });
   }

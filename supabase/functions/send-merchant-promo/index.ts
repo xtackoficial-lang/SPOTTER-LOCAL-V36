@@ -61,7 +61,11 @@ async function isOwnerOrAdmin(userId: string, businessId: string): Promise<boole
     .eq("id", businessId)
     .maybeSingle();
   if (business?.owner_id === userId) return true;
-  const { data: adminRow } = await supabase.from("admins").select("id").eq("id", userId).maybeSingle();
+  const { data: adminRow } = await supabase
+    .from("admins")
+    .select("id")
+    .eq("id", userId)
+    .maybeSingle();
   return !!adminRow;
 }
 
@@ -152,7 +156,7 @@ async function sendFcmMessage(
   }
 }
 
-Deno.serve(async (req: Request) => {
+async function handle(req: Request): Promise<Response> {
   try {
     const caller = await resolveCaller(req);
     if (!caller) {
@@ -163,7 +167,12 @@ Deno.serve(async (req: Request) => {
     }
 
     if (caller.userId) {
-      const rl = await rateLimit(supabase, `promo:${caller.userId}`, LIMITS.merchantPromo.limit, LIMITS.merchantPromo.window);
+      const rl = await rateLimit(
+        supabase,
+        `promo:${caller.userId}`,
+        LIMITS.merchantPromo.limit,
+        LIMITS.merchantPromo.window,
+      );
       if (!rl.allowed) return tooManyRequests(rl.retryAfter);
     }
 
@@ -273,4 +282,20 @@ Deno.serve(async (req: Request) => {
       headers: { "Content-Type": "application/json" },
     });
   }
+}
+
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+// Responde ao pedido OPTIONS do browser (CORS) e acrescenta os cabeçalhos
+// a todas as respostas — sem isto o browser bloqueava a chamada vinda da app.
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  const res = await handle(req);
+  const headers = new Headers(res.headers);
+  for (const [k, v] of Object.entries(CORS)) headers.set(k, v);
+  return new Response(res.body, { status: res.status, headers });
 });

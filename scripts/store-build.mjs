@@ -1,7 +1,7 @@
 // ============================================================
 // XTACK SPOTTER — Build "limpo" para Google Play / App Store
 // ------------------------------------------------------------
-// O painel de admin (src/routes/admin.tsx e src/lib/admin-storage.ts)
+// O painel de admin (src/routes/gestao-748e397d.tsx e src/lib/admin-storage.ts)
 // nunca deve entrar no APK/bundle publicado nas lojas. Este script:
 //   1. Move admin.tsx e admin-storage.ts para fora de src/
 //   2. Corre `vite build` — o TanStack Router nem ve o admin.tsx
@@ -21,7 +21,7 @@ const ROOT = path.join(__dirname, "..");
 const HIDE_DIR = path.join(ROOT, "_store-build-excluded");
 
 const FILES_TO_HIDE = [
-  ["src/routes/admin.tsx", "admin.tsx"],
+  ["src/routes/gestao-748e397d.tsx", "admin-route.tsx"],
   ["src/lib/admin-storage.ts", "admin-storage.ts"],
 ];
 

@@ -6,7 +6,6 @@
 // cobrança M-Pesa e o chat/push a seguir precisam de um utilizador
 // autenticado — ver nota em create-mpesa-payment).
 // ============================================================
-import { usePostHog } from "@posthog/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Icon } from "@/components/Icon";
@@ -23,7 +22,6 @@ import {
   validateEmail,
   validatePersonName,
 } from "@/lib/validators";
-
 export const Route = createFileRoute("/reserve-room/$roomId")({
   head: () => ({ meta: [{ title: "Reservar quarto — Spotter Local" }] }),
   component: ReserveRoomPage,
@@ -35,7 +33,6 @@ function ReserveRoomPage() {
   const { roomId } = Route.useParams();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const posthog = usePostHog();
 
   const [room, setRoom] = useState<BusinessRoom | null>(null);
   const [loadingRoom, setLoadingRoom] = useState(true);
@@ -161,14 +158,6 @@ function ReserveRoomPage() {
         payerCheck.value,
       );
       setReq(result.payment);
-      if (result.status !== "failed") {
-        posthog.capture("room_reservation_payment_started", {
-          booking_unit: unit,
-          payment_option: paymentOption,
-          guest_count: guestsN,
-          amount: payNow,
-        });
-      }
       if (result.status === "confirmed") setStep("done");
       else if (result.status === "failed") {
         setError(result.error ?? "O pagamento não foi concluído.");

@@ -1,0 +1,3 @@
+-- 025 — RPC security_overview() para o separador "Segurança" do admin (já aplicada no Supabase).
+-- Só devolve dados se is_admin() for verdadeiro.
+-- (corpo igual ao aplicado: ver função public.security_overview no Supabase)
