@@ -1,3 +1,4 @@
+import { PostHogErrorBoundary, PostHogProvider, usePostHog } from "@posthog/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -6,7 +7,7 @@ import {
   useRouter,
   useLocation,
 } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { usePushAutoRegister, useForegroundPushToast } from "../lib/push-storage";
 import { PushPrompt } from "../components/PushPrompt";
@@ -14,6 +15,7 @@ import { useProximityNotifications } from "../lib/use-proximity-notifications";
 import { Icon } from "../components/Icon";
 import { useT } from "../lib/i18n";
 import { GlobalThemeColors } from "../lib/theme-storage";
+import { useAuth } from "../lib/auth-context";
 
 function NotFoundComponent() {
   const tr = useT();
@@ -104,7 +106,53 @@ function isWideRoute(pathname: string): boolean {
   );
 }
 
+const posthogToken = import.meta.env.VITE_PUBLIC_POSTHOG_PROJECT_TOKEN;
+const posthogHost = import.meta.env.VITE_PUBLIC_POSTHOG_HOST;
+
+function PostHogIdentity() {
+  const { user } = useAuth();
+  const posthog = usePostHog();
+  const identifiedUserId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      if (identifiedUserId.current) {
+        posthog.reset();
+        identifiedUserId.current = null;
+      }
+      return;
+    }
+
+    if (identifiedUserId.current === user.id) return;
+
+    if (identifiedUserId.current) {
+      posthog.reset();
+    }
+
+    posthog.identify(user.id, {
+      ...(user.email ? { email: user.email } : {}),
+      ...(user.name ? { name: user.name } : {}),
+      ...(user.profileType ? { profile_type: user.profileType } : {}),
+    });
+    identifiedUserId.current = user.id;
+  }, [posthog, user]);
+
+  return null;
+}
+
 function RootComponent() {
+  if (!posthogToken && import.meta.env.DEV) {
+    throw new Error(
+      "VITE_PUBLIC_POSTHOG_PROJECT_TOKEN variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once VITE_PUBLIC_POSTHOG_PROJECT_TOKEN is configured",
+    );
+  }
+
+  if (!posthogHost && import.meta.env.DEV) {
+    throw new Error(
+      "VITE_PUBLIC_POSTHOG_HOST variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once VITE_PUBLIC_POSTHOG_HOST is configured",
+    );
+  }
+
   const { queryClient } = Route.useRouteContext();
   const { pathname } = useLocation();
   const wide = isWideRoute(pathname);
@@ -114,7 +162,7 @@ function RootComponent() {
   useProximityNotifications();
   const { toast, dismiss } = useForegroundPushToast();
 
-  return (
+  const app = (
     <QueryClientProvider client={queryClient}>
       <GlobalThemeColors />
       {/* CONSERTO (pedido do Abrão, 2026-09-30): a app tem de ocupar o
@@ -156,5 +204,27 @@ function RootComponent() {
         )}
       </div>
     </QueryClientProvider>
+  );
+
+  return posthogToken && posthogHost ? (
+    <PostHogProvider
+      apiKey={posthogToken}
+      options={{
+        api_host: posthogHost,
+        capture_exceptions: true,
+        debug: import.meta.env.DEV,
+        logs: {
+          serviceName: "spotter-web",
+          environment: import.meta.env.MODE,
+        },
+      }}
+    >
+      <PostHogErrorBoundary>
+        <PostHogIdentity />
+        {app}
+      </PostHogErrorBoundary>
+    </PostHogProvider>
+  ) : (
+    app
   );
 }

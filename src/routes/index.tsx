@@ -1,3 +1,4 @@
+import { usePostHog } from "@posthog/react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { Icon } from "@/components/Icon";
@@ -86,6 +87,7 @@ function AnimatedOrb({ className, delay = "0s" }: { className: string; delay?: s
 
 function Welcome() {
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const {
     login,
     loginWithOAuth,
@@ -193,6 +195,12 @@ function Welcome() {
       if (!isSignup) void resendConfirmationEmail(email);
       setMode("email");
     } else {
+      posthog.capture(isSignup ? "account_registered" : "user_logged_in", {
+        auth_method: "email",
+      });
+      posthog.logger.info(isSignup ? "account registration completed" : "account login completed", {
+        auth_method: "email",
+      });
       navigate({ to: "/onboarding" });
     }
   };
@@ -223,6 +231,7 @@ function Welcome() {
       setOtp("");
       return;
     }
+    posthog.capture("account_registered", { auth_method: "email" });
     navigate({ to: "/onboarding" });
   };
 

@@ -6,6 +6,7 @@
 // HORA em que sai da aba Eventos. Horas certas entre as 06:00 e as 22:00.
 // Quem decide é o servidor (migração 017): plano, quota do mês e horas.
 // ============================================================
+import { usePostHog } from "@posthog/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Icon } from "@/components/Icon";
@@ -71,6 +72,7 @@ const fmtInstant = (iso: string): string =>
 
 function PublishEventPage() {
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const { draft } = useOnboarding();
   const businessId = draft.business.businessId || "default";
   const { user } = useAuth();
@@ -334,6 +336,19 @@ function PublishEventPage() {
         setError(result.error);
         return;
       }
+      posthog.capture("event_publication_scheduled", {
+        photo_count: photos.length,
+        has_ticket_phone: Boolean(ticketPhone.trim()),
+        has_ticket_link: Boolean(ticketLink.trim()),
+        scheduled_days_ahead: Math.max(
+          0,
+          Math.round(
+            (new Date(`${publishDate}T12:00:00`).getTime() -
+              new Date(`${today}T12:00:00`).getTime()) /
+              86_400_000,
+          ),
+        ),
+      });
       setDoneInfo({
         when: fmtWhen(publishDate, publishHour),
         until: fmtWhen(removeDate, removeHour),

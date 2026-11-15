@@ -5,6 +5,7 @@
 // publicação só é criada pelo servidor depois do pagamento confirmar,
 // porque precisa da foto já enviada para o Storage antes de mais nada).
 // ============================================================
+import { usePostHog } from "@posthog/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { Icon } from "@/components/Icon";
@@ -41,6 +42,7 @@ type Step = "form" | "waiting" | "done" | "failed";
 
 function PublishPostPage() {
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const { draft } = useOnboarding();
   const businessId = draft.business.businessId || "default";
   const { user } = useAuth();
@@ -106,6 +108,13 @@ function PublishPostPage() {
         payerCheck.value,
       );
       setReq(result.payment);
+      if (result.status !== "failed") {
+        posthog.capture("feed_post_payment_started", {
+          package_id: pkg,
+          duration_hours: pkg === "24h" ? 24 : pkg === "3d" ? 72 : 168,
+          amount: selectedPackage.price,
+        });
+      }
       if (result.status === "confirmed") setStep("done");
       else if (result.status === "failed") {
         setError(result.error ?? "O pagamento não foi concluído.");

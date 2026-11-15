@@ -4,6 +4,7 @@
 // Confirma automaticamente depois do pagamento (sem passo de aprovação,
 // ao contrário do quarto). Preço fixo do negócio (normal/evento).
 // ============================================================
+import { usePostHog } from "@posthog/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Icon } from "@/components/Icon";
@@ -20,6 +21,7 @@ import {
   validateEmail,
   validatePersonName,
 } from "@/lib/validators";
+
 export const Route = createFileRoute("/reserve-table/$businessId")({
   head: () => ({ meta: [{ title: "Reservar mesa — Spotter Local" }] }),
   component: ReserveTablePage,
@@ -33,6 +35,7 @@ function ReserveTablePage() {
   const { businessId } = Route.useParams();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const posthog = usePostHog();
 
   const [settings, setSettings] = useState<BusinessReservationSettings | null>(null);
   const [reservationDate, setReservationDate] = useState("");
@@ -106,6 +109,13 @@ function ReserveTablePage() {
         payerCheck.value,
       );
       setReq(result.payment);
+      if (result.status !== "failed") {
+        posthog.capture("table_reservation_payment_started", {
+          reservation_type: tipo,
+          guest_count: guestsN,
+          amount: price,
+        });
+      }
       if (result.status === "confirmed") setStep("done");
       else if (result.status === "failed") {
         setError(result.error ?? "O pagamento não foi concluído.");

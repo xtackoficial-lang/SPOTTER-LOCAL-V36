@@ -1,3 +1,4 @@
+import { usePostHog } from "@posthog/react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,7 @@ type Step =
 
 function Onboarding() {
   const tr = useT();
+  const posthog = usePostHog();
   const navigate = useNavigate();
   const { draft, hydrated, update, updatePersonal, updateBusiness, reset, ensureOwner } =
     useOnboarding();
@@ -237,6 +239,10 @@ function Onboarding() {
             value={draft.personal.interests ?? []}
             onChange={(v) => updatePersonal({ interests: v })}
             onFinish={() => {
+              posthog.capture("onboarding_completed", {
+                profile_type: "personal",
+                is_authenticated: Boolean(user),
+              });
               update({ completed: true });
               // best-effort: não bloqueia a navegação se falhar
               syncProfileToSupabase({
@@ -378,6 +384,8 @@ function Onboarding() {
         {step === "b-verifying" && (
           <VerifyingStep
             onContinue={() => {
+              posthog.capture("onboarding_completed", { profile_type: "business" });
+              posthog.logger.info("business onboarding completed", { profile_type: "business" });
               update({ completed: true });
               // Conta comercial: entra automaticamente no plano Free (sem
               // trial, sem pagamento) e vai directo para o painel. A
